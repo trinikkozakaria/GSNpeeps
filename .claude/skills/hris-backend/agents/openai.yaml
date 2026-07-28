@@ -1,0 +1,4 @@
+interface:
+  display_name: "GSNpeeps Backend"
+  short_description: "Implementasi backend Go untuk GSNpeeps"
+  default_prompt: "Use $hris-backend to implement the next GSNpeeps backend task from the approved specifications."

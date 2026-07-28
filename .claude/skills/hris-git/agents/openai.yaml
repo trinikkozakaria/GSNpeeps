@@ -1,0 +1,4 @@
+interface:
+  display_name: "GSNpeeps Git Workflow"
+  short_description: "Workflow Git aman untuk GSNpeeps"
+  default_prompt: "Use $hris-git to prepare a clean, reviewable commit for the current GSNpeeps task."

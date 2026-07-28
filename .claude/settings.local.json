@@ -1,0 +1,48 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Read(C:/Users/Magang/Downloads/System_Design_HRIS_Employee_Database_V1_0.pdf)",
+      "Read(C:/Users/Magang/Downloads/Database_Schema_HRIS_Employee_Database_V1.1.pdf)",
+      "Read(C:/Users/Magang/Downloads/API_Contract_HRIS_Employee_Database_V1.1.pdf)",
+      "Read(C:/Users/Magang/Downloads/Sequence_Diagram_HRIS_Employee_Database_V1.1.pdf)",
+      "Read(C:/Users/Magang/Downloads/User_Story_Employee_Database_Dashboard_V1.2.pdf)",
+      "Read(C:/Users/Magang/Downloads/PRD_Employee_Database_Dashboard_HRIS_V1.2.pdf)",
+      "Glob",
+      "Grep",
+      "Edit",
+      "Write",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git rev-parse*)",
+      "Bash(go env*)",
+      "Bash(go mod*)",
+      "Bash(go test*)",
+      "Bash(go vet*)",
+      "Bash(go build*)",
+      "Bash(gofmt*)",
+      "Bash(golangci-lint run*)",
+      "Bash(npm run *)",
+      "Bash(pnpm run *)",
+      "Bash(docker compose config*)",
+      "Bash(docker compose build*)",
+      "Bash(docker compose ps*)",
+      "Bash(docker compose logs*)",
+      "Bash(curl -s http://localhost:8080/health*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./backend/.env)",
+      "Read(./frontend/.env)",
+      "Bash(git reset --hard*)",
+      "Bash(git push --force*)",
+      "Bash(git clean*)",
+      "Bash(rm -rf *)",
+      "Bash(docker compose down -v*)",
+      "Bash(docker volume rm*)"
+    ]
+  }
+}

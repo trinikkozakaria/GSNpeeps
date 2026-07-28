@@ -1,0 +1,4 @@
+interface:
+  display_name: "GSNpeeps Frontend"
+  short_description: "Implementasi frontend React GSNpeeps"
+  default_prompt: "Use $hris-frontend to implement the next GSNpeeps frontend task from the approved specifications."
