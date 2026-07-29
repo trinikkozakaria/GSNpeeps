@@ -32,12 +32,12 @@ All source files were present at the paths below when this index was updated.
 
 | Priority | Document | Version | Primary authority | Source path |
 |---:|---|---:|---|---|
-| 1 | PRD Employee Database Dashboard HRIS | 1.2 | Product scope, goals, business rules, phase boundaries | `C:\Users\Magang\Downloads\PRD_Employee_Database_Dashboard_HRIS_V1.2.pdf` |
-| 2 | User Story Employee Database Dashboard | 1.2 | User outcomes, roles, journeys, acceptance behavior | `C:\Users\Magang\Downloads\User_Story_Employee_Database_Dashboard_V1.2.pdf` |
-| 3 | API Contract HRIS Employee Database | 1.1 | Paths, methods, payloads, response envelopes, errors, status codes | `C:\Users\Magang\Downloads\API_Contract_HRIS_Employee_Database_V1.1.pdf` |
-| 4 | Database Schema HRIS Employee Database | 1.1 | Tables, columns, types, nullability, constraints, foreign keys, indexes | `C:\Users\Magang\Downloads\Database_Schema_HRIS_Employee_Database_V1.1.pdf` |
-| 5 | Sequence Diagram HRIS Employee Database | 1.1 | Actor/service interaction order, transaction and integration sequence | `C:\Users\Magang\Downloads\Sequence_Diagram_HRIS_Employee_Database_V1.1.pdf` |
-| 6 | System Design HRIS Employee Database | 1.0 | Runtime architecture, services, network, storage, deployment | `C:\Users\Magang\Downloads\System_Design_HRIS_Employee_Database_V1_0.pdf` |
+| 1 | PRD Employee Database Dashboard HRIS | 1.2 | Product scope, goals, business rules, phase boundaries | `docs/source/PRD_Employee_Database_Dashboard_HRIS_V1.2.pdf` |
+| 2 | User Story Employee Database Dashboard | 1.2 | User outcomes, roles, journeys, acceptance behavior | `docs/source/User_Story_Employee_Database_Dashboard_V1.2.pdf` |
+| 3 | API Contract HRIS Employee Database | 1.1 | Paths, methods, payloads, response envelopes, errors, status codes | `docs/source/API_Contract_HRIS_Employee_Database_V1.1.pdf` |
+| 4 | Database Schema HRIS Employee Database | 1.1 | Tables, columns, types, nullability, constraints, foreign keys, indexes | `docs/source/Database_Schema_HRIS_Employee_Database_V1.1.pdf` |
+| 5 | Sequence Diagram HRIS Employee Database | 1.1 | Actor/service interaction order, transaction and integration sequence | `docs/source/Sequence_Diagram_HRIS_Employee_Database_V1.1.pdf` |
+| 6 | System Design HRIS Employee Database | 1.0 | Runtime architecture, services, network, storage, deployment | `docs/source/System_Design_HRIS_Employee_Database_V1_0.pdf` |
 
 Do not copy these local absolute paths into runtime configuration. If the sources are moved
 into the repository, preserve filenames/versions in an approved `docs/source/` location and
@@ -110,7 +110,8 @@ Read before:
 - Deciding nullable/optional behavior.
 - Implementing soft delete, status checks, history, or uniqueness.
 
-The summary identifies 26 tables and key constraints; exact columns/types remain governed by
+The source summary identifies 26 tables, but contract decision D-013 makes the 25 explicitly
+named tables the implementation target; exact columns/types remain governed by
 the PDF.
 
 ### Sequence Diagram v1.1
@@ -215,8 +216,8 @@ Do not decide these silently:
    current-user endpoints.
 3. Exact Top Management access to employee document listing/download must follow the API
    Contract; summaries are insufficient.
-4. Contract H-30 fallback for an HR employee without supervisor must choose another HR or
-   Top Management explicitly and avoid self-notification.
+4. Contract H-30 fallback was resolved by decision D-014: notify every active HR except the
+   subject, then use the single active Top Management only when no eligible HR exists.
 5. Exact health liveness/readiness response semantics must remain contract/deployment aligned.
 6. Exact file URL/download access mechanism must not expose permanent public Nextcloud links
    or credentials.

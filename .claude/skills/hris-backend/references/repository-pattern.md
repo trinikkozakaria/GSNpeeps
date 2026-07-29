@@ -88,6 +88,5 @@ SELECT * FROM employees
 query += " ORDER BY " + userSort
 
 // Wrong: business approval routing in repository.
-if requester.Role == "hr" { status = "menunggu_topmanagement" }
+if requester.Role == "hr" { status = "menunggu_top_management" }
 ```
-

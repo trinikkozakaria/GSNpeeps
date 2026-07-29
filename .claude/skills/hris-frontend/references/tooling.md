@@ -30,6 +30,10 @@ Before changing tooling, inspect:
 Do not assume the example project's Next.js, JavaScript, Axios, TanStack Query, Zustand, Zod,
 MSW, Storybook, oxlint, or oxfmt choices.
 
+If Next.js is proposed, record whether production uses static export or a Node/standalone
+runtime. Static export must remain compatible with the approved Nginx topology. A Node
+runtime requires a separate deployment decision and updated container/proxy design.
+
 ## Required command interface
 
 Provide repository-defined equivalents for:
@@ -107,6 +111,10 @@ The production build must:
 - Use same-origin/proxied `/api/v1` where deployment configuration defines it.
 - Contain no public secret or development mock.
 - Handle cache headers so new HTML does not reference deleted hashed assets.
+
+Do not commit generated output such as `.next`, `dist`, `node_modules`, Storybook output,
+coverage, tool caches, or debug logs. Do not preserve obsolete routing code as
+`middleware-bck.*`; version control is the backup.
 
 ## Dependency decision
 

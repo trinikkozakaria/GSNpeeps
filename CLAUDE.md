@@ -109,36 +109,49 @@ Gunakan struktur target berikut. Sesuaikan detail internal hanya setelah library
 GSNpeeps/
 ├── backend/
 │   ├── cmd/
-│   │   ├── api/
-│   │   └── worker/
+│   │   ├── api/main.go
+│   │   ├── worker/main.go
+│   │   └── seed/main.go
 │   ├── internal/
 │   │   ├── config/
 │   │   ├── domain/
+│   │   ├── dto/
+│   │   ├── validation/
 │   │   ├── repository/
 │   │   ├── service/
 │   │   ├── handler/
 │   │   ├── middleware/
-│   │   ├── dto/
-│   │   ├── validation/
-│   │   └── integration/
-│   │       ├── redis/
-│   │       └── nextcloud/
+│   │   ├── router/
+│   │   ├── worker/
+│   │   ├── platform/
+│   │   │   ├── postgres/
+│   │   │   ├── redis/
+│   │   │   ├── nextcloud/
+│   │   │   ├── password/
+│   │   │   ├── jwt/
+│   │   │   ├── export/
+│   │   │   └── logger/
+│   │   └── pkg/
+│   │       └── response/
 │   ├── migrations/
 │   ├── seeds/
 │   ├── tests/
 │   ├── .env.example
 │   ├── Dockerfile
-│   └── go.mod
+│   ├── Makefile
+│   ├── go.mod
+│   └── go.sum
 ├── frontend/
 │   ├── src/
 │   │   ├── app/
-│   │   ├── features/
+│   │   ├── modules/
 │   │   ├── components/
-│   │   ├── routes/
-│   │   ├── api/
+│   │   ├── lib/
+│   │   │   └── api/
 │   │   ├── hooks/
 │   │   ├── stores/
 │   │   ├── schemas/
+│   │   ├── mocks/
 │   │   └── styles/
 │   ├── public/
 │   ├── .env.example
@@ -213,9 +226,29 @@ Error:
 
 `error.fields` hanya digunakan untuk validation error yang membutuhkan detail per field.
 
+Nilai status pada database, query, dan response API wajib memakai enum
+lowercase/underscore yang sama. Label Bahasa Indonesia hanya dibuat di frontend; jangan
+mengirim label tampilan sebagai nilai status API.
+
 ### Frontend React
 
-- Organisasikan kode berdasarkan feature dengan shared UI primitives.
+- Organisasikan kode berdasarkan modul bisnis di `src/modules`, dengan satu folder untuk
+  setiap modul seperti `auth`, `dashboard`, `employees`, `profile`, `attendance`, `leave`,
+  `overtime`, `notifications`, dan `access`.
+- Di dalam setiap modul, pisahkan `pages`, `components`, `hooks`, `api`, `schemas`, `utils`,
+  dan `tests` sesuai kebutuhan. Jangan membuat folder kosong hanya untuk memenuhi template.
+- Simpan komponen yang hanya dipakai satu modul di dalam modul tersebut. `src/components`
+  hanya untuk primitive, form adapter, layout, dan feedback yang benar-benar lintas modul.
+- Simpan transport HTTP, normalisasi error, response envelope, dan konfigurasi query bersama
+  di `src/lib`; endpoint suatu resource tetap berada di `src/modules/<module>/api`.
+- Jika Next.js App Router disetujui, gunakan `src/app/(auth)` dan
+  `src/app/(dashboard)` sebagai route group dengan file route yang tipis. Jika router
+  client-side lain yang disetujui, gunakan `src/routes`. Jangan membuat kedua sistem routing.
+- Jika tampilan berbeda menurut role, letakkan variasinya di dalam modul pemilik, misalnya
+  `modules/dashboard/components/hr` dan `modules/dashboard/components/employee`; jangan
+  menduplikasi seluruh struktur aplikasi per role.
+- `.next`, `node_modules`, output build, coverage, dan log debug adalah generated artifacts
+  dan tidak boleh di-commit.
 - Centralize API base URL, Bearer token, response envelope, error mapping, dan multipart upload.
 - Jangan mendefinisikan request/response shape berdasarkan tebakan komponen; ikuti API Contract.
 - Server state tidak boleh diduplikasi tanpa alasan ke global client state.
@@ -266,6 +299,7 @@ docs(claude): align project instructions
 
 #### Organisasi dan akun
 
+- `office_locations`
 - `departments`
 - `positions`
 - `roles`
@@ -310,6 +344,8 @@ docs(claude): align project instructions
 ### Constraint Penting
 
 - `employees.nip`, `users.email`, nomor identitas relevan, dan nomor kontrak harus unik sesuai schema.
+- `office_locations.code` unik; koordinat menjadi sumber tepercaya untuk validasi WFO.
+- Karyawan bebas memilih lokasi kantor aktif saat WFO; tidak ada assignment kantor permanen.
 - `employees.atasan_id` adalah self-reference nullable.
 - Employee delete adalah soft-delete: set `status='nonaktif'` dan `deleted_at`.
 - `employee_salaries` unik per `(employee_id, periode)`.
@@ -335,7 +371,7 @@ Base path aplikasi:
 /api/v1
 ```
 
-Total: **42 endpoint dalam 13 modul**.
+Total: **46 endpoint dalam 13 modul**.
 
 ### Sistem
 
@@ -348,7 +384,10 @@ Total: **42 endpoint dalam 13 modul**.
 | Method | Path | Akses |
 |---|---|---|
 | POST | `/auth/login` | Public |
+| POST | `/auth/reset-password` | Public, rate-limited, verifikasi password saat ini |
 | POST | `/auth/logout` | Semua role terautentikasi |
+| GET | `/auth/me` | Semua role terautentikasi |
+| PATCH | `/auth/me/password` | Semua role terautentikasi |
 
 ### Master Organisasi
 
@@ -356,6 +395,7 @@ Total: **42 endpoint dalam 13 modul**.
 |---|---|---|
 | GET | `/master/departemen` | Semua role |
 | GET | `/master/jabatan` | Semua role |
+| GET | `/master/lokasi-kantor` | Semua role |
 
 ### Data Karyawan
 
@@ -444,7 +484,9 @@ Total: **42 endpoint dalam 13 modul**.
 | PUT | `/notifikasi/{id}/read` | Recipient sendiri |
 | DELETE | `/notifikasi/{id}` | Recipient sendiri, soft-dismiss |
 
-Jangan membuat endpoint tambahan tanpa keputusan produk. Mekanisme reset password diwajibkan oleh kebijakan lockout, tetapi endpoint reset belum didefinisikan dalam API Contract v1.1; minta klarifikasi sebelum menetapkan kontraknya.
+Kontrak aktif 0.4.0 mempertahankan current-user dan change-password, serta menyediakan
+self-reset yang memverifikasi password saat ini. Jangan menambahkan refresh token atau
+mekanisme forgot-password berbasis email/OTP tanpa keputusan produk.
 
 ---
 
@@ -462,7 +504,15 @@ Jangan membuat endpoint tambahan tanpa keputusan produk. Mekanisme reset passwor
 
 - Hitung kegagalan per akun.
 - Lima kegagalan berturut-turut mengunci akun.
-- Login sukses atau reset password mereset counter.
+- Login sukses atau reset password yang valid mereset counter.
+- Self-reset menerima email, password saat ini, password baru, dan konfirmasi. Setelah berhasil,
+  akun dibuka, seluruh session dicabut, dan pengguna wajib login ulang.
+- Self-reset memakai error generik, rate limit gabungan akun+IP, dan counter kegagalan yang sama
+  dengan login agar tidak menjadi bypass brute-force.
+- HR hanya melihat status akun yang sudah diperbarui; password lama maupun baru tidak pernah
+  dikirim atau ditampilkan kepada HR.
+- Lupa password tanpa mengetahui password saat ini belum termasuk scope sampai kanal verifikasi
+  email/OTP disetujui.
 - Kondisi terkunci menggunakan `429 ACCOUNT_LOCKED` sesuai API Contract.
 
 ### Rate Limit
@@ -534,11 +584,27 @@ HR mengajukan          -> Top Management
 - Mode kerja: WFO, WFH, WFA.
 - Radius 100 meter hanya untuk WFO.
 - WFH dan WFA tidak dibatasi radius kantor.
+- Koordinat wajib untuk semua mode.
+- Sistem memakai master `office_locations`. Saat WFO, karyawan memilih kantor aktif dan backend
+  mengambil koordinat tepercaya; tidak ada assignment kantor permanen.
+- Alamat dan koordinat resmi akan di-seed kemudian. Jangan membuat lokasi fiktif.
 - Waktu server/network adalah sumber kebenaran.
 - Waktu lokal hanya digunakan pada watermark.
+- Hari kerja reguler Senin-Jumat, 09.00-18.00 WIB (`Asia/Jakarta`).
+- Check-in tepat 09.00 tidak terlambat; setelah 09.00 berstatus `terlambat`.
+- Checkout sebelum 18.00 tetap valid dan dicatat `pulang_cepat`.
 - Cegah check-in ganda dan checkout tanpa check-in.
 - Sediakan fallback upload foto berwatermark bila kamera live gagal.
 - Tidak ada reminder absensi.
+
+### Dashboard Metrics
+
+- Filter memakai periode harian, mingguan, bulanan, atau tahunan dengan tanggal acuan.
+- Seluruh boundary kalender dan jam kerja menggunakan Asia/Jakarta; minggu adalah Senin-Minggu.
+- Kehadiran hanya berasal dari check-in valid.
+- Jam masuk adalah 09:00:00 WIB; hanya waktu setelah 09:00:00 yang terlambat.
+- Hitungan dan komposisi departemen karyawan nonaktif dipisahkan dari karyawan aktif.
+- Gender kosong masuk kategori `belum_diisi`, bukan laki-laki atau perempuan.
 
 ### Notifikasi
 
@@ -549,8 +615,11 @@ HR mengajukan          -> Top Management
 - Event yang sudah di-dismiss tidak boleh dibuat ulang.
 - Pengajuan baru dikirim ke approver aktif.
 - Perubahan status dikirim ke pemohon dan approver tahap berikutnya.
-- Kontrak H-30 dikirim ke atasan langsung dan HR.
-- Untuk HR tanpa atasan, jangan kirim notifikasi kontrak ke dirinya sendiri; arahkan ke HR lain atau Top Management.
+- Kontrak H-30 berarti tepat 30 hari kalender sebelum tanggal berakhir berdasarkan
+  timezone Asia/Jakarta.
+- Penerima HR adalah semua HR aktif selain karyawan yang kontraknya akan habis.
+- Jika tidak ada HR aktif lain, kirim ke satu-satunya Top Management aktif.
+- Deduplikasi penerima berdasarkan user ID; jangan pernah self-notify.
 
 ---
 
@@ -558,7 +627,7 @@ HR mengajukan          -> Top Management
 
 | Job | Frekuensi | Hasil |
 |---|---|---|
-| Notifikasi kontrak H-30 | Harian | Insert notifikasi Atasan dan HR secara idempotent |
+| Notifikasi kontrak H-30 | Harian | Insert idempotent untuk atasan aktif + semua HR aktif selain subjek; fallback satu Top Management |
 | Auto-escalation approval | Beberapa menit/cron | Pindahkan request `menunggu_atasan` lebih dari 48 jam ke HR |
 | Retensi foto absensi | Harian | Hapus file Nextcloud lebih dari 3 bulan dan set `foto_url = NULL` |
 
@@ -785,4 +854,3 @@ Jangan menandai task selesai hanya karena happy path berjalan.
 - Pertahankan perubahan pengguna yang tidak terkait.
 - Tulis commit dalam format Conventional Commits.
 - File ini adalah living document; perbarui jika keputusan arsitektural baru telah disetujui.
-

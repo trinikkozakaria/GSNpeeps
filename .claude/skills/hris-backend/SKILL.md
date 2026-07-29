@@ -11,13 +11,15 @@ Follow this workflow for all backend changes. Do not improvise contracts or intr
 
 - **Language**: Go using the version approved in the repository.
 - **Architecture**: `router -> middleware -> handler -> service/use-case -> repository/integration`.
-- **Data**: PostgreSQL 16 with 26 contract tables.
+- **Data**: PostgreSQL 16 with 25 named contract tables.
 - **Session/rate limit**: Redis 7.
 - **Files**: Nextcloud via backend WebDAV; PostgreSQL stores only URL/path.
-- **API**: OpenAPI 3.1, 42 operations, JSON `snake_case`.
+- **API**: OpenAPI 3.1, 46 operations, JSON `snake_case`.
 - **Auth**: JWT 8 hours plus Redis `session:<user_id>`; no refresh endpoint.
 - **Roles**: `karyawan`, `atasan`, `hr`, `top_management`.
 - **Tool choices**: use only router, data-access, migration, validation, logger, and testing libraries approved in architecture documents.
+- **Structure**: keep domain, DTO, repository, service, handler, middleware, router,
+  worker, and platform responsibilities in separate `internal` packages.
 
 ## Before starting
 
@@ -44,6 +46,10 @@ When adding or changing a resource:
 
 Complete one coherent vertical slice before starting another.
 
+Add files to the established layer for the resource being implemented. Do not put business
+logic in `cmd`, handlers, routers, generic helpers, or platform adapters. Do not create empty
+packages merely to make the directory tree look complete.
+
 ## Required reference routing
 
 - `references/architecture.md` — packages, dependency direction, and composition roots.
@@ -51,7 +57,7 @@ Complete one coherent vertical slice before starting another.
 - `references/service-pattern.md` — business rules, errors, transactions, and events.
 - `references/repository-pattern.md` — query, filters, scopes, and concurrency.
 - `references/middleware-pattern.md` — recovery, request ID, auth, RBAC, and rate limit.
-- `references/router-pattern.md` — public/protected route registration and 42-operation review.
+- `references/router-pattern.md` — public/protected route registration and 45-operation review.
 - `references/response-helper.md` — exact GSNpeeps response/error shape.
 - `references/dto-validation.md` — create/update DTOs and field validation.
 - `references/migration-pattern.md` — PostgreSQL migration rules.
@@ -165,4 +171,3 @@ docker compose config
 ```
 
 Report any check not run. Do not claim completion while required checks fail.
-

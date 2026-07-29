@@ -23,8 +23,10 @@ Contract:
 - Login response: token, expires_in=28800, role, user{id,nama}.
 - Logout memakai Bearer token.
 - Tidak ada refresh token/cookie.
-- Tidak ada `/auth/me`.
-- Tidak ada change/reset password endpoint yang disetujui.
+- `/auth/me` memulihkan identity dan role setelah reload.
+- `/auth/me/password` menangani perubahan password pengguna yang sedang login.
+- `/auth/reset-password` menangani self-reset dengan email, password saat ini, password baru,
+  dan konfirmasi; tidak ada password sementara dari HR.
 
 1. AUTH STORAGE DECISION
 
@@ -37,8 +39,8 @@ Contract:
    - Jangan memakai localStorage/sessionStorage/cookie diam-diam.
    - Minta persetujuan sebelum implementasi persistence.
 
-   Karena tidak ada `/auth/me`, dokumentasikan bagaimana identity nama/role dipulihkan
-   setelah reload tanpa mempercayai data yang dapat dimanipulasi untuk security.
+   Gunakan `/auth/me` untuk memulihkan identity nama/role setelah reload tanpa mempercayai
+   claim atau state browser sebagai enforcement security.
    Backend tetap satu-satunya enforcement.
 
 2. LOGIN PAGE
@@ -59,8 +61,7 @@ Contract:
 3. ERROR UX
 
    - INVALID_CREDENTIALS: pesan generik, tidak membedakan email/password.
-   - ACCOUNT_LOCKED: jelaskan akun terkunci dan perlu reset melalui alur yang telah
-     disetujui; jangan tampilkan link reset palsu.
+   - ACCOUNT_LOCKED: arahkan ke halaman self-reset resmi.
    - TOO_MANY_REQUESTS: tampilkan retry guidance tanpa countdown palsu.
    - Network/500: retry manual.
    - Validation: inline field error.
@@ -211,29 +212,32 @@ Aturan akhir:
 ## Acceptance Criteria
 
 - [ ] Auth storage/session strategy disetujui dan terdokumentasi.
-- [ ] Login/logout sesuai dua endpoint OpenAPI.
+- [ ] Login/logout/current-user/change-password sesuai OpenAPI.
 - [ ] JWT expiry 8 jam dan 401 lifecycle ditangani.
-- [ ] Account lockout memiliki UX aman tanpa reset link palsu.
+- [ ] Account lockout mengarahkan user ke self-reset resmi tanpa membocorkan keberadaan email.
 - [ ] Navigation matrix keempat role benar.
 - [ ] Direct forbidden route fail-closed dan tidak fetch data sensitif.
 - [ ] Logout membersihkan auth dan seluruh user-scoped cache.
-- [ ] Tidak ada refresh/change/reset password flow.
+- [ ] Change-password dan self-reset memiliki validasi, state sukses/gagal, serta login ulang
+  setelah seluruh session dicabut.
+- [ ] Tidak ada refresh-token flow.
 - [ ] Test, accessibility, responsive, lint, dan build lulus.
 
 ## Files yang Akan Dibuat atau Disesuaikan
 
 ```text
 frontend/src/
-├── features/auth/
+├── modules/auth/
 │   ├── api/
 │   ├── components/
-│   ├── routes/
+│   ├── hooks/
+│   ├── pages/
 │   ├── schemas/
 │   ├── store/
 │   └── tests/
-├── routes/{guards,navigation}.*
+├── <routing-root>/             # app untuk Next.js; routes untuk client router
 ├── components/layout/{Sidebar,Topbar,UserMenu}.*
-└── api/client.*
+└── lib/api/client.*
 
 docs/architecture/frontend-auth-session.md
 ```

@@ -70,27 +70,30 @@ Output:
 - Buat file `docs/openapi.yaml`.
 - Gunakan `openapi: 3.1.0`.
 - Isi `info.title` dengan `GSNpeeps API`.
-- Isi versi awal dengan `0.1.0`.
+- Isi versi kontrak aktif dengan `0.4.0`.
 - Definisikan server development dan server production dari konfigurasi, tanpa hardcode credential.
-- Dokumentasikan seluruh 42 endpoint berikut.
+- Dokumentasikan seluruh 46 endpoint berikut.
 
 PUBLIC/SYSTEM:
   GET    /health
 
 AUTH:
   POST   /api/v1/auth/login
+  POST   /api/v1/auth/reset-password
   POST   /api/v1/auth/logout
+  GET    /api/v1/auth/me
+  PATCH  /api/v1/auth/me/password
 
 MASTER ORGANISASI:
   GET    /api/v1/master/departemen
   GET    /api/v1/master/jabatan
+  GET    /api/v1/master/lokasi-kantor
 
 DATA KARYAWAN:
   GET    /api/v1/karyawan
           Query: search, department_id, status, page, limit
           Role: HR dan Top Management read-only
   POST   /api/v1/karyawan
-          Role: HR
   GET    /api/v1/karyawan/{id}
           Role: HR dan Top Management read-only
   PUT    /api/v1/karyawan/{id}
@@ -113,7 +116,7 @@ PROFIL SAYA DAN METRIK PERSONAL:
 
 DASHBOARD:
   GET    /api/v1/dashboard/metrik
-          Query: periode=YYYY-MM
+          Query: periode=harian|mingguan|bulanan|tahunan, tanggal_acuan=YYYY-MM-DD
           HR dan Top Management read-only
 
 ABSENSI — KEHADIRAN:
@@ -372,13 +375,14 @@ Aturan dokumentasi:
 - Gunakan UUID format untuk seluruh ID.
 - Gunakan `date`, `date-time`, `email`, dan format lain yang sesuai.
 - Gunakan enum sesuai Database Schema dan API Contract.
+- Status database, query, dan response memakai enum lowercase/underscore yang sama;
+  label Bahasa Indonesia hanya tanggung jawab frontend.
 - `PUT /karyawan/{id}` tetap didokumentasikan sebagai partial update sesuai kontrak;
   semua field pada update request harus optional.
 - Endpoint file export wajib memakai media type XLSX/PDF, bukan JSON.
 - Endpoint upload wajib memakai multipart schema dengan field binary.
 - Tambahkan contoh request dan response yang sintetis, tanpa data personal nyata.
-- Jangan menambah endpoint reset password, refresh token, atau endpoint lain yang tidak ada
-  di API Contract v1.1.
+- Jangan menambah refresh token atau endpoint lain di luar revisi kontrak 0.4.0.
 - Jika ditemukan selisih dokumen, catat pada `docs/openapi-decisions.md`; jangan menebak.
 
 Setelah selesai:
@@ -387,7 +391,7 @@ Setelah selesai:
 3. Jika Redocly belum tersedia, gunakan validator OpenAPI 3.1 yang sudah ada di project.
 4. Jangan menambah dependency validator secara global tanpa izin.
 5. Tidak boleh ada lint error. Warning harus diperbaiki atau dijelaskan.
-6. Verifikasi jumlah operation tepat 42.
+6. Verifikasi jumlah operation tepat 46.
 7. Verifikasi seluruh `$ref` dapat di-resolve.
 8. Laporkan validator, command, hasil, warning, dan keputusan kontrak.
 
@@ -401,7 +405,7 @@ Tahap Git hanya dilakukan jika pengguna meminta commit/push atau task aktif mema
 ## Acceptance Criteria
 
 - [ ] File `docs/openapi.yaml` menggunakan OpenAPI 3.1 dan valid.
-- [ ] Tepat 42 operation GSNpeeps terdokumentasi.
+- [ ] Tepat 46 operation GSNpeeps terdokumentasi.
 - [ ] Seluruh request, response, query, path, upload, dan file stream memiliki schema.
 - [ ] Error umum dan error domain didokumentasikan per endpoint.
 - [ ] Security scheme `BearerAuth` tersedia dan diterapkan dengan benar.

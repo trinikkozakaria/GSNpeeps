@@ -19,7 +19,8 @@ database, HR dashboard, attendance, approval, notification, and access-managemen
    do not copy dependencies from the example project.
 5. Load only the references relevant to the current task.
 6. Define scope, route capability, data states, API errors, responsive behavior, and tests.
-7. Build the smallest complete vertical slice using shared primitives and feature modules.
+7. Build the smallest complete vertical slice using shared primitives and business modules
+   under `src/modules`.
 8. Verify every affected role, direct forbidden navigation, keyboard use, mobile layout,
    sensitive-cache cleanup, and documented API failures.
 9. Run the repository-defined format, lint, test, production build, and relevant E2E checks.
@@ -31,8 +32,8 @@ database, HR dashboard, attendance, approval, notification, and access-managemen
 - Never fetch, cache, or render data outside the authenticated role/scope.
 - Centralize API calls, error mapping, auth lifecycle, query keys, and navigation capabilities.
 - Mirror OpenAPI exactly; do not create a second frontend contract or guessed endpoint.
-- GSNpeeps has login/logout, an eight-hour JWT, and no refresh endpoint in the approved
-  contract.
+- GSNpeeps has login/logout/current-user/password operations, an eight-hour JWT, and no
+  refresh endpoint in the approved contract.
 - Keep API wire fields in `snake_case`; introduce a view-model mapping only when it solves
   a real presentation need.
 - Keep server state out of global client state and keep shareable filters in the URL.
@@ -41,6 +42,15 @@ database, HR dashboard, attendance, approval, notification, and access-managemen
 - Provide camera failure fallback without changing server-authoritative time/radius.
 - Show Coming Soon only for Hiring Progress, Recruitment Cost, and Benefit.
 - Treat unapproved frontend libraries as an architecture decision gate.
+- Give every business capability its own `src/modules/<module>` boundary. Keep its pages,
+  components, hooks, API adapters, schemas, utilities, and tests together; create only the
+  subdirectories the module actually needs.
+- Keep role-specific variants inside the owning module. Do not create parallel applications
+  or duplicate complete module trees for HR, supervisor, employee, or top management.
+- Keep shared transport and framework-neutral infrastructure in `src/lib`; keep resource
+  endpoints, components, hooks, schemas, and tests in the owning business module.
+- Use Next.js route groups only if Next.js is approved. Otherwise use the approved client
+  router structure; never maintain two route trees.
 
 ## Reference routing
 

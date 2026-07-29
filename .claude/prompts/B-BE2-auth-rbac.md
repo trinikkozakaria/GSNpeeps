@@ -40,30 +40,32 @@ SCOPE ENDPOINT SESUAI OPENAPI:
 
 - POST `/api/v1/auth/login`
 - POST `/api/v1/auth/logout`
+- GET `/api/v1/auth/me`
+- PATCH `/api/v1/auth/me/password`
+- POST `/api/v1/auth/reset-password` (public, rate-limited)
 
 NON-SCOPE:
 
 - Refresh token.
 - Refresh cookie.
 - `/auth/refresh`.
-- `/auth/me`.
-- `/auth/me/password`.
-- Endpoint reset password.
 - CRUD user.
 - Halaman Profil Saya.
 
 Catatan penting:
-- Kebijakan produk mewajibkan reset password untuk akun terkunci, tetapi API Contract
-  v1.1 belum mendefinisikan endpoint atau actor reset password.
-- Jangan membuat endpoint reset password pada epic ini.
-- Catat gap tersebut di `docs/openapi-decisions.md` atau dokumen decision existing.
-- Minta keputusan produk sebelum kontrak reset password dibuat.
+- Ikuti self-reset OpenAPI 0.4.0: email + password saat ini + password baru + konfirmasi.
+- Self-reset boleh membuka account locked hanya setelah password saat ini terverifikasi.
+- Terapkan rate limit gabungan per akun dan IP; kegagalan verifikasi masuk counter yang sama
+  dengan login dan selalu memakai error generik.
+- Setelah berhasil, reset counter/lock, cabut seluruh session, dan wajibkan login ulang.
+- Password tidak pernah tampil kepada HR, response, log, atau audit.
+- Forgot-password via email/OTP belum termasuk scope.
 
 Kerjakan dengan urutan:
 
 1. REVIEW KONTRAK DAN SCHEMA
 
-   - Pastikan `docs/openapi.yaml` hanya memiliki dua endpoint auth GSNpeeps.
+   - Pastikan kelima operasi auth/password contract tersedia dan tidak ada refresh endpoint.
    - Pastikan tidak ada RefreshCookie atau refresh-token schema.
    - Verifikasi request login:
 
@@ -366,9 +368,12 @@ Kerjakan dengan urutan:
 
     Jangan daftarkan:
     - `/auth/refresh`
-    - `/auth/me`
-    - `/auth/me/password`
-    - `/auth/reset-password`
+
+    POST `/api/v1/auth/reset-password`:
+    - Public dan rate-limited.
+    - Verifikasi body dan password saat ini tanpa membocorkan keberadaan email.
+    - Ganti hash secara atomik, buka lock, reset failed count, cabut seluruh session.
+    - Return success aman tanpa password; pengguna login ulang.
 
 14. AUDIT LOG
 
@@ -532,7 +537,7 @@ Jika diotorisasi, judul PR:
 Aturan akhir:
 - Jangan menambah endpoint yang tidak ada di OpenAPI.
 - Jangan membuat refresh-token flow atau refresh cookie.
-- Jangan membuat endpoint reset password sebelum kontraknya disetujui.
+- Jangan membuat reset oleh HR atau forgot-password email/OTP di luar self-reset OpenAPI.
 - Jangan menyimpan permission list di JWT.
 - Jangan membuat auth/RBAC middleware yang fail-open.
 - Jangan menggunakan AutoMigrate.
@@ -545,7 +550,7 @@ Aturan akhir:
 
 ## Acceptance Criteria
 
-- [ ] Hanya dua endpoint auth sesuai OpenAPI yang diimplementasikan.
+- [ ] Lima operasi auth/password sesuai OpenAPI diimplementasikan.
 - [ ] Login valid mengembalikan JWT 8 jam dan response persis kontrak.
 - [ ] Redis `session:<user_id>` dibuat saat login dan dicek pada setiap request protected.
 - [ ] Logout menghapus session sehingga token lama langsung tidak berlaku.
@@ -560,7 +565,8 @@ Aturan akhir:
 - [ ] Resource scope self/direct-report/HR/Top Management memiliki contract dan test.
 - [ ] Audit login, login failure/lockout, dan logout tercatat tanpa secret.
 - [ ] Tidak ada refresh-token table, endpoint, atau cookie.
-- [ ] Gap reset-password tercatat dan tidak diimplementasikan diam-diam.
+- [ ] Self-reset, verifikasi password saat ini, unlock, session revocation, rate limit, dan
+  audit tanpa secret teruji.
 - [ ] Unit, integration, concurrency, lint, vet, build, dan OpenAPI validation lulus.
 
 ## Test Manual

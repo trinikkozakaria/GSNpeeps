@@ -241,11 +241,17 @@ Kerjakan dengan urutan:
     - Org chart.
 
     Aturan:
-    - Query periode `YYYY-MM`.
-    - Definisi formula harus bersumber dari PRD/OpenAPI atau dicatat sebagai decision.
+    - Query memakai `periode=harian|mingguan|bulanan|tahunan` dan `tanggal_acuan`.
+    - Boundary Asia/Jakarta; minggu berjalan Senin-Minggu.
+    - Kehadiran hanya menghitung check-in valid.
+    - Tepat 09:00:00 WIB belum terlambat; setelah 09:00:00 WIB dihitung terlambat.
+    - Pisahkan hitungan dan komposisi departemen status aktif dan nonaktif.
+    - Gender kosong/tidak lengkap masuk `belum_diisi`, bukan laki-laki/perempuan.
+    - Formula join, resign, turnover, leave, payroll, dan org chart yang belum ditetapkan
+      tetap menjadi decision gate; jangan ditebak.
     - Jangan mengimplementasikan Hiring Progress dan Recruitment Cost.
     - Hindari query per employee.
-    - Test timezone Asia/Jakarta dan boundary awal/akhir bulan.
+    - Test timezone Asia/Jakarta serta boundary harian/mingguan/bulanan/tahunan.
 
 14. AUTHORIZATION
 

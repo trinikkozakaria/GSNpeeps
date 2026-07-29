@@ -83,13 +83,20 @@ Scheduler. Selesaikan test slice sebelum berpindah.
    - Identity selalu dari JWT.
    - `waktu_network` berasal dari server dan menjadi sumber kebenaran.
    - `waktu_local` mengikuti kontrak; jangan menambah request field tanpa update OpenAPI.
-   - WFO wajib berada maksimal 100 meter dari koordinat kantor yang dikonfigurasi.
+   - Koordinat wajib untuk WFO, WFH, dan WFA.
+   - WFO wajib mengirim `office_location_id` dan berada maksimal 100 meter dari koordinat
+     tepercaya lokasi kantor aktif tersebut.
+   - Karyawan bebas memilih kantor aktif; tidak ada assignment kantor permanen.
+   - Data alamat/koordinat resmi akan di-seed kemudian; jangan membuat lokasi fiktif.
    - WFH/WFA tidak menjalankan radius rejection.
+   - Hari kerja reguler Senin-Jumat zona `Asia/Jakarta`; akhir pekan ditolak dengan
+     `422 NON_WORKING_DAY`.
+   - Check-in tepat 09:00 tidak terlambat; setelah 09:00 berstatus `terlambat`.
+   - Checkout sebelum 18:00 tetap valid dan dicatat sebagai `pulang_cepat`.
    - Gunakan formula geodesic yang teruji dan dokumentasikan unit/precision.
    - Cegah check-in kedua pada tanggal kerja yang sama.
    - Cegah checkout tanpa check-in.
-   - Tentukan status tepat waktu/telat hanya dari policy yang terdokumentasi; bila jam
-     batas belum ditentukan, catat gap dan jangan menebak.
+   - Check-in tepat 09:00:00 WIB belum telat; setelah 09:00:00 WIB berstatus terlambat.
    - Reverse geocoding harus berada di balik interface, timeout, dan tidak menjadi
      alasan menyimpan credential di frontend.
    - Upload foto melalui Nextcloud path yang dibuat server.
@@ -164,7 +171,7 @@ Scheduler. Selesaikan test slice sebelum berpindah.
    - Karyawan dengan atasan -> `menunggu_atasan`.
    - Karyawan tanpa atasan -> `menunggu_hr`.
    - Atasan -> `menunggu_hr`.
-   - HR -> `menunggu_topmanagement`.
+   - HR -> `menunggu_top_management`.
 
    Simpan request dan event notification intent dalam transaction boundary yang disepakati.
    BE.5 akan menyediakan persistence notification; jangan silently drop side effect.

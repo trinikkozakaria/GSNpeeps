@@ -196,7 +196,8 @@ authenticated employee request
   -> validate JPG/PNG <= 5 MB and signature
   -> get server time
   -> if WFO:
-       load trusted office coordinates
+       require office_location_id chosen from active office master
+       load that office's trusted coordinates
        calculate distance server-side
        reject 422 OUT_OF_RADIUS when >100 m
   -> if WFH/WFA:
@@ -209,6 +210,8 @@ authenticated employee request
 ```
 
 Client local time is watermark context only. Client-computed distance/time is not trusted.
+Employees may choose any active office; no permanent employee-office assignment is required.
+Official office seed coordinates remain operational configuration and must never be fabricated.
 
 ### Checkout
 
@@ -421,17 +424,19 @@ Daily worker:
 
 ```text
 acquire lock
-  -> select contracts expiring at approved H-30 boundary
-  -> resolve direct supervisor
-  -> resolve HR recipient(s)
-  -> remove duplicate/self recipient
+  -> compute today in Asia/Jakarta
+  -> select active contracts ending exactly 30 calendar days from today
+  -> add active direct supervisor when present
+  -> add every active HR except the employee whose contract expires
+  -> if no eligible HR exists, add the single active Top Management user
+  -> deduplicate by recipient_user_id and remove self recipient
   -> generate recipient-specific deterministic event key
   -> insert notification idempotently
   -> emit metrics
 ```
 
-For an HR employee without supervisor, avoid notifying the same user as both subject and HR
-recipient. Exact fallback to another HR or Top Management requires explicit decision.
+If the Top Management fallback is required but no active Top Management exists, fail and
+measure that job item; never silently mark it successful or notify the subject.
 
 ## Permission update
 
@@ -551,7 +556,8 @@ Never use Redis lock as the only durable business invariant.
 
 - Event once, read, dismiss, producer retry.
 - Cross-recipient denial.
-- Contract H-30 edge recipients.
+- Contract H-30 before/at/after boundary, subject exclusion, all-HR fan-out, and Top
+  Management fallback.
 - HR permission change; Top Management mutation forbidden.
 - Audit insert visible; app update/delete denied.
 

@@ -1,0 +1,2781 @@
+openapi: 3.1.0
+info:
+  title: GSNpeeps API
+  version: 0.4.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: |
+    Kontrak HTTP GSNpeeps untuk Employee Database, dashboard HR, absensi,
+    approval, notifikasi, dan administrasi akses.
+
+    API menggunakan field JSON `snake_case`, Bearer JWT berumur 8 jam, dan
+    cross-check sesi aktif di Redis. Tidak ada refresh-token endpoint.
+  contact:
+    name: GSNpeeps IT Liaison
+servers:
+  - url: http://{host}:{port}
+    description: Development
+    variables:
+      host:
+        default: localhost
+      port:
+        default: "8080"
+  - url: https://{host}
+    description: Production
+    variables:
+      host:
+        default: api.janjikupadamu.id
+tags:
+  - name: System
+    description: Health dan readiness service.
+  - name: Authentication
+    description: Login, logout, token JWT, dan Redis session.
+  - name: Master Organization
+    description: Master departemen dan jabatan untuk referensi.
+  - name: Employees
+    description: Database karyawan Point 1-12 dan dokumen.
+  - name: My Profile
+    description: Profil dan metrik pribadi user aktif.
+  - name: Dashboard
+    description: Metrik agregat untuk HR dan Top Management.
+  - name: Attendance
+    description: Pencatatan dan live feed absensi.
+  - name: Attendance Reports
+    description: Laporan serta ekspor kehadiran.
+  - name: Leave Requests
+    description: Pengajuan ketidakhadiran dan alur approval.
+  - name: Leave Types
+    description: Master jenis izin serta kuota tahunan.
+  - name: Overtime
+    description: Pengajuan, approval, dan rekap lembur.
+  - name: Access Administration
+    description: Role, permission, dan audit log.
+  - name: Notifications
+    description: |
+      Notifikasi personal dalam aplikasi. Untuk kontrak yang akan berakhir tepat H-30,
+      worker mengirim ke atasan aktif bila ada dan semua HR aktif selain subjek; bila
+      tidak ada HR eligible, worker memakai satu-satunya Top Management aktif.
+security:
+  - BearerAuth: []
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Periksa kesehatan service
+      description: |
+        Liveness/readiness probe untuk API, PostgreSQL, dan Redis.
+        Endpoint publik dan tidak memerlukan autentikasi.
+      tags: [System]
+      security: []
+      responses:
+        "200":
+          description: Service dan dependency sehat.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Login ke GSNpeeps
+      description: |
+        Login publik menggunakan email dan password. Setelah lima kegagalan
+        berturut-turut akun dikunci dan menghasilkan `ACCOUNT_LOCKED`.
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login berhasil.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Kredensial tidak valid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidCredentials:
+                  value:
+                    success: false
+                    error:
+                      code: INVALID_CREDENTIALS
+                      message: Email atau password tidak valid
+        "429":
+          description: Akun terkunci setelah lima kegagalan login.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                accountLocked:
+                  value:
+                    success: false
+                    error:
+                      code: ACCOUNT_LOCKED
+                      message: Akun terkunci dan memerlukan pemulihan
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Logout dari GSNpeeps
+      description: |
+        Menghapus session key Redis sehingga JWT aktif langsung ditolak.
+        Berlaku untuk seluruh role dan dicatat pada Audit Log.
+      tags: [Authentication]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Logout berhasil.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteSuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/auth/me:
+    get:
+      operationId: getCurrentUser
+      summary: Ambil identitas user aktif
+      description: |
+        Mengembalikan identitas dan role berdasarkan JWT serta session aktif di Redis.
+        Tidak memperpanjang masa token.
+      tags: [Authentication]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Identitas user aktif.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMeResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/auth/me/password:
+    patch:
+      operationId: changeCurrentUserPassword
+      summary: Ganti password user aktif
+      description: |
+        User terautentikasi mengganti password sendiri memakai password saat ini.
+        Operasi mencabut seluruh session dan mereset counter lockout; user harus login
+        kembali. HR hanya melihat status akun yang telah diperbarui, tidak pernah password.
+      tags: [Authentication]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Password berhasil diganti.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordChangedResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/auth/reset-password:
+    post:
+      operationId: resetOwnPassword
+      summary: Pulihkan password sendiri
+      description: |
+        Self-service untuk karyawan, termasuk akun yang terkunci. Request memverifikasi
+        email dan password saat ini sebelum menerima password baru. Jika berhasil, password
+        hash diperbarui, lockout/counter dibersihkan, seluruh session dicabut, status akun
+        yang dilihat HR otomatis terbarui, dan audit dicatat tanpa nilai password.
+        Endpoint memakai pesan kegagalan generik serta rate limit gabungan per akun dan IP;
+        kegagalan verifikasi ikut dicatat pada counter agar endpoint tidak melewati proteksi
+        brute-force login. Endpoint tidak mengirim email/OTP dan tidak menangani password
+        yang terlupa.
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SelfResetPasswordRequest"
+      responses:
+        "200":
+          description: Password berhasil direset; user harus login kembali.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordChangedResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Email atau password saat ini tidak valid.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/master/departemen:
+    get:
+      operationId: listDepartments
+      summary: Ambil master departemen
+      description: Dropdown organisasi read-only untuk seluruh role terautentikasi.
+      tags: [Master Organization]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Daftar departemen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepartmentListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/master/jabatan:
+    get:
+      operationId: listPositions
+      summary: Ambil master jabatan
+      description: Dropdown jabatan read-only untuk seluruh role terautentikasi.
+      tags: [Master Organization]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: department_id
+          in: query
+          required: false
+          description: Filter jabatan berdasarkan departemen.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Daftar jabatan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PositionListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/master/lokasi-kantor:
+    get:
+      operationId: listOfficeLocations
+      summary: Ambil master lokasi kantor
+      description: |
+        Dropdown lokasi WFO untuk seluruh role terautentikasi. Karyawan bebas memilih
+        kantor aktif tempat ia hadir; tidak ada assignment kantor permanen. Response dapat
+        kosong sampai data lokasi resmi tersedia.
+      tags: [Master Organization]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Daftar lokasi kantor aktif dengan koordinat tepercaya.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeLocationListResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/karyawan:
+    get:
+      operationId: listEmployees
+      summary: Ambil daftar karyawan
+      description: |
+        HR dan Top Management dapat membaca seluruh karyawan. Top Management
+        read-only. Karyawan dan Atasan mendapat `403 FORBIDDEN`.
+      tags: [Employees]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SearchParam"
+        - name: department_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/EmployeeStatus"
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: Daftar karyawan terfilter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: createEmployee
+      summary: Tambah karyawan
+      description: |
+        Hanya HR. Membuat employee beserta data administratif awal dalam satu
+        transaksi dan mencatat perubahan pada Audit Log.
+      tags: [Employees]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmployeeRequest"
+      responses:
+        "201":
+          description: Karyawan berhasil dibuat.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Email, NIP, atau nomor KTP sudah digunakan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                duplicateEmployee:
+                  value:
+                    success: false
+                    error:
+                      code: CONFLICT
+                      message: Data unik karyawan sudah digunakan
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/karyawan/export:
+    get:
+      operationId: exportEmployees
+      summary: Export data karyawan
+      description: |
+        Hanya HR. Mengekspor list sesuai filter atau detail satu karyawan tanpa
+        watermark. Aktivitas download dicatat pada Audit Log.
+      tags: [Employees]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ExportFormatParam"
+        - name: id
+          in: query
+          required: false
+          description: Jika diberikan, export detail satu karyawan.
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/SearchParam"
+        - name: department_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/EmployeeStatus"
+      responses:
+        "200":
+          description: File XLSX atau PDF.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/karyawan/{id}:
+    get:
+      operationId: getEmployee
+      summary: Ambil detail karyawan
+      description: HR dan Top Management dapat membaca; Top Management read-only.
+      tags: [Employees]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EmployeeIdPath"
+      responses:
+        "200":
+          description: Detail lengkap karyawan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeDetailResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      operationId: updateEmployee
+      summary: Perbarui karyawan
+      description: |
+        Hanya HR. Walaupun menggunakan PUT, API Contract menetapkan partial
+        update; seluruh field request opsional. Perubahan dicatat pada Audit Log.
+      tags: [Employees]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EmployeeIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmployeeRequest"
+      responses:
+        "200":
+          description: Karyawan berhasil diperbarui.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deactivateEmployee
+      summary: Nonaktifkan karyawan
+      description: Hanya HR. Soft-delete dengan status `nonaktif`; tidak menghapus histori.
+      tags: [Employees]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EmployeeIdPath"
+      responses:
+        "200":
+          description: Karyawan berhasil dinonaktifkan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteSuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/karyawan/{id}/dokumen:
+    post:
+      operationId: uploadEmployeeDocument
+      summary: Unggah dokumen karyawan
+      description: |
+        Hanya HR. File diteruskan backend ke Nextcloud; database hanya menyimpan
+        locator. Format: PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, JPG, PNG; maksimal 5 MB.
+      tags: [Employees]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EmployeeIdPath"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/EmployeeDocumentUploadRequest"
+      responses:
+        "201":
+          description: Dokumen berhasil diunggah.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileUploadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/FileTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedFileType"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: listEmployeeDocuments
+      summary: Ambil dokumen karyawan
+      description: |
+        HR dan Top Management dapat membaca dokumen seluruh karyawan; Top
+        Management read-only. Karyawan dan Atasan tidak memiliki akses Point 12.
+      tags: [Employees]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EmployeeIdPath"
+      responses:
+        "200":
+          description: Daftar dokumen karyawan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeDocumentListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/profil/saya:
+    get:
+      operationId: getMyProfile
+      summary: Ambil profil sendiri
+      description: |
+        Karyawan, Atasan, dan HR membaca Point 1-11 milik sendiri. Data read-only
+        di endpoint ini dan gaji hanya periode bulan berjalan.
+      tags: [My Profile]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profil user yang sedang login.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyProfileResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/profil/saya/metrik:
+    get:
+      operationId: getMyMetrics
+      summary: Ambil metrik personal
+      description: |
+        Saldo cuti, lama kerja, dan riwayat clock milik Karyawan, Atasan, atau HR
+        yang login. Top Management mendapat `403 FORBIDDEN`.
+      tags: [My Profile]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Metrik personal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalMetricsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/dashboard/metrik:
+    get:
+      operationId: getDashboardMetrics
+      summary: Ambil dashboard metrik HR
+      description: |
+        HR dan Top Management dapat membaca; Top Management read-only. Kehadiran dihitung
+        dari check-in valid. Check-in setelah pukul 09:00:00 Asia/Jakarta dihitung terlambat;
+        tepat pukul 09:00:00 belum terlambat. Karyawan nonaktif dipisahkan dari komposisi
+        aktif dan gender kosong masuk kategori `belum_diisi`.
+      tags: [Dashboard]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: periode
+          in: query
+          required: false
+          description: Granularitas kalender; default bulanan.
+          schema:
+            $ref: "#/components/schemas/DashboardPeriod"
+        - name: tanggal_acuan
+          in: query
+          required: false
+          description: |
+            Tanggal dalam periode yang dipilih; default tanggal server di Asia/Jakarta.
+            Mingguan memakai Senin-Minggu, bulanan memakai bulan kalender, dan tahunan
+            memakai 1 Januari-31 Desember.
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Agregasi dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardMetricsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/absensi/checkin:
+    post:
+      operationId: recordAttendance
+      summary: Catat check-in atau check-out
+      description: |
+        Karyawan, Atasan, dan HR mencatat absensi milik sendiri. Field `tipe`
+        membedakan check-in dan check-out. Hari kerja Senin-Jumat, 09:00-18:00
+        Asia/Jakarta. Check-in setelah 09:00 berstatus `terlambat`; checkout sebelum
+        18:00 boleh dicatat dengan status `pulang_cepat`. WFO divalidasi maksimal
+        100 meter dari kantor aktif yang dipilih. Foto JPG/PNG maksimal 5 MB.
+      tags: [Attendance]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/AttendanceCheckRequest"
+      responses:
+        "201":
+          description: Absensi berhasil dicatat.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceCheckResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/FileTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedFileType"
+        "422":
+          description: Aturan bisnis absensi gagal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                outOfRadius:
+                  value:
+                    success: false
+                    error:
+                      code: OUT_OF_RADIUS
+                      message: Lokasi WFO berada di luar radius kantor
+                duplicateCheckIn:
+                  value:
+                    success: false
+                    error:
+                      code: DUPLICATE_CHECKIN
+                      message: Check-in hari ini sudah tercatat
+                checkoutWithoutCheckin:
+                  value:
+                    success: false
+                    error:
+                      code: CHECKOUT_WITHOUT_CHECKIN
+                      message: Check-out memerlukan check-in aktif
+                nonWorkingDay:
+                  value:
+                    success: false
+                    error:
+                      code: NON_WORKING_DAY
+                      message: Absensi reguler hanya tersedia Senin sampai Jumat
+                invalidOfficeLocation:
+                  value:
+                    success: false
+                    error:
+                      code: INVALID_OFFICE_LOCATION
+                      message: Lokasi kantor WFO tidak valid atau tidak aktif
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/absensi/livefeed:
+    get:
+      operationId: getAttendanceLiveFeed
+      summary: Ambil live feed absensi
+      description: |
+        HR dan Top Management membaca kehadiran seluruh user pada tanggal
+        tertentu. Top Management read-only; Karyawan/Atasan mendapat 403.
+      tags: [Attendance]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tanggal
+          in: query
+          required: false
+          description: Default tanggal server saat ini.
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Live feed absensi.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceLiveFeedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/laporan/kehadiran:
+    get:
+      operationId: getAttendanceReport
+      summary: Ambil laporan kehadiran
+      description: |
+        HR dan Top Management membaca rekap; Top Management read-only.
+        `tanggal_mulai` dan `tanggal_selesai` wajib secara bisnis saat `periode=custom`.
+      tags: [Attendance Reports]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AttendancePeriodParam"
+        - $ref: "#/components/parameters/DateFromParam"
+        - $ref: "#/components/parameters/DateToParam"
+        - name: department_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Rekap kehadiran.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceReportResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/laporan/kehadiran/export:
+    get:
+      operationId: exportAttendanceReport
+      summary: Export laporan kehadiran
+      description: Hanya HR. File tanpa watermark dan aktivitas dicatat pada Audit Log.
+      tags: [Attendance Reports]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AttendancePeriodParam"
+        - $ref: "#/components/parameters/DateFromParam"
+        - $ref: "#/components/parameters/DateToParam"
+        - name: department_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/ExportFormatParam"
+      responses:
+        "200":
+          description: File laporan XLSX atau PDF.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/ketidakhadiran:
+    post:
+      operationId: createLeaveRequest
+      summary: Ajukan ketidakhadiran
+      description: |
+        Karyawan, Atasan, dan HR mengajukan cuti/izin/perjalanan dinas milik
+        sendiri. Dokumen pendukung wajib. Sistem menentukan approver awal menurut
+        role/struktur dan membuat notifikasi idempotent untuk approver tersebut.
+      tags: [Leave Requests]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CreateLeaveRequest"
+      responses:
+        "201":
+          description: Pengajuan berhasil dibuat.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequestCreateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/FileTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedFileType"
+        "422":
+          description: Saldo cuti atau kuota jenis izin tidak memenuhi aturan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                insufficientLeaveBalance:
+                  value:
+                    success: false
+                    error:
+                      code: INSUFFICIENT_LEAVE_BALANCE
+                      message: Saldo cuti tidak mencukupi
+                quotaExceeded:
+                  value:
+                    success: false
+                    error:
+                      code: QUOTA_EXCEEDED
+                      message: Durasi melebihi kuota jenis izin
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: listLeaveRequestsForApproval
+      summary: Ambil antrean approval ketidakhadiran
+      description: |
+        Atasan hanya melihat bawahan langsung dan tahap aktifnya. HR hanya melihat
+        pengajuan pada kewenangan HR. Top Management hanya melihat pengajuan HR.
+      tags: [Leave Requests]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ApprovalQueueStatus"
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: Antrean pengajuan sesuai scope approver.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequestListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/ketidakhadiran/saya:
+    get:
+      operationId: listMyLeaveRequests
+      summary: Ambil pengajuan ketidakhadiran sendiri
+      description: Karyawan, Atasan, dan HR hanya membaca pengajuan milik sendiri.
+      tags: [Leave Requests]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: Histori pengajuan milik user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequestListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/ketidakhadiran/{id}:
+    get:
+      operationId: getLeaveRequest
+      summary: Ambil detail ketidakhadiran
+      description: |
+        Hanya pemohon atau approver terkait pada scope aktif yang boleh membaca
+        detail dan histori approval.
+      tags: [Leave Requests]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/LeaveRequestIdPath"
+      responses:
+        "200":
+          description: Detail pengajuan dan histori approval.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequestDetailResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/ketidakhadiran/{id}/decision:
+    put:
+      operationId: decideLeaveRequest
+      summary: Putuskan pengajuan ketidakhadiran
+      description: |
+        Atasan memutuskan pengajuan bawahan langsung pada tahap Atasan; HR
+        memutuskan tahap HR; Top Management hanya memutuskan pengajuan HR.
+        Perubahan membuat notifikasi pemohon dan approver tahap berikutnya jika ada.
+      tags: [Leave Requests]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/LeaveRequestIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionRequest"
+      responses:
+        "200":
+          description: Keputusan berhasil disimpan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecisionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Pengajuan telah diputuskan, didelegasikan, atau di-escalate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                alreadyDecided:
+                  value:
+                    success: false
+                    error:
+                      code: ALREADY_DECIDED
+                      message: Pengajuan sudah diproses
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/ketidakhadiran/{id}/delegate:
+    put:
+      operationId: delegateLeaveRequest
+      summary: Delegasikan approval ketidakhadiran
+      description: |
+        Atasan terkait mendelegasikan tahap aktif ke HR. Sistem mencatat histori
+        delegasi dan membuat notifikasi idempotent untuk HR serta pemohon.
+      tags: [Leave Requests]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/LeaveRequestIdPath"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DelegateRequest"
+      responses:
+        "200":
+          description: Delegasi berhasil.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecisionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Pengajuan tidak lagi dapat didelegasikan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                alreadyDecided:
+                  value:
+                    success: false
+                    error:
+                      code: ALREADY_DECIDED
+                      message: Pengajuan sudah diproses
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/master/jenis-izin:
+    get:
+      operationId: listLeaveTypes
+      summary: Ambil master jenis izin
+      description: Hanya HR sesuai API Contract v1.1.
+      tags: [Leave Types]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: aktif
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Daftar jenis izin.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveTypeListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: createLeaveType
+      summary: Tambah jenis izin
+      description: Hanya HR. Perubahan dicatat pada Audit Log.
+      tags: [Leave Types]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeaveTypeRequest"
+      responses:
+        "201":
+          description: Jenis izin berhasil dibuat.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/master/jenis-izin/{id}:
+    put:
+      operationId: updateLeaveType
+      summary: Perbarui jenis izin
+      description: Hanya HR. Dapat mengubah kuota atau menonaktifkan master.
+      tags: [Leave Types]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/LeaveTypeIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLeaveTypeRequest"
+      responses:
+        "200":
+          description: Jenis izin berhasil diperbarui.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/lembur:
+    post:
+      operationId: createOvertimeRequest
+      summary: Ajukan lembur
+      description: Karyawan mengajukan lembur untuk dirinya sendiri.
+      tags: [Overtime]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CreateOvertimeRequest"
+      responses:
+        "201":
+          description: Pengajuan lembur berhasil dibuat.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSuccessResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    get:
+      operationId: listOvertimeRequests
+      summary: Daftar pengajuan lembur untuk approval
+      description: |
+        Atasan melihat pengajuan bawahan langsung; HR melihat seluruh pengajuan
+        aktif; Top Management hanya membaca data agregat melalui endpoint rekap.
+      tags: [Overtime]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/RequestStatusParam"
+        - $ref: "#/components/parameters/DateFromParam"
+        - $ref: "#/components/parameters/DateToParam"
+      responses:
+        "200":
+          description: Daftar pengajuan lembur.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OvertimeRequestListResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/lembur/rekap:
+    get:
+      operationId: getOvertimeRecap
+      summary: Rekap lembur
+      description: HR dan Top Management membaca rekap lembur per periode.
+      tags: [Overtime]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DateFromParam"
+        - $ref: "#/components/parameters/DateToParam"
+        - $ref: "#/components/parameters/DepartmentIdQuery"
+      responses:
+        "200":
+          description: Rekap lembur.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OvertimeRecapResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/lembur/{id}:
+    get:
+      operationId: getOvertimeRequest
+      summary: Detail pengajuan lembur
+      description: Akses mengikuti kepemilikan, hierarki atasan, dan kewenangan HR.
+      tags: [Overtime]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OvertimeRequestIdPath"
+      responses:
+        "200":
+          description: Detail pengajuan lembur.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OvertimeRequestDetailResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/lembur/{id}/decision:
+    put:
+      operationId: decideOvertimeRequest
+      summary: Putuskan pengajuan lembur
+      description: |
+        Atasan memutus pengajuan bawahan langsung. HR menangani tahap berikutnya
+        sesuai alur approval. Operasi gagal jika tahap tersebut sudah diputus.
+      tags: [Overtime]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OvertimeRequestIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionRequest"
+      responses:
+        "200":
+          description: Keputusan berhasil disimpan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSuccessResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/akses/role:
+    get:
+      operationId: listRoles
+      summary: Daftar role
+      description: Hanya HR. Mengembalikan empat role sistem.
+      tags: [Access Administration]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Daftar role.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleListResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/akses/permission:
+    get:
+      operationId: getPermissionMatrix
+      summary: Ambil matriks permission
+      description: Hanya HR. Menampilkan permission yang dikelompokkan per role.
+      tags: [Access Administration]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Matriks permission.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PermissionMatrixResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    put:
+      operationId: updatePermission
+      summary: Perbarui permission role
+      description: Hanya HR. Perubahan permission wajib dicatat pada Audit Log.
+      tags: [Access Administration]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePermissionRequest"
+      responses:
+        "200":
+          description: Permission berhasil diperbarui.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSuccessResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/akses/audit-log:
+    get:
+      operationId: listAuditLogs
+      summary: Daftar audit log
+      description: Hanya HR. Audit log bersifat append-only dan read-only via API.
+      tags: [Access Administration]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/DateFromParam"
+        - $ref: "#/components/parameters/DateToParam"
+        - name: aksi
+          in: query
+          schema: { type: string }
+        - name: modul
+          in: query
+          schema: { type: string }
+        - name: user_id
+          in: query
+          schema: { $ref: "#/components/schemas/UUID" }
+      responses:
+        "200":
+          description: Daftar audit log.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogListResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/notifikasi:
+    get:
+      operationId: listNotifications
+      summary: Daftar notifikasi
+      description: Mengembalikan notifikasi milik user yang sedang login.
+      tags: [Notifications]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - name: is_read
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Daftar notifikasi.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationListResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/notifikasi/unread-count:
+    get:
+      operationId: getUnreadNotificationCount
+      summary: Hitung notifikasi belum dibaca
+      description: Menghitung notifikasi milik user aktif yang belum dibaca dan belum di-dismiss.
+      tags: [Notifications]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Jumlah notifikasi belum dibaca.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadCountResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/notifikasi/{id}/read:
+    put:
+      operationId: markNotificationRead
+      summary: Tandai notifikasi telah dibaca
+      description: Hanya pemilik notifikasi.
+      tags: [Notifications]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/NotificationIdPath"
+      responses:
+        "200":
+          description: Notifikasi ditandai telah dibaca.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSuccessResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/notifikasi/{id}:
+    delete:
+      operationId: deleteNotification
+      summary: Hapus notifikasi
+      description: Hanya pemilik notifikasi. Penghapusan tidak menghapus audit log.
+      tags: [Notifications]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/NotificationIdPath"
+      responses:
+        "200":
+          description: Notifikasi berhasil dihapus.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteSuccessResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Access token berlaku 8 jam. Backend juga memverifikasi session aktif di
+        Redis pada setiap request terproteksi.
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    LimitParam:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+    SearchParam:
+      name: search
+      in: query
+      schema: { type: string, maxLength: 100 }
+    EmployeeIdPath:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    LeaveRequestIdPath:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    LeaveTypeIdPath:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    OvertimeRequestIdPath:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    NotificationIdPath:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    DateFromParam:
+      name: tanggal_mulai
+      in: query
+      schema: { type: string, format: date }
+    DateToParam:
+      name: tanggal_selesai
+      in: query
+      schema: { type: string, format: date }
+    AttendancePeriodParam:
+      name: periode
+      in: query
+      description: Bulan laporan.
+      schema: { $ref: "#/components/schemas/YearMonth" }
+    ExportFormatParam:
+      name: format
+      in: query
+      schema:
+        type: string
+        enum: [xlsx, csv]
+        default: xlsx
+    RequestStatusParam:
+      name: status
+      in: query
+      schema: { $ref: "#/components/schemas/RequestStatus" }
+    DepartmentIdQuery:
+      name: departemen_id
+      in: query
+      schema: { $ref: "#/components/schemas/UUID" }
+
+  responses:
+    BadRequest:
+      description: Request atau parameter tidak valid.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            invalidRequest:
+              value:
+                success: false
+                error: { code: INVALID_REQUEST, message: Request tidak valid }
+    Unauthorized:
+      description: Kredensial tidak ada, tidak valid, atau kedaluwarsa.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            unauthorized:
+              value:
+                success: false
+                error: { code: UNAUTHORIZED, message: Autentikasi diperlukan }
+    Forbidden:
+      description: User tidak memiliki kewenangan atau akses row-level.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            forbidden:
+              value:
+                success: false
+                error: { code: FORBIDDEN, message: Akses ditolak }
+    NotFound:
+      description: Resource tidak ditemukan.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            notFound:
+              value:
+                success: false
+                error: { code: NOT_FOUND, message: Data tidak ditemukan }
+    Conflict:
+      description: Konflik state atau data duplikat.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            conflict:
+              value:
+                success: false
+                error: { code: CONFLICT, message: Data sudah ada atau sudah diproses }
+    ValidationError:
+      description: Validasi bisnis atau field gagal.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            validation:
+              value:
+                success: false
+                error:
+                  code: VALIDATION_ERROR
+                  message: Validasi gagal
+                  fields: { tanggal_mulai: Tanggal mulai wajib diisi }
+    FileTooLarge:
+      description: File melebihi batas 5 MB.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            fileTooLarge:
+              value:
+                success: false
+                error: { code: FILE_TOO_LARGE, message: Ukuran file maksimal 5 MB }
+    UnsupportedFileType:
+      description: Tipe file tidak didukung.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            unsupported:
+              value:
+                success: false
+                error: { code: UNSUPPORTED_FILE_TYPE, message: Tipe file tidak didukung }
+    TooManyRequests:
+      description: Rate limit terlampaui atau akun terkunci sementara.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            rateLimited:
+              value:
+                success: false
+                error: { code: RATE_LIMITED, message: Terlalu banyak request }
+    InternalError:
+      description: Kesalahan internal.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            internal:
+              value:
+                success: false
+                error: { code: INTERNAL_ERROR, message: Terjadi kesalahan internal }
+    ServiceUnavailable:
+      description: Dependency penting belum sehat.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          examples:
+            unavailable:
+              value:
+                success: false
+                error: { code: SERVICE_UNAVAILABLE, message: Layanan belum siap }
+
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+      example: 0193f406-8d2f-7d0c-bf34-61ff192e46de
+    YearMonth:
+      type: string
+      pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+      example: 2026-07
+    RoleName:
+      type: string
+      enum: [karyawan, atasan, hr, top_management]
+    EmployeeStatus:
+      type: string
+      enum: [aktif, nonaktif, cuti, resign]
+    RequestStatus:
+      type: string
+      description: Enum machine-readable yang digunakan sama pada database, query, dan response.
+      enum: [menunggu_atasan, menunggu_hr, menunggu_top_management, disetujui, ditolak, dibatalkan]
+    ApprovalQueueStatus:
+      type: string
+      enum: [menunggu_atasan, menunggu_hr, menunggu_top_management]
+    DashboardPeriod:
+      type: string
+      enum: [harian, mingguan, bulanan, tahunan]
+      default: bulanan
+    WorkMode:
+      type: string
+      enum: [WFO, WFH, WFA]
+    AttendanceType:
+      type: string
+      enum: [check_in, check_out]
+    SuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, const: true }
+        data: {}
+        message: { type: string }
+    ErrorObject:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, example: VALIDATION_ERROR }
+        message: { type: string, example: Validasi gagal }
+        fields:
+          $ref: "#/components/schemas/ValidationFields"
+    ValidationFields:
+      type: object
+      additionalProperties: { type: string }
+      example: { email: Format email tidak valid }
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, const: false }
+        error: { $ref: "#/components/schemas/ErrorObject" }
+    PaginationMeta:
+      type: object
+      required: [page, limit, total_data, total_page]
+      properties:
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+        total_data: { type: integer, minimum: 0 }
+        total_page: { type: integer, minimum: 0 }
+    IdData:
+      type: object
+      required: [id]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+    IdSuccessResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/IdData" }
+    RequestStateData:
+      type: object
+      required: [id, status]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        status: { $ref: "#/components/schemas/RequestStatus" }
+    LeaveRequestCreateResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/RequestStateData" }
+    DecisionResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/RequestStateData" }
+    DeleteSuccessResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { type: "null" }
+            message: { type: string, example: Data berhasil dihapus }
+    FileUploadData:
+      type: object
+      required: [id, file_url]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        file_url:
+          type: string
+          format: uri
+          description: Locator file terkontrol; bukan kredensial Nextcloud.
+          example: https://files.example.test/employee-documents/document.pdf
+    FileUploadResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/FileUploadData" }
+    HealthData:
+      type: object
+      required: [status, db, redis]
+      properties:
+        status: { type: string, enum: [ok] }
+        db: { type: string, enum: [ok] }
+        redis: { type: string, enum: [ok] }
+    HealthResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/HealthData" }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 255 }
+        password: { type: string, format: password, minLength: 8, maxLength: 128 }
+    AuthUser:
+      type: object
+      required: [id, employee_id, nama, email, role]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        employee_id: { $ref: "#/components/schemas/UUID" }
+        nama: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: "#/components/schemas/RoleName" }
+    LoginData:
+      type: object
+      required: [token, token_type, expires_in, user]
+      properties:
+        token: { type: string, example: eyJhbGciOiJIUzI1NiJ9.example.signature }
+        token_type: { type: string, const: Bearer }
+        expires_in: { type: integer, const: 28800 }
+        user: { $ref: "#/components/schemas/AuthUser" }
+    LoginResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/LoginData" }
+    AuthMeResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/AuthUser" }
+    ChangePasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [current_password, new_password, new_password_confirmation]
+      properties:
+        current_password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+        new_password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 128
+          description: Harus berbeda dari password saat ini.
+        new_password_confirmation:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 128
+          description: Harus sama dengan new_password.
+    SelfResetPasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [email, current_password, new_password, new_password_confirmation]
+      properties:
+        email: { type: string, format: email, maxLength: 255 }
+        current_password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+        new_password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 128
+          description: Harus berbeda dari password saat ini.
+        new_password_confirmation:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 128
+          description: Harus sama dengan new_password.
+    PasswordChangedData:
+      type: object
+      required: [password_changed, account_locked, sessions_revoked]
+      properties:
+        password_changed: { type: boolean, const: true }
+        account_locked: { type: boolean, const: false }
+        sessions_revoked: { type: boolean, const: true }
+    PasswordChangedResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/PasswordChangedData" }
+            message: { type: string, example: Password berhasil diganti }
+    Department:
+      type: object
+      required: [id, kode, nama, is_active]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        kode: { type: string, maxLength: 50 }
+        nama: { type: string, maxLength: 150 }
+        is_active: { type: boolean }
+    Position:
+      type: object
+      required: [id, departemen_id, kode, nama, is_active]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        departemen_id: { $ref: "#/components/schemas/UUID" }
+        kode: { type: string, maxLength: 50 }
+        nama: { type: string, maxLength: 150 }
+        level: { type: integer, minimum: 0 }
+        is_active: { type: boolean }
+    OfficeLocation:
+      type: object
+      required: [id, kode, nama, latitude, longitude, is_active]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        kode: { type: string, maxLength: 50 }
+        nama: { type: string, maxLength: 150 }
+        alamat:
+          type: [string, "null"]
+          description: Dapat dilengkapi setelah data alamat kantor resmi tersedia.
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        is_active: { type: boolean }
+    DepartmentListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/Department" } }
+    PositionListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/Position" } }
+    OfficeLocationListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/OfficeLocation" } }
+    EmployeeAddress:
+      type: object
+      properties:
+        alamat: { type: string }
+        provinsi: { type: string }
+        kabupaten_kota: { type: string }
+        kecamatan: { type: string }
+        kelurahan: { type: string }
+        kode_pos: { type: string }
+        is_domisili: { type: boolean }
+    EmployeeKTP:
+      type: object
+      required: [jenis_kelamin]
+      properties:
+        nik: { type: string, pattern: '^\d{16}$' }
+        nama_sesuai_ktp: { type: string }
+        tempat_lahir: { type: string }
+        tanggal_lahir: { type: string, format: date }
+        jenis_kelamin:
+          type: string
+          enum: [L, P]
+          description: Wajib diisi; L=laki-laki, P=perempuan.
+        agama: { type: string }
+        status_perkawinan: { type: string }
+        alamat_ktp: { type: string }
+        file_url: { type: string, format: uri }
+    EmployeeContract:
+      type: object
+      properties:
+        nomor_kontrak: { type: string }
+        jenis_kontrak: { type: string, enum: [pkwt, pkwtt, magang, freelance] }
+        tanggal_mulai: { type: string, format: date }
+        tanggal_selesai: { type: [string, "null"], format: date }
+        file_url: { type: [string, "null"], format: uri }
+    EmployeeBPJS:
+      type: object
+      properties:
+        jenis: { type: string, enum: [kesehatan, ketenagakerjaan] }
+        nomor: { type: string }
+        status: { type: string, enum: [aktif, nonaktif] }
+    EmployeeNPWP:
+      type: object
+      properties:
+        nomor_npwp: { type: string }
+        status_ptkp: { type: string }
+        file_url: { type: [string, "null"], format: uri }
+    EmergencyContact:
+      type: object
+      properties:
+        nama: { type: string }
+        hubungan: { type: string }
+        nomor_telepon: { type: string }
+        is_primary: { type: boolean }
+    EducationHistory:
+      type: object
+      properties:
+        jenjang: { type: string }
+        institusi: { type: string }
+        jurusan: { type: string }
+        tahun_lulus: { type: integer, minimum: 1900, maximum: 2200 }
+    PositionHistory:
+      type: object
+      properties:
+        departemen: { $ref: "#/components/schemas/Department" }
+        jabatan: { $ref: "#/components/schemas/Position" }
+        tanggal_mulai: { type: string, format: date }
+        tanggal_selesai: { type: [string, "null"], format: date }
+    CurrentSalary:
+      type: object
+      properties:
+        periode: { $ref: "#/components/schemas/YearMonth" }
+        gaji_pokok: { type: number, format: double, minimum: 0 }
+        tunjangan: { type: number, format: double, minimum: 0 }
+        potongan: { type: number, format: double, minimum: 0 }
+        take_home_pay: { type: number, format: double }
+    EmployeeDocument:
+      type: object
+      required: [id, jenis_dokumen, nama_file, file_url, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        jenis_dokumen: { type: string }
+        nama_file: { type: string }
+        file_url: { type: string, format: uri }
+        created_at: { type: string, format: date-time }
+    EmployeeSummary:
+      type: object
+      required: [id, nik_karyawan, nama_lengkap, email, departemen, jabatan, status]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        nik_karyawan: { type: string }
+        nama_lengkap: { type: string }
+        email: { type: string, format: email }
+        foto_url: { type: [string, "null"], format: uri }
+        departemen: { type: string }
+        jabatan: { type: string }
+        status: { $ref: "#/components/schemas/EmployeeStatus" }
+    EmployeeDetail:
+      allOf:
+        - $ref: "#/components/schemas/EmployeeSummary"
+        - type: object
+          properties:
+            nomor_telepon: { type: string }
+            tanggal_masuk: { type: string, format: date }
+            atasan_id: { oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }] }
+            alamat: { type: array, items: { $ref: "#/components/schemas/EmployeeAddress" } }
+            ktp: { $ref: "#/components/schemas/EmployeeKTP" }
+            kontrak: { type: array, items: { $ref: "#/components/schemas/EmployeeContract" } }
+            bpjs: { type: array, items: { $ref: "#/components/schemas/EmployeeBPJS" } }
+            npwp: { $ref: "#/components/schemas/EmployeeNPWP" }
+            kontak_darurat: { type: array, items: { $ref: "#/components/schemas/EmergencyContact" } }
+            pendidikan: { type: array, items: { $ref: "#/components/schemas/EducationHistory" } }
+            riwayat_jabatan: { type: array, items: { $ref: "#/components/schemas/PositionHistory" } }
+            gaji_berjalan: { $ref: "#/components/schemas/CurrentSalary" }
+    CreateEmployeeRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [nik_karyawan, nama_lengkap, email, nomor_telepon, tanggal_masuk,
+         departemen_id, jabatan_id, role, ktp, alamat]
+      properties:
+        nik_karyawan: { type: string, maxLength: 50 }
+        nama_lengkap: { type: string, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 255 }
+        nomor_telepon: { type: string, maxLength: 30 }
+        tanggal_masuk: { type: string, format: date }
+        departemen_id: { $ref: "#/components/schemas/UUID" }
+        jabatan_id: { $ref: "#/components/schemas/UUID" }
+        atasan_id: { oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }] }
+        role: { $ref: "#/components/schemas/RoleName" }
+        ktp: { $ref: "#/components/schemas/EmployeeKTP" }
+        alamat:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/EmployeeAddress" }
+        kontrak: { $ref: "#/components/schemas/EmployeeContract" }
+        bpjs: { type: array, items: { $ref: "#/components/schemas/EmployeeBPJS" } }
+        npwp: { $ref: "#/components/schemas/EmployeeNPWP" }
+        kontak_darurat:
+          type: array
+          items: { $ref: "#/components/schemas/EmergencyContact" }
+        pendidikan: { type: array, items: { $ref: "#/components/schemas/EducationHistory" } }
+        gaji_pokok: { type: number, minimum: 0 }
+        tunjangan: { type: number, minimum: 0 }
+    UpdateEmployeeRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Semua field bersifat opsional; PUT ini menggunakan partial update sesuai kontrak.
+      properties:
+        nama_lengkap: { type: string, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 255 }
+        nomor_telepon: { type: string, maxLength: 30 }
+        departemen_id: { $ref: "#/components/schemas/UUID" }
+        jabatan_id: { $ref: "#/components/schemas/UUID" }
+        atasan_id: { oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }] }
+        role: { $ref: "#/components/schemas/RoleName" }
+        status: { $ref: "#/components/schemas/EmployeeStatus" }
+        ktp: { $ref: "#/components/schemas/EmployeeKTP" }
+        alamat: { type: array, items: { $ref: "#/components/schemas/EmployeeAddress" } }
+        kontrak: { $ref: "#/components/schemas/EmployeeContract" }
+        bpjs: { type: array, items: { $ref: "#/components/schemas/EmployeeBPJS" } }
+        npwp: { $ref: "#/components/schemas/EmployeeNPWP" }
+        kontak_darurat:
+          type: array
+          items: { $ref: "#/components/schemas/EmergencyContact" }
+        pendidikan: { type: array, items: { $ref: "#/components/schemas/EducationHistory" } }
+        gaji_pokok: { type: number, minimum: 0 }
+        tunjangan: { type: number, minimum: 0 }
+    EmployeeDocumentUploadRequest:
+      type: object
+      required: [jenis_dokumen, file]
+      properties:
+        jenis_dokumen: { type: string, maxLength: 100 }
+        file:
+          type: string
+          format: binary
+          description: Maksimal 5 MB; format sesuai deskripsi endpoint.
+    EmployeeListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          required: [meta]
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/EmployeeSummary" } }
+            meta: { $ref: "#/components/schemas/PaginationMeta" }
+    EmployeeDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/EmployeeDetail" }
+    EmployeeDocumentListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/EmployeeDocument" } }
+    MyProfileResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/EmployeeDetail" }
+    ClockHistory:
+      type: object
+      properties:
+        tanggal: { type: string, format: date }
+        check_in: { type: [string, "null"], format: time }
+        check_out: { type: [string, "null"], format: time }
+        status: { type: string }
+    PersonalMetrics:
+      type: object
+      required: [periode, hadir, terlambat, izin, total_lembur_jam, riwayat_absensi]
+      properties:
+        periode: { $ref: "#/components/schemas/YearMonth" }
+        hadir: { type: integer, minimum: 0 }
+        terlambat: { type: integer, minimum: 0 }
+        izin: { type: integer, minimum: 0 }
+        total_lembur_jam: { type: number, minimum: 0 }
+        riwayat_absensi: { type: array, items: { $ref: "#/components/schemas/ClockHistory" } }
+    PersonalMetricsResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/PersonalMetrics" }
+    NamedCount:
+      type: object
+      required: [nama, jumlah]
+      properties:
+        nama: { type: string }
+        jumlah: { type: integer, minimum: 0 }
+    DashboardPeriodRange:
+      type: object
+      required: [tipe, tanggal_mulai, tanggal_selesai, timezone]
+      properties:
+        tipe: { $ref: "#/components/schemas/DashboardPeriod" }
+        tanggal_mulai: { type: string, format: date }
+        tanggal_selesai: { type: string, format: date }
+        timezone: { type: string, const: Asia/Jakarta }
+    GenderCount:
+      type: object
+      required: [kategori, jumlah]
+      properties:
+        kategori:
+          type: string
+          enum: [laki_laki, perempuan, belum_diisi]
+        jumlah: { type: integer, minimum: 0 }
+    OrganizationNode:
+      type: object
+      required: [employee_id, nama, departemen, jabatan, bawahan]
+      properties:
+        employee_id: { $ref: "#/components/schemas/UUID" }
+        nama: { type: string }
+        departemen: { type: string }
+        jabatan: { type: string }
+        bawahan:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizationNode" }
+    DashboardMetrics:
+      type: object
+      required:
+        [periode, total_karyawan, karyawan_aktif, karyawan_nonaktif, karyawan_baru,
+         resign, turnover_rate, hadir_valid, terlambat, hari_izin_disetujui,
+         estimasi_biaya_payroll, pengajuan_menunggu, komposisi_departemen_aktif,
+         komposisi_departemen_nonaktif, rasio_gender, organization_chart]
+      properties:
+        periode: { $ref: "#/components/schemas/DashboardPeriodRange" }
+        total_karyawan: { type: integer, minimum: 0 }
+        karyawan_aktif:
+          type: integer
+          minimum: 0
+          description: Status aktif dan cuti pada akhir periode.
+        karyawan_nonaktif:
+          type: integer
+          minimum: 0
+          description: Status nonaktif dan resign pada akhir periode.
+        karyawan_baru:
+          type: integer
+          minimum: 0
+          description: Tanggal masuk berada dalam rentang periode.
+        resign:
+          type: integer
+          minimum: 0
+          description: Status resign dengan deleted_at berada dalam rentang periode.
+        turnover_rate:
+          type: number
+          format: double
+          minimum: 0
+          description: Resign dibagi rata-rata headcount awal/akhir periode dikali 100; nol bila denominator nol.
+        hadir_valid:
+          type: integer
+          minimum: 0
+          description: Jumlah pasangan unik employee/tanggal dengan check-in valid dalam rentang periode.
+        terlambat:
+          type: integer
+          minimum: 0
+          description: Subset hadir_valid dengan waktu server setelah 09:00:00 Asia/Jakarta.
+        hari_izin_disetujui:
+          type: integer
+          minimum: 0
+          description: Total irisan hari Senin-Jumat dari izin final disetujui dalam periode.
+        estimasi_biaya_payroll:
+          type: number
+          format: double
+          minimum: 0
+          description: |
+            Sum alokasi take_home_pay bulanan berdasarkan proporsi hari kerja Senin-Jumat
+            yang beririsan dengan periode; belum memperhitungkan kalender libur.
+        pengajuan_menunggu: { type: integer, minimum: 0 }
+        komposisi_departemen_aktif:
+          type: array
+          description: Status aktif dan cuti pada akhir periode.
+          items: { $ref: "#/components/schemas/NamedCount" }
+        komposisi_departemen_nonaktif:
+          type: array
+          description: Status nonaktif dan resign pada akhir periode.
+          items: { $ref: "#/components/schemas/NamedCount" }
+        rasio_gender:
+          type: array
+          description: |
+            Hanya populasi aktif/cuti pada akhir periode. Gender wajib untuk data baru;
+            data legacy kosong masuk belum_diisi dan tidak dihitung sebagai laki_laki/perempuan.
+          items: { $ref: "#/components/schemas/GenderCount" }
+        organization_chart:
+          type: array
+          description: Pohon aktif/cuti pada akhir periode berdasarkan atasan_id; root tidak memiliki atasan aktif.
+          items: { $ref: "#/components/schemas/OrganizationNode" }
+    DashboardMetricsResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/DashboardMetrics" }
+    Attendance:
+      type: object
+      required: [id, employee_id, tanggal, tipe, mode_kerja, waktu, status]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        employee_id: { $ref: "#/components/schemas/UUID" }
+        tanggal: { type: string, format: date }
+        tipe: { $ref: "#/components/schemas/AttendanceType" }
+        mode_kerja: { $ref: "#/components/schemas/WorkMode" }
+        waktu: { type: string, format: date-time }
+        gps_lat: { type: number, minimum: -90, maximum: 90 }
+        gps_long: { type: number, minimum: -180, maximum: 180 }
+        office_location_id:
+          oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }]
+          description: Lokasi kantor yang dipilih untuk WFO; null untuk WFH/WFA.
+        distance_meters:
+          type: [number, "null"]
+          minimum: 0
+          description: Jarak hasil hitung server untuk WFO; null untuk WFH/WFA.
+        foto_url: { type: string, format: uri }
+        status: { type: string, enum: [tepat_waktu, terlambat, pulang_cepat, valid] }
+    AttendanceCheckRequest:
+      type: object
+      required: [tipe, mode_kerja, gps_lat, gps_long, foto]
+      description: |
+        Koordinat wajib untuk seluruh mode. Backend menerapkan radius kantor maksimal
+        100 meter hanya ketika mode_kerja=WFO terhadap lokasi kantor aktif yang dipilih;
+        WFH dan WFA tetap menyimpan koordinat tetapi tidak menjalankan validasi radius.
+      properties:
+        tipe: { $ref: "#/components/schemas/AttendanceType" }
+        mode_kerja: { $ref: "#/components/schemas/WorkMode" }
+        gps_lat: { type: number, minimum: -90, maximum: 90 }
+        gps_long: { type: number, minimum: -180, maximum: 180 }
+        office_location_id:
+          $ref: "#/components/schemas/UUID"
+          description: Wajib untuk WFO dan tidak digunakan untuk WFH/WFA.
+        foto: { type: string, format: binary, description: JPG/PNG maksimal 5 MB. }
+      allOf:
+        - if:
+            properties:
+              mode_kerja: { const: WFO }
+            required: [mode_kerja]
+          then:
+            required: [office_location_id]
+    AttendanceCheckResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Attendance" }
+    AttendanceLiveFeedItem:
+      allOf:
+        - $ref: "#/components/schemas/Attendance"
+        - type: object
+          properties:
+            nama_karyawan: { type: string }
+            departemen: { type: string }
+    AttendanceLiveFeedResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/AttendanceLiveFeedItem" } }
+    AttendanceReportItem:
+      type: object
+      required: [employee_id, nama_karyawan, hadir, terlambat, izin, alpha]
+      properties:
+        employee_id: { $ref: "#/components/schemas/UUID" }
+        nama_karyawan: { type: string }
+        departemen: { type: string }
+        hadir: { type: integer, minimum: 0 }
+        terlambat: { type: integer, minimum: 0 }
+        izin: { type: integer, minimum: 0 }
+        alpha: { type: integer, minimum: 0 }
+        total_jam_kerja: { type: number, minimum: 0 }
+    AttendanceReportResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          required: [meta]
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/AttendanceReportItem" } }
+            meta: { $ref: "#/components/schemas/PaginationMeta" }
+    LeaveType:
+      type: object
+      required: [id, kode, nama, kuota_tahunan, is_active]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        kode: { type: string, maxLength: 50 }
+        nama: { type: string, maxLength: 150 }
+        kuota_tahunan: { type: integer, minimum: 0 }
+        memerlukan_dokumen: { type: boolean }
+        is_active: { type: boolean }
+    CreateLeaveTypeRequest:
+      type: object
+      additionalProperties: false
+      required: [kode, nama, kuota_tahunan, memerlukan_dokumen]
+      properties:
+        kode: { type: string, maxLength: 50 }
+        nama: { type: string, maxLength: 150 }
+        kuota_tahunan: { type: integer, minimum: 0 }
+        memerlukan_dokumen: { type: boolean }
+    UpdateLeaveTypeRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        nama: { type: string, maxLength: 150 }
+        kuota_tahunan: { type: integer, minimum: 0 }
+        memerlukan_dokumen: { type: boolean }
+        is_active: { type: boolean }
+    LeaveTypeListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/LeaveType" } }
+    CreateLeaveRequest:
+      type: object
+      required: [jenis_izin_id, tanggal_mulai, tanggal_selesai, alasan]
+      properties:
+        jenis_izin_id: { $ref: "#/components/schemas/UUID" }
+        tanggal_mulai: { type: string, format: date }
+        tanggal_selesai: { type: string, format: date }
+        alasan: { type: string, minLength: 10, maxLength: 2000 }
+        dokumen_pendukung:
+          type: string
+          format: binary
+          description: Wajib bila master jenis izin mensyaratkannya; maksimal 5 MB.
+        lokasi_tujuan:
+          type: string
+          description: Wajib secara kondisional untuk Perjalanan Dinas.
+        keterangan_lokasi:
+          type: string
+          description: Wajib secara kondisional untuk Perjalanan Dinas.
+    ApprovalHistory:
+      type: object
+      required: [tahap, approver_nama, keputusan, decided_at]
+      properties:
+        tahap: { type: string, enum: [atasan, hr] }
+        approver_id: { $ref: "#/components/schemas/UUID" }
+        approver_nama: { type: string }
+        keputusan: { type: string, enum: [disetujui, ditolak, didelegasikan] }
+        catatan: { type: [string, "null"] }
+        decided_at: { type: string, format: date-time }
+    LeaveRequestSummary:
+      type: object
+      required:
+        [id, employee_id, nama_karyawan, jenis_izin, tanggal_mulai,
+         tanggal_selesai, jumlah_hari, status, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        employee_id: { $ref: "#/components/schemas/UUID" }
+        nama_karyawan: { type: string }
+        jenis_izin: { type: string }
+        tanggal_mulai: { type: string, format: date }
+        tanggal_selesai: { type: string, format: date }
+        jumlah_hari: { type: integer, minimum: 1 }
+        status: { $ref: "#/components/schemas/RequestStatus" }
+        created_at: { type: string, format: date-time }
+    LeaveRequestDetail:
+      allOf:
+        - $ref: "#/components/schemas/LeaveRequestSummary"
+        - type: object
+          properties:
+            alasan: { type: string }
+            dokumen_url: { type: [string, "null"], format: uri }
+            lokasi_tujuan: { type: [string, "null"] }
+            keterangan_lokasi: { type: [string, "null"] }
+            approval_history:
+              type: array
+              items: { $ref: "#/components/schemas/ApprovalHistory" }
+    LeaveRequestListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          required: [meta]
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/LeaveRequestSummary" } }
+            meta: { $ref: "#/components/schemas/PaginationMeta" }
+    LeaveRequestDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/LeaveRequestDetail" }
+    DecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [keputusan]
+      properties:
+        keputusan: { type: string, enum: [setujui, tolak] }
+        catatan: { type: string, maxLength: 1000 }
+      allOf:
+        - if:
+            properties:
+              keputusan: { const: tolak }
+          then:
+            required: [catatan]
+            properties:
+              catatan: { minLength: 5 }
+    DelegateRequest:
+      type: object
+      additionalProperties: false
+      required: [delegate_to, catatan]
+      properties:
+        delegate_to: { $ref: "#/components/schemas/UUID" }
+        catatan: { type: string, minLength: 5, maxLength: 1000 }
+    CreateOvertimeRequest:
+      type: object
+      required: [tanggal, waktu_mulai, waktu_selesai, alasan]
+      properties:
+        tanggal: { type: string, format: date }
+        waktu_mulai: { type: string, format: time }
+        waktu_selesai: { type: string, format: time }
+        alasan: { type: string, minLength: 10, maxLength: 2000 }
+        dokumen_pendukung: { type: string, format: binary, description: Maksimal 5 MB. }
+    OvertimeRequestSummary:
+      type: object
+      required:
+        [id, employee_id, nama_karyawan, tanggal, waktu_mulai, waktu_selesai,
+         total_jam, status, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        employee_id: { $ref: "#/components/schemas/UUID" }
+        nama_karyawan: { type: string }
+        tanggal: { type: string, format: date }
+        waktu_mulai: { type: string, format: time }
+        waktu_selesai: { type: string, format: time }
+        total_jam: { type: number, minimum: 0 }
+        status: { $ref: "#/components/schemas/RequestStatus" }
+        created_at: { type: string, format: date-time }
+    OvertimeRequestDetail:
+      allOf:
+        - $ref: "#/components/schemas/OvertimeRequestSummary"
+        - type: object
+          properties:
+            alasan: { type: string }
+            dokumen_url: { type: [string, "null"], format: uri }
+            approval_history:
+              type: array
+              items: { $ref: "#/components/schemas/ApprovalHistory" }
+    OvertimeRequestListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          required: [meta]
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/OvertimeRequestSummary" } }
+            meta: { $ref: "#/components/schemas/PaginationMeta" }
+    OvertimeRequestDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/OvertimeRequestDetail" }
+    OvertimeRecapItem:
+      type: object
+      required: [employee_id, nama_karyawan, total_pengajuan, total_jam]
+      properties:
+        employee_id: { $ref: "#/components/schemas/UUID" }
+        nama_karyawan: { type: string }
+        departemen: { type: string }
+        total_pengajuan: { type: integer, minimum: 0 }
+        total_jam: { type: number, minimum: 0 }
+    OvertimeRecapResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/OvertimeRecapItem" } }
+    RoleSummary:
+      type: object
+      required: [id, nama, deskripsi]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        nama: { $ref: "#/components/schemas/RoleName" }
+        deskripsi: { type: string }
+    RoleListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/RoleSummary" } }
+    Permission:
+      type: object
+      required: [id, role_id, modul, aksi, is_allowed]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        role_id: { $ref: "#/components/schemas/UUID" }
+        modul: { type: string }
+        aksi: { type: string, enum: [create, read, update, delete, approve, export] }
+        is_allowed: { type: boolean }
+    PermissionMatrixResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/Permission" } }
+    UpdatePermissionRequest:
+      type: object
+      additionalProperties: false
+      required: [role_id, modul, aksi, is_allowed]
+      properties:
+        role_id: { $ref: "#/components/schemas/UUID" }
+        modul: { type: string, maxLength: 100 }
+        aksi: { type: string, enum: [create, read, update, delete, approve, export] }
+        is_allowed: { type: boolean }
+    AuditLog:
+      type: object
+      required: [id, user_id, aksi, modul, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        user_id: { $ref: "#/components/schemas/UUID" }
+        nama_user: { type: string }
+        aksi: { type: string }
+        modul: { type: string }
+        resource_id: { oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }] }
+        detail: { type: [object, "null"], additionalProperties: true }
+        ip_address: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+    AuditLogListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          required: [meta]
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/AuditLog" } }
+            meta: { $ref: "#/components/schemas/PaginationMeta" }
+    Notification:
+      type: object
+      required: [id, user_id, tipe, judul, pesan, is_read, created_at]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        user_id: { $ref: "#/components/schemas/UUID" }
+        tipe:
+          type: string
+          example: ketidakhadiran_baru
+        judul: { type: string }
+        pesan: { type: string }
+        reference_id: { oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }] }
+        reference_type: { type: [string, "null"] }
+        is_read: { type: boolean }
+        read_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+    NotificationListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          required: [meta]
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/Notification" } }
+            meta: { $ref: "#/components/schemas/PaginationMeta" }
+    UnreadCountData:
+      type: object
+      required: [unread_count]
+      properties:
+        unread_count: { type: integer, minimum: 0 }
+    UnreadCountResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/UnreadCountData" }

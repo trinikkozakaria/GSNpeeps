@@ -105,12 +105,14 @@ Non-scope:
 4. CONTRACT H-30 WORKER
 
    Harian:
-   - Query active contract yang berakhir tepat dalam window H-30 sesuai timezone
-     Asia/Jakarta dan policy dokumen.
-   - Kirim ke atasan langsung employee dan seluruh HR yang ditentukan policy.
-   - Jangan kirim ke Top Management.
-   - Jika employee adalah HR tanpa atasan, jangan self-notify; arahkan ke HR lain atau
-     Top Management sesuai API Contract note.
+   - Query kontrak aktif yang tanggal berakhirnya tepat 30 hari kalender dari tanggal
+     worker dalam timezone Asia/Jakarta.
+   - Kirim ke atasan langsung yang aktif jika tersedia.
+   - Kirim ke semua HR aktif selain employee yang kontraknya akan habis.
+   - Jika tidak ada HR aktif yang memenuhi syarat, kirim ke satu-satunya Top Management aktif.
+   - Deduplikasi semua recipient berdasarkan user ID sebelum membuat event key.
+   - Jika fallback diperlukan tetapi Top Management aktif tidak ditemukan, tandai item gagal,
+     emit metric, dan jangan self-notify atau menganggap item sukses.
    - Gunakan unique event key.
    - Multi-worker safe, batched, retryable, dan idempotent.
    - Repeat run pada hari yang sama tidak menambah row.
@@ -195,7 +197,7 @@ Non-scope:
 
 10. HARDENING AUTHORIZATION
 
-    Buat matrix test otomatis untuk 42 endpoint:
+    Buat matrix test otomatis untuk 46 endpoint:
     - Public.
     - Karyawan.
     - Atasan sendiri/bawahan/bukan bawahan.
@@ -239,7 +241,7 @@ Non-scope:
 
     Unit:
     - Event key stability dan uniqueness antar stage/cycle/recipient.
-    - Recipient resolution seluruh role.
+    - Recipient resolution seluruh role, pengecualian subjek HR, dan fallback Top Management.
     - Dismissed event tidak dibuat ulang.
     - Permission invariant dan cache invalidation.
     - Audit redaction.
@@ -247,17 +249,18 @@ Non-scope:
     Integration/concurrency:
     - Dua writer event sama -> satu notification.
     - Scheduler H-30 repeat/concurrent -> satu per recipient.
+    - H-30 -> atasan aktif + semua HR aktif selain subjek; tanpa HR eligible -> satu Top Management.
     - Read/unread/dismiss row-level security.
     - Dismiss kemudian retry event -> tetap tidak muncul.
     - Permission update HR berhasil; Top Management ditolak.
     - Audit UPDATE/DELETE SQL ditolak DB.
     - Pagination/filter/index behavior.
-    - 42-endpoint authorization matrix.
+    - 45-endpoint authorization matrix.
 
 Quality gates:
 1. Format, tidy, vet, unit/integration/concurrency tests, linter.
 2. API/worker build.
-3. OpenAPI lint dan tepat 42 operation.
+3. OpenAPI lint dan tepat 46 operation.
 4. Migration up/down-one.
 5. Docker config dan repeat-run worker smoke test.
 6. Security/secret/PII/log scan.
@@ -291,13 +294,13 @@ Aturan akhir:
 - [ ] Migration notifications dan seluruh constraint/index sesuai schema.
 - [ ] Event key deterministik dan unique per recipient/event.
 - [ ] Event approval/delegation/escalation menghasilkan recipient yang benar.
-- [ ] Scheduler H-30 idempotent dan tidak salah self-notify.
+- [ ] Scheduler H-30 idempotent, mengecualikan subjek, dan fallback ke satu Top Management.
 - [ ] List/count/read/dismiss selalu row-scoped.
 - [ ] Dismissed event tidak pernah dibuat ulang.
 - [ ] HR dapat update permission; Top Management hanya read.
 - [ ] Permission cache invalidated segera.
 - [ ] Audit Log lengkap, ter-redact, dan immutable di level DB.
-- [ ] Authorization matrix seluruh 42 endpoint lulus.
+- [ ] Authorization matrix seluruh 46 endpoint lulus.
 - [ ] Seluruh hardening dan quality gate lulus tanpa temuan critical.
 
 ## Files yang Akan Dibuat atau Disesuaikan

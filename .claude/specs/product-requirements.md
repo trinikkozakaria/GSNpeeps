@@ -226,6 +226,11 @@ Required metrics/views:
 Requirements:
 
 - HR full view; Top Management read-only.
+- Period filter supports daily, weekly (Monday-Sunday), monthly, and yearly calendar ranges
+  using an anchor date and Asia/Jakarta boundaries.
+- Attendance counts valid check-ins only; check-ins after 09:00:00 WIB are late.
+- Active and inactive employee counts/department composition are presented separately.
+- Missing gender is shown as `belum_diisi`, never counted as male or female.
 - Period and no-data/zero meaning must be explicit.
 - Hiring Progress, Recruitment Cost, and Benefit remain Coming Soon.
 - Do not fabricate dashboard records.
@@ -247,6 +252,11 @@ Requirements:
 - Server/network time is authoritative.
 - WFO requires distance <=100 meters from approved office coordinates.
 - WFH/WFA do not use office-radius restriction.
+- Multiple offices use `office_locations`; employees may choose any active office for WFO,
+  with no permanent employee-office assignment.
+- Official addresses/coordinates remain pending seed configuration and must not be fabricated.
+- Regular workdays are Monday-Friday, 09:00-18:00 `Asia/Jakarta`. Check-in after 09:00 is
+  late; early checkout is allowed and recorded.
 - JPG/PNG only, maximum 5 MB.
 - Prevent duplicate check-in and checkout without open check-in.
 - No attendance reminder.
@@ -320,7 +330,8 @@ Features:
 - Mark read.
 - Dismiss.
 - Safe internal deep link.
-- Events for submission, transition, decision, delegation, escalation, and contract H-30.
+- Events for submission, transition, decision, delegation, escalation, and contracts ending
+  exactly 30 calendar days later in timezone Asia/Jakarta.
 
 Requirements:
 
@@ -481,7 +492,7 @@ Do not show inaccessible navigation, but still enforce backend authorization.
 
 ### Phase A — Contract
 
-- OpenAPI for approved 42 operations.
+- OpenAPI for approved 46 operations in contract revision 0.4.0.
 
 ### Phase B — Vertical slices
 
@@ -513,7 +524,6 @@ Do not show inaccessible navigation, but still enforce backend authorization.
 - Reset-password public contract.
 - Frontend reload/session strategy without refresh endpoint.
 - Exact employee document read/download scope for Top Management.
-- Contract H-30 fallback recipient for HR without supervisor.
 - Exact metric formulas/period boundaries where summaries are insufficient.
 - File download/URL authorization mechanism.
 - Unspecified backend/frontend libraries.

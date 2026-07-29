@@ -14,7 +14,8 @@ actions, session expiry, and role-aware UI.
 
 ## Session contract
 
-- GSNpeeps provides login and logout only.
+- GSNpeeps provides login, logout, current-user bootstrap, own-password change, and
+  public rate-limited self-reset that verifies the current password.
 - JWT lifetime is eight hours.
 - The backend cross-checks the active Redis session.
 - There is no approved refresh endpoint or refresh-token flow.
@@ -36,13 +37,13 @@ Do not render protected content while state is `unknown`.
 At application start:
 
 1. Resolve the token/session using the approved storage strategy.
-2. Validate identity through an approved endpoint if the contract provides one.
+2. Validate identity through `GET /api/v1/auth/me`.
 3. Resolve current role/capabilities before mounting protected routes.
 4. Clear invalid session data and protected cache.
 5. Render the protected shell only after resolution.
 
-If the API contract lacks a current-user/bootstrap operation, record the gap and ask for a
-contract decision. Do not invent `/auth/me` or `/auth/refresh`.
+Do not decode or trust browser state as authorization truth. `/auth/me` is the approved
+bootstrap operation; `/auth/refresh` remains forbidden.
 
 ## Route protection
 

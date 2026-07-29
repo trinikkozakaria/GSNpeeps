@@ -22,7 +22,7 @@ Sebelum mulai:
 Tujuan:
 - Membuktikan frontend, API, worker, PostgreSQL, Redis, Nextcloud, dan Nginx bekerja
   sebagai satu sistem.
-- Membuktikan tepat 42 endpoint mengikuti OpenAPI.
+- Membuktikan tepat 46 endpoint mengikuti OpenAPI.
 - Membuktikan empat role dan row-level authorization.
 - Menghasilkan evidence release yang dapat direview.
 
@@ -38,7 +38,7 @@ Tujuan:
 2. OPENAPI CONFORMANCE
 
    - Lint OpenAPI 3.1 tanpa error.
-   - Hitung tepat 42 operation.
+   - Hitung tepat 46 operation.
    - Resolve seluruh `$ref`.
    - Bandingkan route registry backend dengan OpenAPI:
      - Tidak ada endpoint undocumented.
@@ -139,6 +139,9 @@ Tujuan:
    - Top Management report read-only.
    - Karyawan/Atasan global report forbidden.
    - Photo retention worker retry/repeat.
+   - Dashboard daily/weekly/monthly/yearly boundaries in Asia/Jakarta.
+   - Valid check-in attendance, 09:00 boundary, inactive separation, and
+     `belum_diisi` gender category.
 
 9. END-TO-END APPROVAL
 
@@ -173,8 +176,10 @@ Tujuan:
     - Dismiss.
     - Retry event after dismiss tidak muncul.
     - Concurrent/repeat writer tidak duplicate.
-    - Contract H-30 recipients.
-    - HR without supervisor tidak self-notify secara salah.
+    - Contract H-30 tepat 30 hari kalender sebelum berakhir dalam timezone Asia/Jakarta.
+    - Recipient menuju atasan aktif dan semua HR aktif selain subjek.
+    - Tanpa HR eligible, fallback menuju satu Top Management aktif.
+    - Missing active Top Management pada kondisi fallback menghasilkan failure terukur.
 
 11. ACCESS DAN AUDIT
 
@@ -189,7 +194,7 @@ Tujuan:
 
 12. AUTHORIZATION MATRIX
 
-    Buat machine-readable test matrix untuk seluruh 42 endpoint:
+    Buat machine-readable test matrix untuk seluruh 46 endpoint:
     - Public.
     - Karyawan owner/non-owner.
     - Atasan owner/direct-report/non-report.
@@ -299,7 +304,7 @@ Tujuan:
 Quality gates:
 1. Backend format/tidy/vet/lint/unit/integration/concurrency/build.
 2. Frontend format/lint/unit/component/E2E/build.
-3. OpenAPI lint, 42 operations, refs resolved.
+3. OpenAPI lint, 46 operations, refs resolved.
 4. Migration clean/up/down-one/re-up.
 5. Docker Compose config + all image build.
 6. Authorization matrix.
@@ -329,7 +334,7 @@ Aturan akhir:
 
 ## Acceptance Criteria
 
-- [ ] Tepat 42 endpoint selaras antara OpenAPI, backend, frontend, dan mocks.
+- [ ] Tepat 46 endpoint selaras antara OpenAPI, backend, frontend, dan mocks.
 - [ ] Migration 26 tabel dari clean database serta rollback test lulus.
 - [ ] Seluruh service build dan topology Docker sesuai System Design.
 - [ ] E2E auth, employee, attendance, approval, notification, access, dan audit lulus.

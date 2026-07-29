@@ -154,7 +154,11 @@ Scope:
     - Org chart.
 
     Requirements:
-    - Period selector `YYYY-MM`.
+    - Selector periode harian/mingguan/bulanan/tahunan dan tanggal acuan.
+    - Mingguan ditampilkan Senin-Minggu dalam timezone Asia/Jakarta.
+    - Tampilkan karyawan/departemen aktif dan nonaktif pada bagian terpisah.
+    - Tampilkan gender `belum_diisi` secara eksplisit jika count lebih dari nol.
+    - Label status Bahasa Indonesia dipetakan dari enum API lowercase; jangan mengubah wire value.
     - Chart accessible dengan text summary/table alternative.
     - Currency/percentage/date formatting locale Indonesia.
     - Responsive.
@@ -232,14 +236,19 @@ Aturan akhir:
 ## Files yang Akan Dibuat atau Disesuaikan
 
 ```text
-frontend/src/features/
-├── employees/{api,components,routes,schemas,tests}/
-├── profile/{api,components,routes,tests}/
-└── dashboard/{api,components,routes,tests}/
+frontend/src/modules/
+├── employees/{api,components,hooks,pages,schemas,tests}/
+├── profile/{api,components,hooks,pages,tests}/
+└── dashboard/
+    ├── api/
+    ├── components/{hr,employee}/
+    ├── hooks/
+    ├── pages/
+    └── tests/
 
 frontend/src/components/
 ├── data-table/
-├── forms/
+├── form/
 └── charts/
 ```
 

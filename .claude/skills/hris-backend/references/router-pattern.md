@@ -81,8 +81,7 @@ Use `http.Server` or the approved equivalent with read header, read, write, idle
 
 - Every route specifies method and path.
 - Wrong methods return the intended 405 behavior.
-- Exactly 42 operations match OpenAPI.
+- Exactly 46 operations match OpenAPI.
 - Public routes do not require auth.
 - Protected routes cannot bypass auth/RBAC.
 - No undocumented route appears in the registry.
-

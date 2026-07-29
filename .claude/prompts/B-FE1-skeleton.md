@@ -43,6 +43,8 @@ Periksa apakah repository sudah menetapkan:
 - Linter dan formatter.
 - Unit/component/E2E test stack.
 - Mocking strategy.
+- Bila mengusulkan Next.js: putuskan static export atau Node/standalone runtime; baseline
+  tetap static Nginx kecuali perubahan deployment disetujui eksplisit.
 
 Jika belum:
 1. Buat `docs/architecture/frontend-stack-proposal.md`.
@@ -67,15 +69,21 @@ Jika stack sudah disetujui, kerjakan:
 2. FOLDER STRUCTURE
 
    Target:
-   - `src/app` untuk bootstrap/providers.
-   - `src/routes` untuk route definitions/guards.
-   - `src/features` untuk feature modules.
+   - `src/app` untuk entry routing dan providers sesuai framework.
+   - Jika Next.js App Router disetujui, gunakan route group `(auth)` dan `(dashboard)`;
+     jangan membuat `src/routes`.
+   - Jika client router lain disetujui, gunakan `src/routes` dan jangan meniru file route Next.js.
+   - `src/modules` untuk modul bisnis. Setiap modul memiliki folder sendiri.
+   - Di dalam modul, pisahkan `pages`, `components`, `hooks`, `api`, `schemas`, `utils`,
+     dan `tests` sesuai kebutuhan; jangan membuat folder kosong.
    - `src/components/ui` untuk primitives.
    - `src/components/layout` untuk shell.
-   - `src/api` untuk client, contracts, dan error mapping.
-   - `src/hooks`, `src/stores`, `src/schemas`, `src/styles`, `src/test`.
+   - `src/lib/api` untuk transport client, response envelope, dan error mapping.
+   - `src/hooks`, `src/stores`, `src/schemas`, `src/mocks`, `src/styles`, `src/test`.
+   - `.storybook` hanya jika Storybook/component workbench sudah disetujui.
 
-   Jangan membuat barrel file besar atau folder duplikat tanpa kebutuhan.
+   Jangan membuat barrel file besar atau folder duplikat tanpa kebutuhan. Jangan commit
+   `.next`, `dist`, `node_modules`, coverage, cache, atau debug log.
 
 3. ENVIRONMENT CONFIG
 
@@ -302,7 +310,7 @@ Aturan akhir:
 
 - [ ] Frontend stack telah disetujui dan terdokumentasi.
 - [ ] React + Tailwind scaffold dan production build berfungsi.
-- [ ] Struktur feature/shared jelas tanpa folder duplikat.
+- [ ] Struktur module/shared jelas tanpa folder duplikat.
 - [ ] Design tokens dan primitives memenuhi accessibility dasar.
 - [ ] API client mengikuti success/error envelope OpenAPI.
 - [ ] AppShell responsif, keyboard accessible, dan memakai nama GSNpeeps.
@@ -316,15 +324,16 @@ Aturan akhir:
 frontend/
 ├── src/
 │   ├── app/
-│   ├── routes/
-│   ├── features/
-│   ├── components/{ui,layout}/
-│   ├── api/
+│   ├── modules/
+│   ├── components/{ui,form,layout,feedback,data-table,charts}/
+│   ├── lib/api/
 │   ├── hooks/
 │   ├── stores/
 │   ├── schemas/
+│   ├── mocks/
 │   ├── styles/
 │   └── test/
+├── .storybook/                # hanya jika disetujui
 ├── public/
 ├── .env.example
 ├── Dockerfile

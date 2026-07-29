@@ -78,9 +78,10 @@ Kerjakan dengan urutan:
      - `internal/platform/redis`
      - `internal/platform/nextcloud`
      - `internal/platform/logger`
-     - `internal/http/router`
-     - `internal/http/response`
+     - `internal/router`
+     - `internal/pkg/response`
      - `internal/worker`
+     - `cmd/seed` ketika seed runner benar-benar diimplementasikan
    - Jangan membuat package bisnis kosong hanya agar tree terlihat lengkap.
      Tambahkan file hanya bila memiliki kontrak atau implementasi nyata.
 
@@ -428,11 +429,18 @@ Struktur final mengikuti library yang disetujui, dengan target minimum:
 backend/
 ├── cmd/
 │   ├── api/main.go
-│   └── worker/main.go
+│   ├── worker/main.go
+│   └── seed/main.go
 ├── internal/
 │   ├── config/
 │   │   ├── config.go
 │   │   └── config_test.go
+│   ├── domain/
+│   ├── dto/
+│   ├── validation/
+│   ├── repository/
+│   ├── service/
+│   ├── handler/
 │   ├── middleware/
 │   │   ├── recovery.go
 │   │   ├── request_id.go
@@ -440,22 +448,24 @@ backend/
 │   │   ├── cors.go
 │   │   ├── body_limit.go
 │   │   └── identity.go
+│   ├── router/
+│   │   └── router.go
 │   ├── platform/
 │   │   ├── logger/
 │   │   ├── postgres/
 │   │   ├── redis/
 │   │   └── nextcloud/
-│   ├── http/
-│   │   ├── router/
+│   ├── pkg/
 │   │   └── response/
-│   ├── validation/
 │   └── worker/
 ├── migrations/
+├── seeds/
 ├── tests/
 ├── .env.example
 ├── Dockerfile
 ├── Makefile
-└── go.mod
+├── go.mod
+└── go.sum
 
 docs/
 └── architecture/

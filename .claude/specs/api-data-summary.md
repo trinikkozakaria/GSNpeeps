@@ -141,7 +141,17 @@ Do not invent resource-specific codes; transcribe them from the PDF/OpenAPI.
 
 ## Operation inventory
 
-The API Contract defines **42 operations in 13 modules**.
+API Contract PDF v1.1 defines **42 operations in 13 modules**. Contract revision 0.4.0
+adds four approved operations, so the active OpenAPI contains **46 operations**.
+
+Revision 0.4.0 additions:
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/auth/me` | Authenticated | Restore current identity and role |
+| PATCH | `/api/v1/auth/me/password` | Authenticated | Change own password and revoke sessions |
+| POST | `/api/v1/auth/reset-password` | Public, rate-limited | Self-reset after current-password verification |
+| GET | `/api/v1/master/lokasi-kantor` | Authenticated | Active trusted office coordinates for WFO |
 
 ### 1. System — 1
 
@@ -156,7 +166,8 @@ The API Contract defines **42 operations in 13 modules**.
 | 2 | POST | `/api/v1/auth/login` | Public | Authenticate, apply lockout, issue JWT/session |
 | 3 | POST | `/api/v1/auth/logout` | Authenticated | Invalidate current active session |
 
-No refresh, current-user, registration, or reset-password operation is listed.
+The PDF lists no current-user or reset operation; revision 0.4.0 adds them. Refresh,
+registration, HR password reset, and forgot-password email/OTP remain out of scope.
 
 ### 3. Organization master — 2
 
@@ -263,7 +274,7 @@ create `/checkout` silently.
 | Module | Primary tables | External dependency |
 |---|---|---|
 | Auth | users, roles, employees, audit_logs | Redis |
-| Organization | departments, positions | — |
+| Organization | office_locations, departments, positions | — |
 | Employee | employees and employee detail tables | Nextcloud for documents |
 | Profile/dashboard | employees, salaries, attendance, leave, organization | — |
 | Attendance/report | attendances, employees | Nextcloud for photos |
@@ -274,7 +285,7 @@ create `/checkout` silently.
 
 ## Database conventions
 
-- Total: **26 tables**.
+- Total implementation target: **26 explicitly named tables**.
 - Primary keys: UUID generated with `gen_random_uuid()`.
 - Foreign keys: `ON DELETE RESTRICT` by default.
 - Timestamps: approved `created_at`/`updated_at`; use exact schema.
@@ -287,71 +298,72 @@ create `/checkout` silently.
 
 ## Table catalog
 
-### Organization and account — 5
+### Organization and account — 6
 
 | # | Table | Purpose |
 |---:|---|---|
-| 1 | `departments` | Organization departments |
-| 2 | `positions` | Positions linked to organization structure |
-| 3 | `roles` | Four stable role definitions |
-| 4 | `employees` | Employee core, status, organization, direct supervisor |
-| 5 | `users` | Authentication account linked to employee/role |
+| 1 | `office_locations` | Active office code/name/address and trusted WFO coordinates |
+| 2 | `departments` | Organization departments |
+| 3 | `positions` | Positions linked to organization structure |
+| 4 | `roles` | Four stable role definitions |
+| 5 | `employees` | Employee core, status, organization, direct supervisor |
+| 6 | `users` | Authentication account linked to employee/role |
 
 ### Employee detail — 10
 
 | # | Table | Purpose |
 |---:|---|---|
-| 6 | `employee_addresses` | Employee address information |
-| 7 | `employee_ktp` | KTP identity details |
-| 8 | `employee_contracts` | Employment contract and expiry data |
-| 9 | `employee_bpjs` | BPJS information |
-| 10 | `employee_npwp` | Tax/NPWP information |
-| 11 | `employee_emergency_contacts` | Emergency contacts |
-| 12 | `employee_education` | Education history |
-| 13 | `employee_position_history` | Position/department movement history |
-| 14 | `employee_salaries` | Salary by period |
-| 15 | `employee_documents` | Nextcloud file metadata/locator |
+| 7 | `employee_addresses` | Employee address information |
+| 8 | `employee_ktp` | KTP identity details |
+| 9 | `employee_contracts` | Employment contract and expiry data |
+| 10 | `employee_bpjs` | BPJS information |
+| 11 | `employee_npwp` | Tax/NPWP information |
+| 12 | `employee_emergency_contacts` | Emergency contacts |
+| 13 | `employee_education` | Education history |
+| 14 | `employee_position_history` | Position/department movement history |
+| 15 | `employee_salaries` | Salary by period |
+| 16 | `employee_documents` | Nextcloud file metadata/locator |
 
 ### Attendance and leave — 5
 
 | # | Table | Purpose |
 |---:|---|---|
-| 16 | `attendances` | Check-in/out, photo URL, mode, time, location |
-| 17 | `leave_types` | Master leave/absence types |
-| 18 | `leave_balances` | Annual user leave balances |
-| 19 | `leave_requests` | Leave/absence request current state |
-| 20 | `leave_approvals` | Immutable approval/delegation/escalation history |
+| 17 | `attendances` | Check-in/out, photo URL, mode, time, location |
+| 18 | `leave_types` | Master leave/absence types |
+| 19 | `leave_balances` | Annual user leave balances |
+| 20 | `leave_requests` | Leave/absence request current state |
+| 21 | `leave_approvals` | Immutable approval/delegation/escalation history |
 
 ### Overtime — 2
 
 | # | Table | Purpose |
 |---:|---|---|
-| 21 | `overtime_requests` | Overtime request current state/duration |
-| 22 | `overtime_approvals` | Overtime approval history |
+| 22 | `overtime_requests` | Overtime request current state/duration |
+| 23 | `overtime_approvals` | Overtime approval history |
 
 ### Access and audit — 2
 
 | # | Table | Purpose |
 |---:|---|---|
-| 23 | `permissions` | Permission catalog/mapping data per schema |
-| 24 | `audit_logs` | Append-only audit evidence |
+| 24 | `permissions` | Permission catalog/mapping data per schema |
+| 25 | `audit_logs` | Append-only audit evidence |
 
 ### Notifications — 1
 
 | # | Table | Purpose |
 |---:|---|---|
-| 25 | `notifications` | Recipient event, read and dismissed state |
+| 26 | `notifications` | Recipient event, read and dismissed state |
 
-The source summary states 26 tables while the enumerated names above total 25. This is a
-material reconciliation issue: read Database Schema v1.1 to identify the omitted table
-(potentially a role-permission mapping or another explicitly named table) before creating
-migrations. Do not invent the table name from convention.
+Product decision D-013 resolves the source count mismatch by defining `office_locations` as
+table 26. It has UUID `id`, unique `code`, `name`, nullable `address`, `latitude`, `longitude`,
+`is_active`, `created_at`, and `updated_at`. Do not add permanent employee-office assignment.
 
 ## Relationship map
 
 Conceptual relationships:
 
 ```text
+office_locations -> attendances.office_location_id (WFO only)
 departments -> positions
 departments/positions -> employees
 employees -> employees.atasan_id
@@ -442,20 +454,16 @@ For concurrency:
 
 ## Contract gaps
 
-Resolve before implementation:
+Remaining decisions:
 
-1. Enumerated table names total 25 while source summary says 26.
-2. Check-in/out requirements versus only `POST /absensi/checkin` in operation inventory.
-3. Reset password required by lockout policy but absent from API operations.
-4. Frontend session restoration without refresh/current-user operation.
-5. `PUT /karyawan/{id}` full-versus-partial update semantics.
-6. Top Management document/master-leave/overtime-recap read scope.
-7. Exact file download/access mechanism.
-8. Exact dashboard formulas/period parameters.
+1. Exact file download/access mechanism.
+2. Multi-office schema, coordinates, employee assignment, and WFO office-selection rule.
+3. Exact formulas for dashboard joiners, resignations, turnover, leave, payroll cost, and
+   organization chart; period/attendance/inactive/gender rules are resolved by D-015.
 
 ## Implementation checklist
 
-- [ ] Exact operation count remains 42.
+- [ ] Exact active operation count remains 45.
 - [ ] Exact table count/names reconcile with Database Schema.
 - [ ] Payloads and columns are transcribed, not guessed.
 - [ ] API and DB nullability/optionality match.

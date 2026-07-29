@@ -190,10 +190,10 @@ Aturan akhir:
 ## Files yang Akan Dibuat atau Disesuaikan
 
 ```text
-frontend/src/features/
-├── notifications/{api,components,routes,tests}/
-├── access/{api,components,routes,tests}/
-└── audit/{api,components,routes,tests}/
+frontend/src/modules/
+├── notifications/{api,components,hooks,pages,tests}/
+├── access/{api,components,hooks,pages,tests}/
+└── audit/{api,components,hooks,pages,tests}/
 
 frontend/src/
 ├── components/layout/NotificationBell.*

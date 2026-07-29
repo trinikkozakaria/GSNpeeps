@@ -34,7 +34,7 @@ If Goose is explicitly approved, use timestamped SQL files and Goose Up/Down dir
 
 ## Dependency order
 
-Create the 26 contract tables in FK-safe groups:
+Create the 25 explicitly named contract tables in FK-safe groups:
 
 1. `departments`, `positions`, `roles`, `employees`, `users`.
 2. Ten employee-detail tables.

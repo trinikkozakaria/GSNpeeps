@@ -232,12 +232,12 @@ Aturan akhir:
 ## Files yang Akan Dibuat atau Disesuaikan
 
 ```text
-frontend/src/features/
-├── attendance/{api,components,routes,hooks,tests}/
-├── attendance-reports/{api,components,routes,tests}/
-├── leave/{api,components,routes,schemas,tests}/
-├── overtime/{api,components,routes,schemas,tests}/
-└── approvals/{api,components,routes,tests}/
+frontend/src/modules/
+├── attendance/{api,components,hooks,pages,tests}/
+├── attendance-reports/{api,components,hooks,pages,tests}/
+├── leave/{api,components,hooks,pages,schemas,tests}/
+├── overtime/{api,components,hooks,pages,schemas,tests}/
+└── approvals/{api,components,hooks,pages,tests}/
 ```
 
 Ikuti stack/language yang telah disetujui.

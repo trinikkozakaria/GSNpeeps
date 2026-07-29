@@ -1,6 +1,6 @@
 # Frontend architecture
 
-Use this reference when establishing the frontend foundation, placing a new feature,
+Use this reference when establishing the frontend foundation, placing a new module,
 reviewing imports, or changing routing, state, API, build, and delivery boundaries.
 
 ## Contents
@@ -8,8 +8,10 @@ reviewing imports, or changing routing, state, API, build, and delivery boundari
 - [Architecture target](#architecture-target)
 - [Runtime context](#runtime-context)
 - [Canonical structure](#canonical-structure)
+- [Routing variants](#routing-variants)
+- [Module anatomy](#module-anatomy)
 - [Dependency direction](#dependency-direction)
-- [Feature boundaries](#feature-boundaries)
+- [Module boundaries](#module-boundaries)
 - [Data ownership](#data-ownership)
 - [Route architecture](#route-architecture)
 - [Provider composition](#provider-composition)
@@ -23,8 +25,8 @@ reviewing imports, or changing routing, state, API, build, and delivery boundari
 
 ## Architecture target
 
-Build a client-side React application that produces static production assets served by
-Nginx and communicates with the Go backend through `/api/v1`.
+Build a browser-delivered React application that communicates with the Go backend through
+`/api/v1`. The approved baseline produces static production assets served by Nginx.
 
 ```text
 Browser
@@ -33,10 +35,10 @@ Browser
       `-> /api/v1 proxy -> Go API
 ```
 
-Use a feature-oriented modular frontend:
+Use a business-module-oriented frontend:
 
 ```text
-route -> page composition -> feature component/hook -> API boundary
+route -> page composition -> module component/hook -> API boundary
                       |                |
                       v                v
                  shared UI       server-state boundary
@@ -44,8 +46,8 @@ route -> page composition -> feature component/hook -> API boundary
 
 Apply these principles:
 
-- Keep route modules thin and feature behavior cohesive.
-- Make shared primitives domain-neutral and feature composites domain-aware.
+- Keep route files thin and module behavior cohesive.
+- Make shared primitives domain-neutral and module composites domain-aware.
 - Keep the OpenAPI contract at the API boundary.
 - Keep server data, URL state, form state, and local UI state in their proper owners.
 - Centralize authentication, response errors, route capabilities, and navigation.
@@ -85,62 +87,189 @@ Use this target after foundational tooling is approved:
 frontend/
 |-- public/
 |-- src/
-|   |-- app/                    startup and provider composition
-|   |-- routes/                 route definitions, guards, lazy boundaries
-|   |-- features/
+|   |-- app/                    approved routing entry and provider composition
+|   |-- modules/               one folder per business capability
 |   |   |-- auth/
 |   |   |-- dashboard/
 |   |   |-- employees/
 |   |   |-- profile/
 |   |   |-- attendance/
+|   |   |-- attendance-reports/
 |   |   |-- leave/
 |   |   |-- overtime/
+|   |   |-- approvals/
 |   |   |-- notifications/
-|   |   `-- access/
+|   |   |-- access/
+|   |   `-- audit/
 |   |-- components/
 |   |   |-- ui/                domain-neutral primitives
 |   |   |-- form/              approved form-layer adapters
 |   |   |-- layout/            shell, sidebar, topbar, containers
+|   |   |-- data-table/        cross-module table primitives/composition
+|   |   |-- charts/            cross-module chart wrappers when justified
 |   |   `-- feedback/          loading, empty, error, forbidden
-|   |-- api/                    client, endpoint modules, error mapping
-|   |-- hooks/                  truly cross-feature hooks only
+|   |-- lib/
+|   |   |-- api/               transport, envelope, auth header, error mapping
+|   |   `-- query/             shared query client/config only if approved
+|   |-- hooks/                  truly cross-module hooks only
 |   |-- stores/                 approved global client state only
 |   |-- schemas/                shared contract-derived validation
+|   |-- mocks/                  approved development/test network mocks
 |   |-- styles/                 tokens and global styles
 |   |-- test/                   test render, handlers, fixtures
-|   `-- main.<approved-ext>
+|   `-- main.<approved-ext>     only when required by the approved build tool
+|-- .storybook/                 only when the workbench is approved
 |-- .env.example
 |-- Dockerfile
 |-- package.json
 `-- <approved-lockfile>
 ```
 
-Keep feature-local code inside the feature:
+Do not commit generated directories such as `.next`, `dist`, `node_modules`, coverage,
+workbench output, caches, or debug logs. Do not keep backup routing files such as
+`middleware-bck.*`. Remove obsolete code through the approved Git workflow.
+
+## Routing variants
+
+Choose exactly one routing layout after the framework/router decision.
+
+If Next.js App Router is approved:
 
 ```text
-features/employees/
-|-- api/
-|-- components/
-|-- hooks/
-|-- schemas/
+src/app/
+|-- (auth)/
+|   `-- login/
+|       `-- page.<approved-ext>
+|-- (dashboard)/
+|   |-- layout.<approved-ext>
+|   |-- dashboard/
+|   |   `-- page.<approved-ext>
+|   |-- employees/
+|   |   |-- page.<approved-ext>
+|   |   `-- [id]/
+|   |       `-- page.<approved-ext>
+|   `-- attendance/
+|       `-- page.<approved-ext>
+|-- globals.css
+|-- layout.<approved-ext>
+|-- page.<approved-ext>
+`-- providers.<approved-ext>
+```
+
+Route groups organize layout/auth boundaries without changing the public URL. Keep each
+`page` and route `layout` thin: resolve framework concerns, then compose the owning
+`src/modules` page/components. Do not move business components into `src/app`.
+
+The default approved deployment remains static Nginx delivery. If Next.js is selected, record
+whether it uses static export or a Node runtime:
+
+- Static export must not depend on server middleware, runtime proxy, server actions, or other
+  unsupported runtime-only behavior.
+- A Node/standalone runtime changes the deployment topology and requires an approved
+  architecture decision plus Docker/Nginx updates.
+- Add framework `middleware` or `proxy` only when the approved Next.js version and deployment
+  require it. Never keep competing middleware/proxy implementations.
+
+If a client router/build tool is approved instead:
+
+```text
+src/
+|-- app/
+|   |-- App.<approved-ext>
+|   `-- providers.<approved-ext>
 |-- routes/
+|   |-- guards/
+|   |-- navigation/
+|   `-- router.<approved-ext>
+`-- main.<approved-ext>
+```
+
+Do not create `src/routes` alongside a Next.js App Router tree.
+
+## Module anatomy
+
+Keep module-local code inside its module. Create only directories required by that module:
+
+```text
+modules/employees/
+|-- api/
+|   |-- employee-api.<approved-ext>
+|   `-- employee-query-keys.<approved-ext>
+|-- components/
+|   |-- EmployeeFilters.<approved-ext>
+|   |-- EmployeeForm.<approved-ext>
+|   `-- EmployeeTable.<approved-ext>
+|-- hooks/
+|   |-- useEmployee.<approved-ext>
+|   `-- useEmployees.<approved-ext>
+|-- pages/
+|   |-- EmployeeCreatePage.<approved-ext>
+|   |-- EmployeeDetailPage.<approved-ext>
+|   |-- EmployeeEditPage.<approved-ext>
+|   `-- EmployeeListPage.<approved-ext>
+|-- schemas/
+|   `-- employee-schema.<approved-ext>
+|-- utils/
+|   `-- employee-view-model.<approved-ext>
 |-- tests/
 `-- index.<approved-ext>
 ```
 
-Use root `api`, `hooks`, and `schemas` only for genuine cross-feature infrastructure.
-Avoid duplicate locations such as both `lib/api` and `api` for the same responsibility.
+The same rule applies to dashboard-style modules:
+
+```text
+modules/dashboard/
+|-- api/
+|-- components/
+|   |-- hr/
+|   |   |-- EmployeeDistributionChart.<approved-ext>
+|   |   `-- WorkforceSummaryCards.<approved-ext>
+|   |-- employee/
+|   |   `-- PersonalMetricCards.<approved-ext>
+|   |-- DashboardFilters.<approved-ext>
+|   `-- MetricCard.<approved-ext>
+|-- hooks/
+|-- pages/
+|   |-- HrDashboardPage.<approved-ext>
+|   `-- PersonalDashboardPage.<approved-ext>
+|-- tests/
+`-- index.<approved-ext>
+```
+
+Use role subdirectories only when the rendered composition is materially different. Prefer
+capability checks and shared module components when the difference is only visibility or one
+action. Never create complete `Admin`, `HR`, `Supervisor`, and `Employee` application trees.
+
+Directory responsibilities:
+
+| Directory | Responsibility |
+|---|---|
+| `pages/` | Route-level composition, guards, data states, and module assembly |
+| `components/` | Presentational or interactive UI owned only by the module |
+| `hooks/` | Module orchestration, queries, mutations, and browser behavior |
+| `api/` | Module endpoint calls, query keys, and contract/view-model adapters |
+| `schemas/` | Module request/form validation derived from OpenAPI |
+| `utils/` | Pure module-specific formatting or calculation helpers |
+| `constants/` | Stable module labels/options when a separate file is justified |
+| `tests/` | Module unit, component, integration, fixture, and handler tests |
+| `index.*` | Small public module API; never a dump of every private export |
+
+Do not require every directory in every module. For example, a read-only notification module
+may need `api`, `components`, `hooks`, `pages`, and `tests` but no form schema.
+
+Use root `lib`, `hooks`, and `schemas` only for genuine cross-module infrastructure.
+Use `src/lib/api` as the single shared transport location; do not also create `src/api`.
 
 ## Dependency direction
 
 Use this import direction:
 
 ```text
-app/routes -> features -> shared components
-                   |-> api
-                   |-> shared schemas/hooks
+routing layer -> modules -> shared components
+                       |-> module API
+                       `-> shared lib
 
-api -> contract models + environment config
+lib/api -> transport, envelope, errors, environment config
 shared components -> styles/tokens
 ```
 
@@ -148,19 +277,19 @@ Apply these boundaries:
 
 | Area | May depend on | Must not depend on |
 |---|---|---|
-| `components/ui` | React, tokens, small UI utilities | features, API, auth store, form library |
-| `components/form` | UI primitives and approved form adapter | feature API and business rules |
-| `components/layout` | UI, navigation capabilities | feature repositories or endpoint details |
-| `features/*` | shared UI, API, schemas, approved state layers | another feature's internals |
-| `api` | environment, transport, contract models | route components and feature UI |
-| `routes` | feature public exports, guards, layouts | feature-private files |
+| `components/ui` | React, tokens, small UI utilities | modules, API, auth store, form library |
+| `components/form` | UI primitives and approved form adapter | module API and business rules |
+| `components/layout` | UI, navigation capabilities | module repositories or endpoint details |
+| `modules/*` | shared UI, API, schemas, approved state layers | another module's internals |
+| `lib/api` | environment, transport, envelope, stable errors | route components and module UI |
+| routing layer | module public exports, guards, layouts | module-private files |
 | `stores` | client/session state | duplicated server resource collections |
 | `schemas` | contract-derived values | rendered components |
 
-Expose a small public feature API through an index module only if the build configuration
+Expose a small public module API through an index module only if the build configuration
 handles it safely. Do not use a barrel that creates cycles or unnecessarily expands bundles.
 
-## Feature boundaries
+## Module boundaries
 
 Treat these as the primary product modules:
 
@@ -174,8 +303,8 @@ Treat these as the primary product modules:
 - Notifications.
 - Roles, permissions, and audit log.
 
-Keep product statuses, labels, capabilities, and feature-specific formatters within the
-owning feature. Share only stable concepts used by multiple features.
+Keep product statuses, labels, capabilities, and module-specific formatters within the
+owning module. Share only stable concepts used by multiple modules.
 
 Do not implement Hiring Progress, Recruitment Cost, or Benefit beyond an approved Coming
 Soon state.
@@ -224,12 +353,12 @@ Mount global providers in one visible composition root:
 error boundary
   -> auth bootstrap
   -> server-state provider
-  -> router
+  -> routing layer
   -> notification/toast layer
   -> application
 ```
 
-Adjust order for the approved libraries, but make dependencies explicit. Do not let feature
+Adjust order for the approved libraries, but make dependencies explicit. Do not let module
 imports register interceptors, handlers, or global listeners as hidden side effects.
 
 Clean up listeners, timers, network requests, media streams, and object URLs during
@@ -263,13 +392,14 @@ Do not persist a Bearer token silently. Do not rely on route hiding as security.
 
 ## Performance and delivery
 
-- Split code at route/feature boundaries when supported by the approved router/build tool.
+- Split code at route/module boundaries when supported by the approved router/build tool.
 - Lazy-load camera, chart, export-preview, and other heavy dependencies.
-- Avoid importing all feature modules into the initial shell.
+- Avoid importing all business modules into the initial shell.
 - Size and compress images/icons appropriately.
 - Prevent repeated request waterfalls by composing queries deliberately.
 - Virtualize only when real dataset/UI constraints justify it.
-- Keep production configuration runtime/deployment compatible with static Nginx assets.
+- Keep production configuration compatible with the approved delivery mode; the baseline is
+  static Nginx assets.
 - Verify direct-route fallback behavior in Nginx for client-side routing.
 
 Do not sacrifice accessibility or correctness for micro-optimizations.
@@ -293,8 +423,8 @@ validation error
 5xx/network/offline
 ```
 
-Use reusable feedback components for visual consistency. Keep feature-specific recovery
-actions near the feature. Never show raw stack traces or transport internals.
+Use reusable feedback components for visual consistency. Keep module-specific recovery
+actions near the module. Never show raw stack traces or transport internals.
 
 ## Configuration
 
@@ -324,9 +454,13 @@ Before introducing any of those:
 Treat the supplied example project as a pattern reference only. Do not inherit its product
 names, routes, refresh-token flow, framework, file extensions, or libraries.
 
+If proposing Next.js, explicitly decide static export versus Node runtime. Do not add
+`.next`, `middleware`, `proxy`, server actions, or framework-specific auth behavior before
+that decision is approved.
+
 ## Review checklist
 
-- [ ] The code lives in the correct feature/shared layer.
+- [ ] The code lives in the correct module/shared layer.
 - [ ] Imports follow the dependency direction and have no cycle.
 - [ ] The API contract is derived from OpenAPI without guessed fields/endpoints.
 - [ ] Auth resolution precedes protected rendering and sensitive requests.
@@ -335,5 +469,5 @@ names, routes, refresh-token flow, framework, file extensions, or libraries.
 - [ ] All relevant loading/empty/error states exist.
 - [ ] Mobile, keyboard, focus, zoom, and non-color status behavior are covered.
 - [ ] Protected cache and transient resources are cleaned on logout/unmount.
-- [ ] Static production build works through Nginx.
+- [ ] The approved production build/delivery mode works through Nginx.
 - [ ] New dependencies passed the architecture decision gate.

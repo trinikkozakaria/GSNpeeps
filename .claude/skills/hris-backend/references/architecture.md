@@ -128,42 +128,126 @@ backend/
 |-- cmd/
 |   |-- api/
 |   |   `-- main.go
-|   `-- worker/
+|   |-- worker/
+|   |   `-- main.go
+|   `-- seed/
 |       `-- main.go
 |-- internal/
-|   |-- config/              environment parsing and startup validation
-|   |-- domain/              entities, value objects, enums, domain errors
-|   |-- dto/                 HTTP request and response shapes
-|   |-- validation/          reusable input validation rules
-|   |-- service/             application use cases and transaction coordination
-|   |-- repository/          persistence ports, filters, and shared repository errors
-|   |-- handler/             HTTP adapters grouped by resource
-|   |-- middleware/          auth, RBAC, request ID, logging, recovery, rate limit
-|   |-- router/              route registration and middleware composition
-|   |-- worker/              job definitions and scheduling adapters
+|   |-- config/
+|   |   |-- config.go
+|   |   `-- config_test.go
+|   |-- domain/
+|   |   |-- audit_log.go
+|   |   |-- attendance.go
+|   |   |-- employee.go
+|   |   |-- leave.go
+|   |   |-- notification.go
+|   |   |-- organization.go
+|   |   |-- overtime.go
+|   |   |-- permission.go
+|   |   |-- role.go
+|   |   `-- user.go
+|   |-- dto/
+|   |   |-- auth_request.go
+|   |   |-- auth_response.go
+|   |   |-- employee_request.go
+|   |   |-- employee_response.go
+|   |   |-- attendance_request.go
+|   |   |-- leave_request.go
+|   |   |-- overtime_request.go
+|   |   `-- pagination.go
+|   |-- validation/          reusable request validation rules
+|   |-- repository/          persistence interfaces, filters, shared errors
+|   |   |-- user_repository.go
+|   |   |-- employee_repository.go
+|   |   |-- attendance_repository.go
+|   |   |-- leave_repository.go
+|   |   |-- overtime_repository.go
+|   |   |-- notification_repository.go
+|   |   `-- audit_repository.go
+|   |-- service/             business use cases and transaction coordination
+|   |   |-- auth_service.go
+|   |   |-- employee_service.go
+|   |   |-- dashboard_service.go
+|   |   |-- attendance_service.go
+|   |   |-- leave_service.go
+|   |   |-- overtime_service.go
+|   |   |-- notification_service.go
+|   |   `-- access_service.go
+|   |-- handler/             thin HTTP adapters grouped by resource
+|   |   |-- auth_handler.go
+|   |   |-- employee_handler.go
+|   |   |-- profile_handler.go
+|   |   |-- dashboard_handler.go
+|   |   |-- attendance_handler.go
+|   |   |-- leave_handler.go
+|   |   |-- overtime_handler.go
+|   |   |-- notification_handler.go
+|   |   `-- access_handler.go
+|   |-- middleware/
+|   |   |-- recovery.go
+|   |   |-- request_id.go
+|   |   |-- access_log.go
+|   |   |-- auth.go
+|   |   |-- rbac.go
+|   |   |-- rate_limit.go
+|   |   `-- body_limit.go
+|   |-- router/
+|   |   `-- router.go
+|   |-- worker/
+|   |   |-- scheduler.go
+|   |   |-- contract_expiry.go
+|   |   |-- approval_escalation.go
+|   |   `-- photo_retention.go
 |   |-- platform/
 |   |   |-- postgres/        repository implementations and transaction adapter
 |   |   |-- redis/           session, rate-limit, cache, lock implementations
 |   |   |-- nextcloud/       WebDAV file-store implementation
+|   |   |-- password/        approved password-hashing adapter
+|   |   |-- jwt/             access-token signing and verification adapter
 |   |   |-- export/          CSV/XLSX/PDF implementations when required
 |   |   `-- logger/          approved structured logging adapter
-|   `-- pkg/                 small internal cross-cutting helpers only
-|       `-- response/        standard JSON success/error writer
+|   `-- pkg/                 small cross-cutting mechanisms without business meaning
+|       |-- response/        standard JSON success/error writer
+|       `-- pagination/      validated pagination calculations when genuinely shared
 |-- migrations/              ordered PostgreSQL migrations
-|-- seeds/                   deterministic development/reference seeds
+|   |-- <version>_create_core_identity_tables.sql
+|   |-- <version>_create_employee_detail_tables.sql
+|   |-- <version>_create_attendance_leave_tables.sql
+|   |-- <version>_create_overtime_tables.sql
+|   `-- <version>_create_notification_audit_tables.sql
+|-- seeds/
+|   |-- seed.go              deterministic seed orchestration
+|   |-- role_seed.go
+|   `-- reference_seed.go
 |-- tests/                   cross-package integration and end-to-end tests
 |-- .env.example
 |-- Dockerfile
-`-- go.mod
+|-- Makefile
+|-- go.mod
+`-- go.sum
 ```
 
-Group files by feature inside a layer when the layer grows:
+The file list is illustrative, not permission to guess the contract. Create only files needed
+by the active vertical slice. A domain file represents a coherent aggregate or concept; it
+does not have to mirror every database table one-to-one.
+
+Never copy MBG-specific concepts such as `company`, `foundation`, or `kitchen`. Never create
+`refresh_token.go`, a refresh-token repository, seed, or migration because GSNpeeps has no
+approved refresh flow.
+
+Start with one package per layer as shown above. Group a large layer by domain only after
+the flat package becomes difficult to navigate:
 
 ```text
 internal/service/employee/
 internal/handler/employee/
 internal/platform/postgres/employee_repository.go
 ```
+
+Do not mix both `internal/router` and `internal/http/router`, or both `internal/pkg/response`
+and `internal/http/response`. This project uses `internal/router` and
+`internal/pkg/response` unless an approved architecture decision changes them.
 
 Do not create generic dumping grounds such as `common`, `utils`, or `helpers`. Put code in
 the package that owns the concept. Use `internal/pkg` only for small cross-cutting

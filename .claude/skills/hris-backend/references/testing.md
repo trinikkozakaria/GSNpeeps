@@ -72,6 +72,8 @@ Assert one valid winner and the documented conflict for others.
 Inject deterministic clock. Run each job repeatedly and concurrently:
 
 - Contract H-30.
+- H-30 before/at/after boundary and recipient resolution: active supervisor, every active HR
+  except the subject, single Top Management fallback, and missing-fallback failure.
 - Auto-escalation.
 - Photo retention.
 - Notification consumption.
@@ -80,7 +82,7 @@ Assert no duplicate effects and safe retry after partial failure.
 
 ## Authorization tests
 
-Build a matrix for all 42 operations with:
+Build a matrix for all 46 operations with:
 
 - Public/unauthenticated.
 - Karyawan owner/non-owner.

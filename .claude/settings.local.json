@@ -2,12 +2,12 @@
   "permissions": {
     "allow": [
       "Read",
-      "Read(C:/Users/Magang/Downloads/System_Design_HRIS_Employee_Database_V1_0.pdf)",
-      "Read(C:/Users/Magang/Downloads/Database_Schema_HRIS_Employee_Database_V1.1.pdf)",
-      "Read(C:/Users/Magang/Downloads/API_Contract_HRIS_Employee_Database_V1.1.pdf)",
-      "Read(C:/Users/Magang/Downloads/Sequence_Diagram_HRIS_Employee_Database_V1.1.pdf)",
-      "Read(C:/Users/Magang/Downloads/User_Story_Employee_Database_Dashboard_V1.2.pdf)",
-      "Read(C:/Users/Magang/Downloads/PRD_Employee_Database_Dashboard_HRIS_V1.2.pdf)",
+      "Read(./docs/source/System_Design_HRIS_Employee_Database_V1_0.pdf)",
+      "Read(./docs/source/Database_Schema_HRIS_Employee_Database_V1.1.pdf)",
+      "Read(./docs/source/API_Contract_HRIS_Employee_Database_V1.1.pdf)",
+      "Read(./docs/source/Sequence_Diagram_HRIS_Employee_Database_V1.1.pdf)",
+      "Read(./docs/source/User_Story_Employee_Database_Dashboard_V1.2.pdf)",
+      "Read(./docs/source/PRD_Employee_Database_Dashboard_HRIS_V1.2.pdf)",
       "Glob",
       "Grep",
       "Edit",

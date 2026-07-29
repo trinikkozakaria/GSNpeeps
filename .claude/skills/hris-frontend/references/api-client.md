@@ -25,24 +25,28 @@ Keep one transport boundary responsible for:
 - Multipart upload and authenticated file download.
 - Safe request metadata such as request/correlation ID when supported.
 
-Keep endpoint modules grouped by GSNpeeps resource:
+Keep one shared transport and place resource endpoint functions in their owning modules:
 
 ```text
-src/api/
+src/lib/api/
 |-- client
 |-- errors
 |-- envelope
-|-- auth
-|-- employees
-|-- attendance
-|-- leave
-|-- overtime
-|-- notifications
-`-- access
+|-- auth-header
+|-- upload
+`-- download
+
+src/modules/employees/api/
+src/modules/attendance/api/
+src/modules/leave/api/
+src/modules/overtime/api/
+src/modules/notifications/api/
+src/modules/access/api/
 ```
 
 Use the approved extension and module convention. Do not duplicate transport setup per
-feature.
+module. Do not place resource statuses, permission groupings, view helpers, or a generic
+`utils` dumping ground in `src/lib/api`.
 
 ## Contract mapping
 

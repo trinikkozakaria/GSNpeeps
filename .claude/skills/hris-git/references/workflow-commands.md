@@ -116,7 +116,7 @@ Prefer explicit paths:
 ```bash
 git add backend/internal/service/employee/
 git add docs/openapi.yaml
-git add frontend/src/features/employees/
+git add frontend/src/modules/employees/
 ```
 
 For mixed files, stage interactively:
