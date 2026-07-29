@@ -1,7 +1,5 @@
 # Form and upload pattern
 
-# Form and upload pattern
-
 Use this reference for create/edit forms, login, attendance, approvals, permissions, and
 uploads.
 
@@ -26,7 +24,7 @@ initialize defaults
   -> success navigation/feedback or recoverable errors
 ```
 
-Use the approved form and schema libraries. If absent, pass the architecture decision gate.
+Use React Hook Form with Zod schemas and the established resolver adapter.
 
 ## Initialization
 

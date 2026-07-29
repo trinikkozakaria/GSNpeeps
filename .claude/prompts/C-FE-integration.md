@@ -18,6 +18,10 @@ Sebelum mulai:
 - Gunakan skill hris-backend, hris-frontend, dan hris-git sesuai area.
 - Baca seluruh migration, Compose, environment examples, dan test configuration.
 - Jangan menambah feature baru pada fase ini.
+- Verifikasi frontend memakai Vite/React Router/Axios/TanStack Query/React Hook Form/Zod
+  dengan pnpm dan test Vitest/Testing Library/Playwright.
+- Verifikasi backend memakai `net/http`/`gorilla/mux`, pgx, Goose, validator, jwt/v5,
+  go-redis, `slog`, dan Testify tanpa dependency paralel.
 
 Tujuan:
 - Membuktikan frontend, API, worker, PostgreSQL, Redis, Nextcloud, dan Nginx bekerja

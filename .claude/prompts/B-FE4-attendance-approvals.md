@@ -240,4 +240,5 @@ frontend/src/modules/
 └── approvals/{api,components,hooks,pages,tests}/
 ```
 
-Ikuti stack/language yang telah disetujui.
+Gunakan React JavaScript/JSX, React Router, Axios, TanStack Query, React Hook Form, Zod,
+Tailwind CSS, Vitest/Testing Library, Playwright, dan pnpm.

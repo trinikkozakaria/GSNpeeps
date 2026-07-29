@@ -1,6 +1,8 @@
 # Backend testing
 
-Test behavior at the narrowest reliable level, then prove integrations with disposable infrastructure.
+Test behavior at the narrowest reliable level, then prove integrations with disposable
+infrastructure. Use Go `testing` with Testify assertions/require and Testify mocks only where
+a hand-written fake is not clearer.
 
 ## Contents
 

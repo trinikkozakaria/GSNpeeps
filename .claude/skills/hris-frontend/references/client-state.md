@@ -1,7 +1,5 @@
 # Client state
 
-# Client state
-
 Use this reference before adding context, reducer, a global store, persistence, or
 cross-component UI state.
 
@@ -30,7 +28,8 @@ Add state to a global store only when all are true:
 2. URL, server cache, form state, composition, or local state is unsuitable.
 3. Lifecycle and reset ownership are defined.
 4. Sensitive-data and persistence risks are understood.
-5. The global state solution is already approved or passes the architecture decision gate.
+5. A global state solution is added only after the architecture extension gate; TanStack
+   Query remains server state and React Hook Form remains form state.
 
 Document state shape, actions, selectors, initialization, and reset.
 

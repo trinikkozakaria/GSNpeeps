@@ -26,7 +26,7 @@ formatters and endpoint modules.
 
 ## Component contract
 
-- Use the approved language, file extension, export style, and formatter.
+- Use JavaScript: `.jsx` for files rendering JSX and `.js` for non-JSX modules.
 - Name components in PascalCase and hooks with `use`.
 - Accept explicit props; avoid passing an unbounded page object.
 - Use semantic defaults and allow safe extension through `className`/approved style props.
@@ -34,8 +34,8 @@ formatters and endpoint modules.
 - Preserve native attributes and accessibility behavior.
 - Document non-obvious props and side effects using the approved documentation convention.
 
-Do not copy the example project's arrow-function, JavaScript-only, or file-extension rules
-until those choices are approved for GSNpeeps.
+Use named exports by default for reusable components/hooks and keep one primary component per
+file. Do not add TypeScript or duplicate `.tsx` variants.
 
 ## Data and behavior
 

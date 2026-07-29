@@ -110,9 +110,9 @@ Read before:
 - Deciding nullable/optional behavior.
 - Implementing soft delete, status checks, history, or uniqueness.
 
-The source summary identifies 26 tables, but contract decision D-013 makes the 25 explicitly
-named tables the implementation target; exact columns/types remain governed by
-the PDF.
+The source names 25 tables while its summary states 26. Decision D-013 resolves the mismatch
+with `office_locations` as table 26; exact original columns/types remain governed by the PDF
+and the added office table by OpenAPI decision 0.4.0.
 
 ### Sequence Diagram v1.1
 
@@ -204,32 +204,23 @@ Do not “resolve” a conflict only inside code comments.
 - Notification event is idempotent and dismissal is persistent per event.
 - Attendance photos are retained for three months; attendance rows remain.
 - PostgreSQL 16, Redis 7, Go API/worker, React/Tailwind, Nginx, and Docker are approved.
+- Frontend stack (29 July 2026): React JavaScript/JSX, Vite, React Router, Tailwind CSS,
+  Axios, TanStack Query, React Hook Form, Zod, Vitest, Testing Library, Playwright, pnpm.
+- Backend stack (29 July 2026): Go, `net/http` + `gorilla/mux`, pgx, Goose,
+  go-playground/validator, golang-jwt/jwt/v5, go-redis, `slog`, Testify.
 - Only Nginx exposes public ports.
 
 ## Known gaps and ambiguities
 
-Do not decide these silently:
+Only these remain open; decisions D-001 through D-016 have resolved the older contract gaps:
 
-1. Reset-password mechanism is required by lockout policy, but its public endpoint is not
-   defined in API Contract v1.1.
-2. Frontend session restoration/token persistence must work without inventing refresh or
-   current-user endpoints.
-3. Exact Top Management access to employee document listing/download must follow the API
-   Contract; summaries are insufficient.
-4. Contract H-30 fallback was resolved by decision D-014: notify every active HR except the
-   subject, then use the single active Top Management only when no eligible HR exists.
-5. Exact health liveness/readiness response semantics must remain contract/deployment aligned.
-6. Exact file URL/download access mechanism must not expose permanent public Nextcloud links
-   or credentials.
-7. Language, bundler, router, package manager, frontend state/form/test libraries, and most
-   backend libraries are not established by the source documents.
-8. Exact metric formulas/period definitions and every employee payload field must be read
-   directly from the corresponding PDF before implementation.
-9. Product requirements mention check-in and checkout, while the operation inventory lists
-   only `POST /absensi/checkin`; confirm whether checkout is represented by its request
-   action/state before adding another route.
-10. The summarized database table names total 25 while the source summary states 26; reconcile
-    the omitted table directly from Database Schema v1.1 before migrations.
+1. Browser token persistence/session restoration strategy without refresh token.
+2. File URL/download authorization and expiry mechanism; no permanent public Nextcloud link.
+3. Official office names, addresses, and coordinates for seed data.
+4. Company/public holiday calendar and exceptional weekend-work policy.
+5. Exact scoped `403` versus `404` behavior where an operation does not specify it.
+6. Exact permission module identifiers and permission-cache failure behavior.
+7. Optional task-specific libraries not included in the approved 29 July 2026 stack baseline.
 
 ## Version and change control
 

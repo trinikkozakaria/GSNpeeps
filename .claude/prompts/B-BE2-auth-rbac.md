@@ -19,8 +19,8 @@ Sebelum mulai:
 - Baca PRD v1.2 dan `.claude/specs/access-matrix.md` untuk empat role.
 - Gunakan skill `.claude/skills/hris-backend/SKILL.md` beserta references terkait.
 - Gunakan `.claude/skills/hris-git/SKILL.md` hanya pada tahap Git.
-- Pertahankan router, data access, migration, logger, validator, dan test stack
-  yang sudah disetujui pada Epic B-BE.1.
+- Pertahankan `net/http` + `gorilla/mux`, pgx, Goose, `slog`,
+  go-playground/validator, golang-jwt/jwt/v5, go-redis/v9, dan Testify.
 
 Konteks:
 - Nama produk: GSNpeeps.

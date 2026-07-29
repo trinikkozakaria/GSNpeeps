@@ -8,7 +8,7 @@ reviewing imports, or changing routing, state, API, build, and delivery boundari
 - [Architecture target](#architecture-target)
 - [Runtime context](#runtime-context)
 - [Canonical structure](#canonical-structure)
-- [Routing variants](#routing-variants)
+- [React Router structure](#react-router-structure)
 - [Module anatomy](#module-anatomy)
 - [Dependency direction](#dependency-direction)
 - [Module boundaries](#module-boundaries)
@@ -20,13 +20,16 @@ reviewing imports, or changing routing, state, API, build, and delivery boundari
 - [Performance and delivery](#performance-and-delivery)
 - [Error and state architecture](#error-and-state-architecture)
 - [Configuration](#configuration)
-- [Architecture decision gate](#architecture-decision-gate)
+- [Architecture extension gate](#architecture-extension-gate)
 - [Review checklist](#review-checklist)
 
 ## Architecture target
 
 Build a browser-delivered React application that communicates with the Go backend through
 `/api/v1`. The approved baseline produces static production assets served by Nginx.
+
+The final foundation is React JavaScript/JSX, Vite, React Router, Tailwind CSS, Axios,
+TanStack Query, React Hook Form, Zod, Vitest, Testing Library, Playwright, and pnpm.
 
 ```text
 Browser
@@ -81,13 +84,14 @@ The backend remains authoritative for:
 
 ## Canonical structure
 
-Use this target after foundational tooling is approved:
+Use this target:
 
 ```text
 frontend/
 |-- public/
 |-- src/
-|   |-- app/                    approved routing entry and provider composition
+|   |-- app/                    provider/bootstrap composition
+|   |-- routes/                 React Router route tree, guards, navigation
 |   |-- modules/               one folder per business capability
 |   |   |-- auth/
 |   |   |-- dashboard/
@@ -110,81 +114,42 @@ frontend/
 |   |   `-- feedback/          loading, empty, error, forbidden
 |   |-- lib/
 |   |   |-- api/               transport, envelope, auth header, error mapping
-|   |   `-- query/             shared query client/config only if approved
+|   |   `-- query/             shared TanStack Query client/config
 |   |-- hooks/                  truly cross-module hooks only
-|   |-- stores/                 approved global client state only
+|   |-- stores/                 only if a global client-state library is later approved
 |   |-- schemas/                shared contract-derived validation
 |   |-- mocks/                  approved development/test network mocks
 |   |-- styles/                 tokens and global styles
 |   |-- test/                   test render, handlers, fixtures
-|   `-- main.<approved-ext>     only when required by the approved build tool
-|-- .storybook/                 only when the workbench is approved
+|   `-- main.jsx                Vite entry
 |-- .env.example
 |-- Dockerfile
 |-- package.json
-`-- <approved-lockfile>
+|-- pnpm-lock.yaml
+`-- vite.config.js
 ```
 
-Do not commit generated directories such as `.next`, `dist`, `node_modules`, coverage,
+Do not commit generated directories such as `dist`, `node_modules`, coverage,
 workbench output, caches, or debug logs. Do not keep backup routing files such as
 `middleware-bck.*`. Remove obsolete code through the approved Git workflow.
 
-## Routing variants
-
-Choose exactly one routing layout after the framework/router decision.
-
-If Next.js App Router is approved:
-
-```text
-src/app/
-|-- (auth)/
-|   `-- login/
-|       `-- page.<approved-ext>
-|-- (dashboard)/
-|   |-- layout.<approved-ext>
-|   |-- dashboard/
-|   |   `-- page.<approved-ext>
-|   |-- employees/
-|   |   |-- page.<approved-ext>
-|   |   `-- [id]/
-|   |       `-- page.<approved-ext>
-|   `-- attendance/
-|       `-- page.<approved-ext>
-|-- globals.css
-|-- layout.<approved-ext>
-|-- page.<approved-ext>
-`-- providers.<approved-ext>
-```
-
-Route groups organize layout/auth boundaries without changing the public URL. Keep each
-`page` and route `layout` thin: resolve framework concerns, then compose the owning
-`src/modules` page/components. Do not move business components into `src/app`.
-
-The default approved deployment remains static Nginx delivery. If Next.js is selected, record
-whether it uses static export or a Node runtime:
-
-- Static export must not depend on server middleware, runtime proxy, server actions, or other
-  unsupported runtime-only behavior.
-- A Node/standalone runtime changes the deployment topology and requires an approved
-  architecture decision plus Docker/Nginx updates.
-- Add framework `middleware` or `proxy` only when the approved Next.js version and deployment
-  require it. Never keep competing middleware/proxy implementations.
-
-If a client router/build tool is approved instead:
+## React Router structure
 
 ```text
 src/
 |-- app/
-|   |-- App.<approved-ext>
-|   `-- providers.<approved-ext>
+|   |-- App.jsx
+|   `-- providers.jsx
 |-- routes/
 |   |-- guards/
 |   |-- navigation/
-|   `-- router.<approved-ext>
-`-- main.<approved-ext>
+|   `-- router.jsx
+`-- main.jsx
 ```
 
-Do not create `src/routes` alongside a Next.js App Router tree.
+Keep route elements thin and compose pages from `src/modules`. Configure Nginx fallback to
+`index.html` for direct client-route navigation. Do not create Next.js route groups,
+middleware, proxy, server actions, or a second route tree.
 
 ## Module anatomy
 
@@ -193,26 +158,26 @@ Keep module-local code inside its module. Create only directories required by th
 ```text
 modules/employees/
 |-- api/
-|   |-- employee-api.<approved-ext>
-|   `-- employee-query-keys.<approved-ext>
+|   |-- employee-api.js
+|   `-- employee-query-keys.js
 |-- components/
-|   |-- EmployeeFilters.<approved-ext>
-|   |-- EmployeeForm.<approved-ext>
-|   `-- EmployeeTable.<approved-ext>
+|   |-- EmployeeFilters.jsx
+|   |-- EmployeeForm.jsx
+|   `-- EmployeeTable.jsx
 |-- hooks/
-|   |-- useEmployee.<approved-ext>
-|   `-- useEmployees.<approved-ext>
+|   |-- useEmployee.js
+|   `-- useEmployees.js
 |-- pages/
-|   |-- EmployeeCreatePage.<approved-ext>
-|   |-- EmployeeDetailPage.<approved-ext>
-|   |-- EmployeeEditPage.<approved-ext>
-|   `-- EmployeeListPage.<approved-ext>
+|   |-- EmployeeCreatePage.jsx
+|   |-- EmployeeDetailPage.jsx
+|   |-- EmployeeEditPage.jsx
+|   `-- EmployeeListPage.jsx
 |-- schemas/
-|   `-- employee-schema.<approved-ext>
+|   `-- employee-schema.js
 |-- utils/
-|   `-- employee-view-model.<approved-ext>
+|   `-- employee-view-model.js
 |-- tests/
-`-- index.<approved-ext>
+`-- index.js
 ```
 
 The same rule applies to dashboard-style modules:
@@ -222,18 +187,18 @@ modules/dashboard/
 |-- api/
 |-- components/
 |   |-- hr/
-|   |   |-- EmployeeDistributionChart.<approved-ext>
-|   |   `-- WorkforceSummaryCards.<approved-ext>
+|   |   |-- EmployeeDistributionChart.jsx
+|   |   `-- WorkforceSummaryCards.jsx
 |   |-- employee/
-|   |   `-- PersonalMetricCards.<approved-ext>
-|   |-- DashboardFilters.<approved-ext>
-|   `-- MetricCard.<approved-ext>
+|   |   `-- PersonalMetricCards.jsx
+|   |-- DashboardFilters.jsx
+|   `-- MetricCard.jsx
 |-- hooks/
 |-- pages/
-|   |-- HrDashboardPage.<approved-ext>
-|   `-- PersonalDashboardPage.<approved-ext>
+|   |-- HrDashboardPage.jsx
+|   `-- PersonalDashboardPage.jsx
 |-- tests/
-`-- index.<approved-ext>
+`-- index.js
 ```
 
 Use role subdirectories only when the rendered composition is materially different. Prefer
@@ -374,7 +339,8 @@ unmount/logout.
 - Keep API endpoint functions free of toast, navigation, and component state.
 - Map transport failures into one stable frontend error type.
 
-Do not create a refresh call: the approved GSNpeeps contract provides login and logout only.
+Do not create a refresh call: the approved contract provides login, self-reset, logout,
+current-user restoration, and own-password change, but no refresh operation.
 
 ## Authentication boundary
 
@@ -392,7 +358,7 @@ Do not persist a Bearer token silently. Do not rely on route hiding as security.
 
 ## Performance and delivery
 
-- Split code at route/module boundaries when supported by the approved router/build tool.
+- Split code at React Router/module boundaries with dynamic `import()` where beneficial.
 - Lazy-load camera, chart, export-preview, and other heavy dependencies.
 - Avoid importing all business modules into the initial shell.
 - Size and compress images/icons appropriately.
@@ -435,28 +401,22 @@ actions near the module. Never show raw stack traces or transport internals.
 - Keep `.env.example` free of real credentials and production employee data.
 - Fail visibly in development/build when required configuration is missing.
 
-## Architecture decision gate
+## Architecture extension gate
 
-The approved documents establish React, Tailwind CSS, static production assets, and Nginx.
-They do not yet establish language, bundler, router, package manager, HTTP client, form
-library, validation library, server-state library, client store, table library, mock layer,
-test runner, browser E2E tool, component workbench, formatter, or linter.
+The foundation stack is final. Table/chart/icon libraries, a global client store, network
+mock layer, component workbench, formatter, and additional linter remain optional.
 
-Before introducing any of those:
+Before introducing an optional dependency:
 
 1. Inspect the repository for an existing approved choice.
 2. Read the active foundation prompt and architecture decision record.
 3. Reuse an existing coherent stack.
-4. If absent, propose one compatible stack with alternatives and tradeoffs.
+4. If absent, propose the smallest compatible option with tradeoffs.
 5. Obtain approval when the decision affects long-term architecture or delivery.
 6. Record the decision and update this skill where library-specific rules become stable.
 
-Treat the supplied example project as a pattern reference only. Do not inherit its product
-names, routes, refresh-token flow, framework, file extensions, or libraries.
-
-If proposing Next.js, explicitly decide static export versus Node runtime. Do not add
-`.next`, `middleware`, `proxy`, server actions, or framework-specific auth behavior before
-that decision is approved.
+Do not introduce Next.js, TypeScript, npm/yarn, Jest, or parallel HTTP/query/form/router
+libraries. Treat supplied example projects as layout ideas only.
 
 ## Review checklist
 
@@ -470,4 +430,4 @@ that decision is approved.
 - [ ] Mobile, keyboard, focus, zoom, and non-color status behavior are covered.
 - [ ] Protected cache and transient resources are cleaned on logout/unmount.
 - [ ] The approved production build/delivery mode works through Nginx.
-- [ ] New dependencies passed the architecture decision gate.
+- [ ] New non-baseline dependencies passed the architecture extension gate.

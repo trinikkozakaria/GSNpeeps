@@ -1,6 +1,7 @@
 # Repository pattern
 
-Repositories isolate PostgreSQL access. Define interfaces from service needs and keep implementations in the approved data-access layer.
+Repositories isolate PostgreSQL access. Define interfaces from service needs and implement
+them with `github.com/jackc/pgx/v5`/`pgxpool` using explicit parameterized SQL.
 
 ## Sentinel errors
 
@@ -54,7 +55,7 @@ ORDER BY e.created_at DESC, e.id
 LIMIT $4 OFFSET $5;
 ```
 
-Adapt placeholders to the approved driver.
+Use pgx positional placeholders (`$1`, `$2`, ...) and pgx error mapping.
 
 ## Concurrency
 

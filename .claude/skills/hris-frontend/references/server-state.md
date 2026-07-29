@@ -1,9 +1,6 @@
 # Server state and cache
 
-# Server state and cache
-
-Use the approved server-state library or repository-native mechanism. Do not introduce one
-silently.
+Use TanStack Query for remote/server state. Do not introduce a parallel server-state cache.
 
 ## Contents
 

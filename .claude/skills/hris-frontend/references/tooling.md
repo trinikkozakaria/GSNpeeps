@@ -1,6 +1,7 @@
 # Frontend tooling
 
-Use only choices approved in the repository configuration or architecture decision record.
+Use the approved foundation: pnpm, Vite, React JavaScript/JSX, React Router, Tailwind CSS,
+Vitest, Testing Library, and Playwright.
 
 ## Contents
 
@@ -12,7 +13,7 @@ Use only choices approved in the repository configuration or architecture decisi
 [Static production delivery](#static-production-delivery) ·
 [Dependency decision](#dependency-decision) · [CI quality gate](#ci-quality-gate)
 
-## Decision inventory
+## Baseline inventory
 
 Before changing tooling, inspect:
 
@@ -27,12 +28,9 @@ Before changing tooling, inspect:
 - Mock and component-workbench configuration.
 - Dockerfile and Nginx static delivery.
 
-Do not assume the example project's Next.js, JavaScript, Axios, TanStack Query, Zustand, Zod,
-MSW, Storybook, oxlint, or oxfmt choices.
-
-If Next.js is proposed, record whether production uses static export or a Node/standalone
-runtime. Static export must remain compatible with the approved Nginx topology. A Node
-runtime requires a separate deployment decision and updated container/proxy design.
+The repository must use Vite, JavaScript/JSX, React Router, Axios, TanStack Query, React Hook
+Form, Zod, Vitest, Testing Library, Playwright, Tailwind CSS, and pnpm. Do not add Next.js,
+TypeScript, npm/yarn lockfiles, Jest, or parallel libraries for those responsibilities.
 
 ## Required command interface
 
@@ -54,10 +52,10 @@ Use clear exit codes and make CI use non-interactive commands.
 
 ## Package manager
 
-- Select one package manager.
-- Commit exactly its expected lockfile.
+- Use pnpm only.
+- Commit `pnpm-lock.yaml`.
 - Use reproducible/frozen installs in CI and container builds.
-- Do not mix lockfiles or global-only dependencies.
+- Do not commit `package-lock.json` or `yarn.lock`.
 - Keep engine/runtime version documented and aligned with CI/container.
 - Review dependency purpose and production versus development placement.
 
@@ -72,8 +70,8 @@ Use clear exit codes and make CI use non-interactive commands.
 
 ## Tests
 
-- Keep unit/component tests in the approved runner.
-- Keep browser E2E in one approved tool.
+- Keep unit/component tests in Vitest + Testing Library.
+- Keep browser E2E in Playwright.
 - Make test environment, DOM cleanup, mocks, and path aliases match production code.
 - Produce useful CI artifacts only when needed.
 - Avoid adding a second runner for one test.
@@ -107,12 +105,12 @@ The production build must:
 
 - Emit static assets compatible with Nginx.
 - Use correct asset base paths.
-- Support client-route fallback if a client router is selected.
+- Support React Router client-route fallback to `index.html`.
 - Use same-origin/proxied `/api/v1` where deployment configuration defines it.
 - Contain no public secret or development mock.
 - Handle cache headers so new HTML does not reference deleted hashed assets.
 
-Do not commit generated output such as `.next`, `dist`, `node_modules`, Storybook output,
+Do not commit generated output such as `dist`, `node_modules`, Storybook output,
 coverage, tool caches, or debug logs. Do not preserve obsolete routing code as
 `middleware-bck.*`; version control is the backup.
 

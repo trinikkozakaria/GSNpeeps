@@ -83,10 +83,10 @@ Legend:
 
 | Area | Karyawan | Atasan | HR | Top Management |
 |---|---|---|---|---|
-| Login/logout | Own | Own | Own | Own |
+| Login/logout/self-reset/change password | Own | Own | Own | Own |
 | Own profile | Own read | Own read | Own read | No |
 | Personal metrics | Own | Own | Own | No |
-| Department/position reference | Read for allowed forms/views | Read for allowed forms/views | Read | Read where route uses it |
+| Department/position/office reference | Read for allowed forms/views | Read for allowed forms/views | Read | Read where route uses it |
 | Employee database | No | No | Full CRUD + export | Read |
 | Employee documents | No global | No global | Upload/read | Conditional read only |
 | HR dashboard/org chart | No | No | Read/full monitoring | Read |
@@ -113,7 +113,10 @@ Exact payload/response fields remain governed by API Contract v1.1.
 |---|---|---|---|---|---|
 | `GET /health` | Public | Public | Public | Public | No user data |
 | `POST /auth/login` | Public | Public | Public | Public | Account being authenticated |
+| `POST /auth/reset-password` | Public | Public | Public | Public | Account verified by email + current password |
 | `POST /auth/logout` | Own | Own | Own | Own | Current active session |
+| `GET /auth/me` | Own | Own | Own | Own | Current authenticated identity |
+| `PATCH /auth/me/password` | Own | Own | Own | Own | Current account; revoke all sessions |
 
 ### Organization and employee
 
@@ -121,6 +124,7 @@ Exact payload/response fields remain governed by API Contract v1.1.
 |---|---|---|---|---|---|
 | `GET /master/departemen` | Authenticated reference | Authenticated reference | Read | Read | Return approved master fields |
 | `GET /master/jabatan` | Authenticated reference | Authenticated reference | Read | Read | Return approved master fields |
+| `GET /master/lokasi-kantor` | Read | Read | Read | Read | Active trusted WFO locations |
 | `GET /karyawan` | No | No | Read | Read | HR/TM projection; TM read-only |
 | `GET /karyawan/{id}` | No | No | Read | Read | Approved detail projection |
 | `POST /karyawan` | No | No | Create | No | HR only |
@@ -128,7 +132,7 @@ Exact payload/response fields remain governed by API Contract v1.1.
 | `DELETE /karyawan/{id}` | No | No | Soft-delete | No | HR only |
 | `GET /karyawan/export` | No | No | Export | No | HR only |
 | `POST /karyawan/{id}/dokumen` | No | No | Upload | No | HR only |
-| `GET /karyawan/{id}/dokumen` | No | No | Read | Conditional | Follow exact contract for TM |
+| `GET /karyawan/{id}/dokumen` | No | No | Read | Read | Approved metadata; TM read-only |
 
 ### Profile and dashboard
 
@@ -162,7 +166,7 @@ Exact payload/response fields remain governed by API Contract v1.1.
 
 | Method/path | Karyawan | Atasan | HR | Top Management | Scope |
 |---|---|---|---|---|---|
-| `GET /master/jenis-izin` | No | No | Read | Follow exact contract | Master fields |
+| `GET /master/jenis-izin` | No | No | Read | No | HR-only master fields |
 | `POST /master/jenis-izin` | No | No | Create | No | HR only |
 | `PUT /master/jenis-izin/{id}` | No | No | Update | No | HR only |
 
@@ -174,7 +178,7 @@ Exact payload/response fields remain governed by API Contract v1.1.
 | `GET /lembur` | No | Direct active inbox | HR active inbox | HR-owned active inbox | Approver scope |
 | `GET /lembur/{id}` | Own | Own or direct active approver | Own or HR approver | HR applicant active approver | Ownership/stage |
 | `PUT /lembur/{id}/decision` | No | Direct active supervisor stage | Active HR stage | Active HR-applicant final stage | One atomic decision |
-| `GET /lembur/rekap` | No | No | Read | Follow exact contract | No compensation calculation |
+| `GET /lembur/rekap` | No | No | Read | Read | No compensation calculation; TM read-only |
 
 ### Access and audit
 
@@ -310,10 +314,10 @@ Assert response plus absence of database/storage/event side effects.
 
 ## Open decisions
 
-- Exact Top Management document list/download permission.
-- Exact Top Management visibility of Master Jenis Izin and overtime recap.
+This is the access-control subset of the canonical gaps in `document-index.md`:
+
 - Exact scoped-not-found versus forbidden response per operation.
 - Exact permission identifier catalog from schema/seed.
-- Attendance checkout representation because inventory lists only `/absensi/checkin`.
+- Exact file delivery URL/proxy authorization mechanism.
 
 Resolve using API Contract/PRD rather than expanding access from this summary.

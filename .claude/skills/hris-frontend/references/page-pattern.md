@@ -1,7 +1,5 @@
 # Page pattern
 
-# Page pattern
-
 Use this reference for every route-level screen.
 
 ## Contents

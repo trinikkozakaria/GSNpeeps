@@ -30,7 +30,7 @@ Konteks:
 - Maksimum ukuran file: 5 MB.
 - Role: `karyawan`, `atasan`, `hr`, `top_management`.
 - Pagination: `page` dan `limit`.
-- Total endpoint: 42 dalam 13 modul.
+- Baseline PDF: 42 operasi dalam 13 modul; kontrak aktif 0.4.0: 46 operasi.
 
 Format response sukses:
 

@@ -1,7 +1,5 @@
 # Branch strategy
 
-# Branch strategy
-
 Use this reference before creating, renaming, synchronizing, rebasing, merging, or deleting
 a branch.
 

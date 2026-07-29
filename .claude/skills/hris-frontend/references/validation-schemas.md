@@ -1,9 +1,9 @@
 # Validation schemas and DTOs
 
-# Validation schemas and DTOs
-
 Use OpenAPI as the source for wire models and validation. Do not infer a payload from visible
 form controls.
+
+Implement runtime schemas with Zod and integrate form validation through React Hook Form.
 
 ## Contents
 

@@ -563,9 +563,9 @@ Never use Redis lock as the only durable business invariant.
 
 ## Open decisions
 
-- Attendance checkout representation in current API operation set.
-- Reset-password flow required after lockout.
-- Frontend identity/session restoration without refresh/current-user operation.
-- HR-without-supervisor contract reminder fallback recipient.
+This is the workflow subset of the canonical gaps in `document-index.md`:
+
+- Browser token persistence strategy; identity restoration uses approved `/auth/me`.
 - Exact permission-cache failure policy.
-- File access/download URL mechanism and Top Management document scope.
+- File access/download URL mechanism.
+- Official office seed coordinates and company/public holiday calendar.

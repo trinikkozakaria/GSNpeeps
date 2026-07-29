@@ -1,8 +1,7 @@
 # Frontend testing
 
-# Frontend testing
-
-Use the approved test stack. Test behavior and contracts rather than implementation details.
+Use Vitest + Testing Library for unit/component/integration tests and Playwright for browser
+E2E. Test behavior and contracts rather than implementation details.
 
 ## Contents
 

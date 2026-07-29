@@ -1,6 +1,6 @@
 # PostgreSQL migration pattern
 
-Use the migration tool approved in the backend architecture decision. Do not assume Goose or another tool merely because another project uses it.
+Use `github.com/pressly/goose/v3`, the approved migration tool.
 
 ## Contents
 
@@ -18,7 +18,7 @@ Use the migration tool approved in the backend architecture decision. Do not ass
 - Never edit a migration already applied in another environment; add a new migration.
 - Provide a meaningful up and down path when reversal is safe.
 
-If Goose is explicitly approved, use timestamped SQL files and Goose Up/Down directives. Otherwise follow the selected tool's equivalent without changing the SQL contract.
+Use timestamped SQL files and Goose Up/Down directives.
 
 ## GSNpeeps schema rules
 
@@ -34,9 +34,9 @@ If Goose is explicitly approved, use timestamped SQL files and Goose Up/Down dir
 
 ## Dependency order
 
-Create the 25 explicitly named contract tables in FK-safe groups:
+Create the 26 contract tables in FK-safe groups:
 
-1. `departments`, `positions`, `roles`, `employees`, `users`.
+1. `office_locations`, `departments`, `positions`, `roles`, `employees`, `users`.
 2. Ten employee-detail tables.
 3. `attendances`, leave tables.
 4. Overtime tables.

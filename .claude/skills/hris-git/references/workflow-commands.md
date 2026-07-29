@@ -1,7 +1,5 @@
 # Workflow commands
 
-# Workflow commands
-
 Use this command reference after reading the action's safety and authorization requirements.
 Replace placeholders only after inspecting the repository.
 

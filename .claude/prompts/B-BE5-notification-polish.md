@@ -255,7 +255,7 @@ Non-scope:
     - Permission update HR berhasil; Top Management ditolak.
     - Audit UPDATE/DELETE SQL ditolak DB.
     - Pagination/filter/index behavior.
-    - 45-endpoint authorization matrix.
+    - 46-endpoint authorization matrix.
 
 Quality gates:
 1. Format, tidy, vet, unit/integration/concurrency tests, linter.

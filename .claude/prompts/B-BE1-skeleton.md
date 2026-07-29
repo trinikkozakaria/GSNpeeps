@@ -32,30 +32,22 @@ Konteks:
 - Format response mengikuti `docs/openapi.yaml`.
 - Semua service selain Nginx berada di internal Docker network.
 
-ARCHITECTURE DECISION GATE:
+STACK FINAL:
 
-Sebelum menulis kode, periksa apakah repository sudah menetapkan:
-- HTTP router.
-- PostgreSQL driver dan pola data access.
-- Migration tool.
-- Configuration loader.
-- Structured logger.
-- Validator.
-- Redis client.
-- Test/assertion libraries.
-- Linter.
+- Go.
+- `net/http` + `github.com/gorilla/mux`.
+- `github.com/jackc/pgx/v5`/`pgxpool`.
+- `github.com/pressly/goose/v3`.
+- `github.com/go-playground/validator/v10`.
+- `github.com/golang-jwt/jwt/v5`.
+- `github.com/redis/go-redis/v9`.
+- standard library `log/slog`.
+- Go `testing` + `github.com/stretchr/testify`.
 
-Jika keputusan belum tersedia:
-1. Buat `docs/architecture/backend-stack-proposal.md`.
-2. Untuk tiap kategori, usulkan satu pilihan utama dan maksimal satu alternatif.
-3. Jelaskan alasan, trade-off, maintenance status, dan dampaknya pada struktur kode.
-4. Pastikan pilihan cocok dengan Go, PostgreSQL 16, Redis 7, WebDAV, Docker,
-   OpenAPI 3.1, dan modular monolith.
-5. Jangan menambah dependency utama atau membuat skeleton yang bergantung padanya
-   sebelum pilihan disetujui pengguna.
-6. Berhenti dan laporkan keputusan yang dibutuhkan.
-
-Jika keputusan sudah tersedia dan disetujui, lanjutkan pekerjaan berikut.
+Jangan membuat proposal ulang atau menambahkan Gin/Echo, GORM/sqlc, router, database
+driver, migration, validator, JWT, Redis, logger, atau assertion library alternatif.
+Configuration loader, scheduler, password hashing, export, dan linter tambahan diputuskan
+hanya saat task nyata membutuhkannya; utamakan standard library bila memadai.
 
 Kerjakan dengan urutan:
 
@@ -143,16 +135,16 @@ Kerjakan dengan urutan:
 
 4. POSTGRESQL CONNECTION
 
-   - Buka connection pool memakai driver yang telah disetujui.
+   - Buka connection pool memakai `pgxpool`.
    - Terapkan pool config dan ping dengan timeout.
    - Sediakan health check yang menerima context.
    - Wrap error dengan konteks.
    - Jangan menjalankan schema auto-migration.
-   - Seluruh perubahan schema harus melalui migration tool yang disetujui.
+   - Seluruh perubahan schema harus melalui Goose.
 
 5. REDIS CONNECTION
 
-   - Buat client memakai library yang telah disetujui.
+   - Buat client memakai `go-redis/v9`.
    - Terapkan timeout dan pool configuration.
    - Sediakan ping/health check dengan context.
    - Definisikan interface minimum agar session dan rate limit dapat diuji dengan mock/fake.
@@ -192,7 +184,7 @@ Kerjakan dengan urutan:
 
 8. VALIDATION
 
-   - Gunakan validator yang telah disetujui.
+   - Gunakan go-playground/validator v10.
    - Buat wrapper kecil agar handler tidak terikat ke detail library.
    - Format error field memakai nama JSON `snake_case`.
    - Pesan end-user menggunakan Bahasa Indonesia.
@@ -228,7 +220,7 @@ Kerjakan dengan urutan:
 
 10. ROUTER DAN HEALTH ENDPOINT
 
-    - Buat router menggunakan pilihan yang telah disetujui.
+    - Buat router menggunakan `gorilla/mux` dan handler `net/http`.
     - Pasang middleware global dengan urutan yang terdokumentasi.
     - Sediakan route group `/api/v1` tanpa business endpoint kosong.
     - Implementasikan public `GET /health`.
@@ -275,7 +267,7 @@ Kerjakan dengan urutan:
 
 13. MIGRATION INFRASTRUCTURE
 
-    - Konfigurasikan migration tool yang telah disetujui.
+    - Konfigurasikan Goose v3.
     - Buat folder `backend/migrations`.
     - Tambahkan migration awal hanya jika dibutuhkan untuk extension PostgreSQL
       seperti `pgcrypto`, dan hanya bila sesuai Database Schema.
@@ -403,7 +395,7 @@ Aturan akhir:
 
 ## Acceptance Criteria
 
-- [ ] Architecture decision gate dipenuhi sebelum dependency utama ditambahkan.
+- [ ] Implementasi memakai stack final tanpa dependency paralel.
 - [ ] API dan worker binary dapat di-build.
 - [ ] Configuration loader memvalidasi env wajib tanpa membocorkan secret.
 - [ ] PostgreSQL dan Redis connection memiliki timeout, pool, dan health check.
@@ -466,10 +458,6 @@ backend/
 ├── Makefile
 ├── go.mod
 └── go.sum
-
-docs/
-└── architecture/
-    └── backend-stack-proposal.md  # hanya jika keputusan stack belum ada
 
 docker-compose.yml
 ```

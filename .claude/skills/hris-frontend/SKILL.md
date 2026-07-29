@@ -13,10 +13,9 @@ database, HR dashboard, attendance, approval, notification, and access-managemen
 1. Read `CLAUDE.md`, the active prompt, and `../../specs/product-requirements.md`.
 2. Read `../../specs/access-matrix.md`, `../../specs/api-data-summary.md`, and
    `docs/openapi.yaml` before defining routes, payloads, response models, or actions.
-3. Inspect `frontend/package.json`, its lockfile, build configuration, design tokens,
-   routing, and existing components to discover approved choices.
-4. If a required foundational choice is absent, stop at the architecture decision gate;
-   do not copy dependencies from the example project.
+3. Inspect `frontend/package.json`, `pnpm-lock.yaml`, Vite configuration, design tokens,
+   React Router composition, and existing components.
+4. Preserve the approved stack; only optional task-specific additions use the extension gate.
 5. Load only the references relevant to the current task.
 6. Define scope, route capability, data states, API errors, responsive behavior, and tests.
 7. Build the smallest complete vertical slice using shared primitives and business modules
@@ -28,6 +27,9 @@ database, HR dashboard, attendance, approval, notification, and access-managemen
 ## Invariants
 
 - Display the product name **GSNpeeps**.
+- Use React JavaScript/JSX, Vite, React Router, Tailwind CSS, Axios, TanStack Query,
+  React Hook Form, Zod, Vitest, Testing Library, Playwright, and pnpm.
+- Do not introduce Next.js, TypeScript, npm/yarn lockfiles, Jest, or parallel HTTP/query/form/router tools.
 - Treat backend authorization as authoritative; frontend guards are UX only.
 - Never fetch, cache, or render data outside the authenticated role/scope.
 - Centralize API calls, error mapping, auth lifecycle, query keys, and navigation capabilities.
@@ -41,7 +43,7 @@ database, HR dashboard, attendance, approval, notification, and access-managemen
 - Keep interactions keyboard accessible, responsive, and understandable without color alone.
 - Provide camera failure fallback without changing server-authoritative time/radius.
 - Show Coming Soon only for Hiring Progress, Recruitment Cost, and Benefit.
-- Treat unapproved frontend libraries as an architecture decision gate.
+- Treat non-baseline optional libraries as an architecture extension decision.
 - Give every business capability its own `src/modules/<module>` boundary. Keep its pages,
   components, hooks, API adapters, schemas, utilities, and tests together; create only the
   subdirectories the module actually needs.
@@ -49,13 +51,12 @@ database, HR dashboard, attendance, approval, notification, and access-managemen
   or duplicate complete module trees for HR, supervisor, employee, or top management.
 - Keep shared transport and framework-neutral infrastructure in `src/lib`; keep resource
   endpoints, components, hooks, schemas, and tests in the owning business module.
-- Use Next.js route groups only if Next.js is approved. Otherwise use the approved client
-  router structure; never maintain two route trees.
+- Use `src/routes` with React Router; `src/app` is provider/bootstrap composition only.
 
 ## Reference routing
 
-- Read `references/architecture.md` for package boundaries, dependency direction, route
-  composition, runtime configuration, and the stack decision gate.
+- Read `references/architecture.md` for package boundaries, dependency direction, React
+  Router composition, runtime configuration, and the extension gate.
 - Read `references/api-client.md` for JSON, multipart, downloads, cancellation, response
   envelopes, and error normalization.
 - Read `references/auth-rbac.md` for login/logout, token lifecycle, route protection,

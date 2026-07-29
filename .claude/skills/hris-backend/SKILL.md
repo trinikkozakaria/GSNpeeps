@@ -10,14 +10,19 @@ Follow this workflow for all backend changes. Do not improvise contracts or intr
 ## Quick rules
 
 - **Language**: Go using the version approved in the repository.
+- **HTTP**: `net/http` + `github.com/gorilla/mux`; do not add a web framework.
+- **PostgreSQL**: `github.com/jackc/pgx/v5` and `pgxpool`.
+- **Migration/validation**: Goose v3 + go-playground/validator v10.
+- **JWT/Redis/logging/tests**: golang-jwt/jwt v5, go-redis v9, `log/slog`, Testify.
 - **Architecture**: `router -> middleware -> handler -> service/use-case -> repository/integration`.
-- **Data**: PostgreSQL 16 with 25 named contract tables.
+- **Data**: PostgreSQL 16 with 26 contract tables, including `office_locations`.
 - **Session/rate limit**: Redis 7.
 - **Files**: Nextcloud via backend WebDAV; PostgreSQL stores only URL/path.
 - **API**: OpenAPI 3.1, 46 operations, JSON `snake_case`.
 - **Auth**: JWT 8 hours plus Redis `session:<user_id>`; no refresh endpoint.
 - **Roles**: `karyawan`, `atasan`, `hr`, `top_management`.
-- **Tool choices**: use only router, data-access, migration, validation, logger, and testing libraries approved in architecture documents.
+- **Tool choices**: retain the approved baseline; add only task-specific libraries that do
+  not duplicate an approved responsibility.
 - **Structure**: keep domain, DTO, repository, service, handler, middleware, router,
   worker, and platform responsibilities in separate `internal` packages.
 
@@ -57,7 +62,7 @@ packages merely to make the directory tree look complete.
 - `references/service-pattern.md` — business rules, errors, transactions, and events.
 - `references/repository-pattern.md` — query, filters, scopes, and concurrency.
 - `references/middleware-pattern.md` — recovery, request ID, auth, RBAC, and rate limit.
-- `references/router-pattern.md` — public/protected route registration and 45-operation review.
+- `references/router-pattern.md` — public/protected route registration and 46-operation review.
 - `references/response-helper.md` — exact GSNpeeps response/error shape.
 - `references/dto-validation.md` — create/update DTOs and field validation.
 - `references/migration-pattern.md` — PostgreSQL migration rules.

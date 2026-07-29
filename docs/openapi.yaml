@@ -30,9 +30,9 @@ tags:
   - name: System
     description: Health dan readiness service.
   - name: Authentication
-    description: Login, logout, token JWT, dan Redis session.
+    description: Login, self-reset, current-user, change-password, logout, JWT, dan Redis session.
   - name: Master Organization
-    description: Master departemen dan jabatan untuk referensi.
+    description: Master departemen, jabatan, dan lokasi kantor aktif untuk referensi.
   - name: Employees
     description: Database karyawan Point 1-12 dan dokumen.
   - name: My Profile
@@ -371,7 +371,9 @@ paths:
       summary: Tambah karyawan
       description: |
         Hanya HR. Membuat employee beserta data administratif awal dalam satu
-        transaksi dan mencatat perubahan pada Audit Log.
+        transaksi dan mencatat perubahan pada Audit Log. Akun login dibuat
+        terkunci dengan kredensial acak yang tidak pernah dikembalikan; aktivasi
+        menunggu kanal verifikasi resmi.
       tags: [Employees]
       security:
         - BearerAuth: []
@@ -395,7 +397,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
-          description: Email, NIP, atau nomor KTP sudah digunakan.
+          description: Email, NIP, nomor KTP, atau nomor kontrak sudah digunakan; atau struktur organisasi tidak sesuai.
           content:
             application/json:
               schema:
@@ -407,6 +409,8 @@ paths:
                     error:
                       code: CONFLICT
                       message: Data unik karyawan sudah digunakan
+        "422":
+          $ref: "#/components/responses/ValidationError"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         "500":
@@ -1426,7 +1430,7 @@ paths:
     get:
       operationId: listRoles
       summary: Daftar role
-      description: Hanya HR. Mengembalikan empat role sistem.
+      description: HR dan Top Management membaca empat role sistem; Top Management read-only.
       tags: [Access Administration]
       security:
         - BearerAuth: []
@@ -1446,7 +1450,7 @@ paths:
     get:
       operationId: getPermissionMatrix
       summary: Ambil matriks permission
-      description: Hanya HR. Menampilkan permission yang dikelompokkan per role.
+      description: HR dan Top Management membaca permission per role; Top Management read-only.
       tags: [Access Administration]
       security:
         - BearerAuth: []
@@ -1493,7 +1497,9 @@ paths:
     get:
       operationId: listAuditLogs
       summary: Daftar audit log
-      description: Hanya HR. Audit log bersifat append-only dan read-only via API.
+      description: |
+        HR dan Top Management membaca audit log yang sudah direduksi; Top Management
+        read-only. Audit log append-only dan tidak memiliki mutation API.
       tags: [Access Administration]
       security:
         - BearerAuth: []
@@ -1821,7 +1827,8 @@ components:
       enum: [karyawan, atasan, hr, top_management]
     EmployeeStatus:
       type: string
-      enum: [aktif, nonaktif, cuti, resign]
+      enum: [aktif, nonaktif]
+      description: Cuti tetap termasuk aktif; resign dipetakan ke nonaktif.
     RequestStatus:
       type: string
       description: Enum machine-readable yang digunakan sama pada database, query, dan response.
@@ -2034,22 +2041,17 @@ components:
             message: { type: string, example: Password berhasil diganti }
     Department:
       type: object
-      required: [id, kode, nama, is_active]
+      required: [id, nama]
       properties:
         id: { $ref: "#/components/schemas/UUID" }
-        kode: { type: string, maxLength: 50 }
-        nama: { type: string, maxLength: 150 }
-        is_active: { type: boolean }
+        nama: { type: string, maxLength: 100 }
     Position:
       type: object
-      required: [id, departemen_id, kode, nama, is_active]
+      required: [id, department_id, nama]
       properties:
         id: { $ref: "#/components/schemas/UUID" }
-        departemen_id: { $ref: "#/components/schemas/UUID" }
-        kode: { type: string, maxLength: 50 }
-        nama: { type: string, maxLength: 150 }
-        level: { type: integer, minimum: 0 }
-        is_active: { type: boolean }
+        department_id: { $ref: "#/components/schemas/UUID" }
+        nama: { type: string, maxLength: 100 }
     OfficeLocation:
       type: object
       required: [id, kode, nama, latitude, longitude, is_active]
@@ -2083,38 +2085,54 @@ components:
             data: { type: array, items: { $ref: "#/components/schemas/OfficeLocation" } }
     EmployeeAddress:
       type: object
+      required: [jalan, kota, provinsi]
       properties:
-        alamat: { type: string }
+        jalan: { type: string, maxLength: 255 }
+        kelurahan: { type: [string, "null"], maxLength: 100 }
+        kecamatan: { type: [string, "null"], maxLength: 100 }
+        kota: { type: string, maxLength: 100 }
         provinsi: { type: string }
-        kabupaten_kota: { type: string }
-        kecamatan: { type: string }
-        kelurahan: { type: string }
-        kode_pos: { type: string }
-        is_domisili: { type: boolean }
     EmployeeKTP:
       type: object
-      required: [jenis_kelamin]
+      required: [nomor_ktp]
       properties:
-        nik: { type: string, pattern: '^\d{16}$' }
-        nama_sesuai_ktp: { type: string }
-        tempat_lahir: { type: string }
-        tanggal_lahir: { type: string, format: date }
-        jenis_kelamin:
-          type: string
-          enum: [L, P]
-          description: Wajib diisi; L=laki-laki, P=perempuan.
-        agama: { type: string }
-        status_perkawinan: { type: string }
-        alamat_ktp: { type: string }
-        file_url: { type: string, format: uri }
+        nomor_ktp: { type: string, maxLength: 20 }
+        file_url: { type: [string, "null"], format: uri }
     EmployeeContract:
       type: object
+      required: [nomor_kontrak, jenis_kontrak, tanggal_mulai, tanggal_berakhir, status]
       properties:
-        nomor_kontrak: { type: string }
-        jenis_kontrak: { type: string, enum: [pkwt, pkwtt, magang, freelance] }
+        nomor_kontrak: { type: string, maxLength: 50 }
+        jenis_kontrak: { type: string, enum: [PKWT, PKWTT] }
         tanggal_mulai: { type: string, format: date }
-        tanggal_selesai: { type: [string, "null"], format: date }
+        tanggal_berakhir: { type: string, format: date }
         file_url: { type: [string, "null"], format: uri }
+        status: { type: string, enum: [aktif, berakhir] }
+    EmployeeAddressInput:
+      type: object
+      additionalProperties: false
+      required: [jalan, kota, provinsi]
+      properties:
+        jalan: { type: string, minLength: 1, maxLength: 255 }
+        kelurahan: { type: [string, "null"], maxLength: 100 }
+        kecamatan: { type: [string, "null"], maxLength: 100 }
+        kota: { type: string, minLength: 1, maxLength: 100 }
+        provinsi: { type: string, minLength: 1, maxLength: 100 }
+    EmployeeKTPInput:
+      type: object
+      additionalProperties: false
+      required: [nomor_ktp]
+      properties:
+        nomor_ktp: { type: string, pattern: '^\d{16}$' }
+    EmployeeContractInput:
+      type: object
+      additionalProperties: false
+      required: [nomor_kontrak, jenis_kontrak, tanggal_mulai, tanggal_berakhir]
+      properties:
+        nomor_kontrak: { type: string, minLength: 1, maxLength: 50 }
+        jenis_kontrak: { type: string, enum: [PKWT, PKWTT] }
+        tanggal_mulai: { type: string, format: date }
+        tanggal_berakhir: { type: string, format: date }
     EmployeeBPJS:
       type: object
       properties:
@@ -2167,13 +2185,12 @@ components:
         created_at: { type: string, format: date-time }
     EmployeeSummary:
       type: object
-      required: [id, nik_karyawan, nama_lengkap, email, departemen, jabatan, status]
+      required: [id, nip, nama, email, departemen, jabatan, status]
       properties:
         id: { $ref: "#/components/schemas/UUID" }
-        nik_karyawan: { type: string }
-        nama_lengkap: { type: string }
+        nip: { type: string }
+        nama: { type: string }
         email: { type: string, format: email }
-        foto_url: { type: [string, "null"], format: uri }
         departemen: { type: string }
         jabatan: { type: string }
         status: { $ref: "#/components/schemas/EmployeeStatus" }
@@ -2182,11 +2199,24 @@ components:
         - $ref: "#/components/schemas/EmployeeSummary"
         - type: object
           properties:
-            nomor_telepon: { type: string }
-            tanggal_masuk: { type: string, format: date }
+            jenis_kelamin:
+              type: string
+              enum: [L, P]
+              description: Wajib diisi; L=laki-laki, P=perempuan.
+            tanggal_lahir: { type: string, format: date }
+            tanggal_join: { type: string, format: date }
+            department_id:
+              oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }]
+            position_id:
+              oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }]
             atasan_id: { oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }] }
-            alamat: { type: array, items: { $ref: "#/components/schemas/EmployeeAddress" } }
-            ktp: { $ref: "#/components/schemas/EmployeeKTP" }
+            status_pernikahan:
+              type: [string, "null"]
+              enum: [lajang, menikah, cerai, null]
+            alamat:
+              oneOf: [{ $ref: "#/components/schemas/EmployeeAddress" }, { type: "null" }]
+            ktp:
+              oneOf: [{ $ref: "#/components/schemas/EmployeeKTP" }, { type: "null" }]
             kontrak: { type: array, items: { $ref: "#/components/schemas/EmployeeContract" } }
             bpjs: { type: array, items: { $ref: "#/components/schemas/EmployeeBPJS" } }
             npwp: { $ref: "#/components/schemas/EmployeeNPWP" }
@@ -2198,57 +2228,40 @@ components:
       type: object
       additionalProperties: false
       required:
-        [nik_karyawan, nama_lengkap, email, nomor_telepon, tanggal_masuk,
-         departemen_id, jabatan_id, role, ktp, alamat]
+        [nip, nama, email, jenis_kelamin, tanggal_lahir, tanggal_join,
+         department_id, position_id, role, alamat, ktp, kontrak]
       properties:
-        nik_karyawan: { type: string, maxLength: 50 }
-        nama_lengkap: { type: string, maxLength: 200 }
-        email: { type: string, format: email, maxLength: 255 }
-        nomor_telepon: { type: string, maxLength: 30 }
-        tanggal_masuk: { type: string, format: date }
-        departemen_id: { $ref: "#/components/schemas/UUID" }
-        jabatan_id: { $ref: "#/components/schemas/UUID" }
+        nip: { type: string, minLength: 1, maxLength: 20 }
+        nama: { type: string, minLength: 1, maxLength: 150 }
+        email: { type: string, format: email, maxLength: 150 }
+        jenis_kelamin: { type: string, enum: [L, P] }
+        tanggal_lahir: { type: string, format: date }
+        tanggal_join: { type: string, format: date }
+        department_id: { $ref: "#/components/schemas/UUID" }
+        position_id: { $ref: "#/components/schemas/UUID" }
         atasan_id: { oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }] }
+        status_pernikahan: { type: string, enum: [lajang, menikah, cerai] }
         role: { $ref: "#/components/schemas/RoleName" }
-        ktp: { $ref: "#/components/schemas/EmployeeKTP" }
-        alamat:
-          type: array
-          minItems: 1
-          items: { $ref: "#/components/schemas/EmployeeAddress" }
-        kontrak: { $ref: "#/components/schemas/EmployeeContract" }
-        bpjs: { type: array, items: { $ref: "#/components/schemas/EmployeeBPJS" } }
-        npwp: { $ref: "#/components/schemas/EmployeeNPWP" }
-        kontak_darurat:
-          type: array
-          items: { $ref: "#/components/schemas/EmergencyContact" }
-        pendidikan: { type: array, items: { $ref: "#/components/schemas/EducationHistory" } }
-        gaji_pokok: { type: number, minimum: 0 }
-        tunjangan: { type: number, minimum: 0 }
+        alamat: { $ref: "#/components/schemas/EmployeeAddressInput" }
+        ktp: { $ref: "#/components/schemas/EmployeeKTPInput" }
+        kontrak: { $ref: "#/components/schemas/EmployeeContractInput" }
     UpdateEmployeeRequest:
       type: object
       additionalProperties: false
       minProperties: 1
       description: Semua field bersifat opsional; PUT ini menggunakan partial update sesuai kontrak.
       properties:
-        nama_lengkap: { type: string, maxLength: 200 }
-        email: { type: string, format: email, maxLength: 255 }
-        nomor_telepon: { type: string, maxLength: 30 }
-        departemen_id: { $ref: "#/components/schemas/UUID" }
-        jabatan_id: { $ref: "#/components/schemas/UUID" }
+        nama: { type: string, minLength: 1, maxLength: 150 }
+        email: { type: string, format: email, maxLength: 150 }
+        jenis_kelamin: { type: string, enum: [L, P] }
+        tanggal_lahir: { type: string, format: date }
+        tanggal_join: { type: string, format: date }
+        department_id: { $ref: "#/components/schemas/UUID" }
+        position_id: { $ref: "#/components/schemas/UUID" }
         atasan_id: { oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }] }
         role: { $ref: "#/components/schemas/RoleName" }
         status: { $ref: "#/components/schemas/EmployeeStatus" }
-        ktp: { $ref: "#/components/schemas/EmployeeKTP" }
-        alamat: { type: array, items: { $ref: "#/components/schemas/EmployeeAddress" } }
-        kontrak: { $ref: "#/components/schemas/EmployeeContract" }
-        bpjs: { type: array, items: { $ref: "#/components/schemas/EmployeeBPJS" } }
-        npwp: { $ref: "#/components/schemas/EmployeeNPWP" }
-        kontak_darurat:
-          type: array
-          items: { $ref: "#/components/schemas/EmergencyContact" }
-        pendidikan: { type: array, items: { $ref: "#/components/schemas/EducationHistory" } }
-        gaji_pokok: { type: number, minimum: 0 }
-        tunjangan: { type: number, minimum: 0 }
+        status_pernikahan: { type: string, enum: [lajang, menikah, cerai] }
     EmployeeDocumentUploadRequest:
       type: object
       required: [jenis_dokumen, file]

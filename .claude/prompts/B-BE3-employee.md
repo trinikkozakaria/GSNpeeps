@@ -247,8 +247,8 @@ Kerjakan dengan urutan:
     - Tepat 09:00:00 WIB belum terlambat; setelah 09:00:00 WIB dihitung terlambat.
     - Pisahkan hitungan dan komposisi departemen status aktif dan nonaktif.
     - Gender kosong/tidak lengkap masuk `belum_diisi`, bukan laki-laki/perempuan.
-    - Formula join, resign, turnover, leave, payroll, dan org chart yang belum ditetapkan
-      tetap menjadi decision gate; jangan ditebak.
+    - Gunakan formula join, resign, turnover, leave, payroll, dan org chart yang ditetapkan
+      dalam keputusan D-015 dan schema `DashboardMetrics`; jangan membuat formula alternatif.
     - Jangan mengimplementasikan Hiring Progress dan Recruitment Cost.
     - Hindari query per employee.
     - Test timezone Asia/Jakarta serta boundary harian/mingguan/bulanan/tahunan.

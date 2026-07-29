@@ -16,6 +16,8 @@ download, authentication header, error mapper, or network retry.
 
 Keep one transport boundary responsible for:
 
+- One shared Axios instance and interceptors.
+
 - Validated API base URL.
 - JSON serialization and response parsing.
 - Bearer-token injection.

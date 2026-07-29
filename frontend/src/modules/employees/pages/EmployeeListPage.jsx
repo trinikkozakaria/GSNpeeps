@@ -1,0 +1,165 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+
+import { Button } from "../../../components/ui/Button";
+import { useAuth } from "../../auth/hooks/useAuth";
+import { EmployeeTable } from "../components/EmployeeTable";
+import { useDepartments, useEmployees } from "../hooks/useEmployees";
+
+const parsePositiveInteger = (value, fallback) => {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+export const EmployeeListPage = () => {
+  document.title = "Employee Database — GSNpeeps";
+  const auth = useAuth();
+  const [params, setParams] = useSearchParams();
+  const [searchInput, setSearchInput] = useState(params.get("search") ?? "");
+  const filters = useMemo(
+    () => ({
+      search: params.get("search") || undefined,
+      department_id: params.get("department_id") || undefined,
+      status: params.get("status") || undefined,
+      page: parsePositiveInteger(params.get("page"), 1),
+      limit: 10,
+    }),
+    [params],
+  );
+  const departments = useDepartments();
+  const employees = useEmployees(auth.role, filters);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const next = new URLSearchParams(params);
+      const normalized = searchInput.trim();
+      if (normalized) next.set("search", normalized);
+      else next.delete("search");
+      next.delete("page");
+      if (next.toString() !== params.toString()) setParams(next, { replace: true });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [params, searchInput, setParams]);
+
+  const setFilter = (key, value) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    if (key !== "page") next.delete("page");
+    setParams(next);
+  };
+
+  const clearFilters = () => {
+    setSearchInput("");
+    setParams({});
+  };
+
+  const data = employees.data;
+  const isFiltered = Boolean(filters.search || filters.department_id || filters.status);
+
+  return (
+    <section aria-labelledby="employee-title">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Organisasi</p>
+          <h1 id="employee-title" className="mt-2 text-3xl font-bold">Employee Database</h1>
+          <p className="mt-2 text-slate-300">
+            Data aktif dan nonaktif dipisahkan melalui filter status. Top Management memiliki akses baca saja.
+          </p>
+        </div>
+        {auth.role === "hr" && (
+          <Link
+            to="/app/karyawan/baru"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-200"
+          >
+            Tambah karyawan
+          </Link>
+        )}
+      </div>
+
+      <div className="mt-7 grid gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 md:grid-cols-3">
+        <label className="text-sm font-medium text-slate-200">
+          Cari nama, NIP, atau email
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+          />
+        </label>
+        <label className="text-sm font-medium text-slate-200">
+          Departemen
+          <select
+            value={filters.department_id ?? ""}
+            onChange={(event) => setFilter("department_id", event.target.value)}
+            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+          >
+            <option value="">Semua departemen</option>
+            {(departments.data ?? []).map((department) => (
+              <option key={department.id} value={department.id}>{department.nama}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm font-medium text-slate-200">
+          Status
+          <select
+            value={filters.status ?? ""}
+            onChange={(event) => setFilter("status", event.target.value)}
+            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+          >
+            <option value="">Semua status</option>
+            <option value="aktif">Aktif</option>
+            <option value="nonaktif">Nonaktif</option>
+          </select>
+        </label>
+        {isFiltered && (
+          <button type="button" onClick={clearFilters} className="justify-self-start text-sm font-semibold text-cyan-300">
+            Hapus semua filter
+          </button>
+        )}
+      </div>
+
+      <div className="mt-6" aria-live="polite">
+        {employees.isPending && <p role="status" className="text-slate-300">Memuat data karyawan…</p>}
+        {employees.isError && (
+          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100">
+            <p>Data karyawan belum dapat dimuat. {employees.error.message}</p>
+            <Button className="mt-3" variant="secondary" onClick={() => employees.refetch()}>Coba lagi</Button>
+          </div>
+        )}
+        {data && data.items.length === 0 && (
+          <div className="rounded-xl border border-white/10 p-8 text-center text-slate-300">
+            {isFiltered ? "Tidak ada karyawan yang cocok dengan filter." : "Belum ada data karyawan."}
+          </div>
+        )}
+        {data && data.items.length > 0 && (
+          <>
+            <p className="mb-3 text-sm text-slate-400">{data.meta.total_data} karyawan ditemukan</p>
+            <EmployeeTable employees={data.items} />
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-slate-400">
+                Halaman {data.meta.page} dari {Math.max(data.meta.total_page, 1)}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  disabled={data.meta.page <= 1}
+                  onClick={() => setFilter("page", String(data.meta.page - 1))}
+                >
+                  Sebelumnya
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={data.meta.page >= data.meta.total_page}
+                  onClick={() => setFilter("page", String(data.meta.page + 1))}
+                >
+                  Berikutnya
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+};

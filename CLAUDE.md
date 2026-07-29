@@ -70,7 +70,15 @@ Nama produk repository ini selalu **GSNpeeps**. `janjikupadamu.id` adalah kandid
 ### Backend
 
 - **Language**: Go.
-- **API style**: REST + JSON.
+- **HTTP**: standard library `net/http` + `github.com/gorilla/mux`.
+- **Database access**: `github.com/jackc/pgx/v5` (termasuk `pgxpool`).
+- **Migration**: `github.com/pressly/goose/v3`.
+- **Validation**: `github.com/go-playground/validator/v10`.
+- **JWT**: `github.com/golang-jwt/jwt/v5`.
+- **Redis client**: `github.com/redis/go-redis/v9`.
+- **Logging**: standard library `log/slog`.
+- **Test assertion/mock helper**: `github.com/stretchr/testify`.
+- **API style**: REST + JSON, tanpa web framework.
 - **Authentication**: JWT dengan masa berlaku 8 jam.
 - **Database**: PostgreSQL 16.
 - **Cache/session/rate limit**: Redis 7.
@@ -80,9 +88,18 @@ Nama produk repository ini selalu **GSNpeeps**. `janjikupadamu.id` adalah kandid
 ### Frontend
 
 - **Framework/library**: React.
+- **Language**: JavaScript dengan file `.js`/`.jsx`; jangan menambahkan TypeScript.
+- **Bundler/dev server**: Vite.
+- **Package manager**: pnpm; `pnpm-lock.yaml` adalah lockfile tunggal.
+- **Router**: React Router.
 - **Styling**: Tailwind CSS.
+- **HTTP client**: Axios.
+- **Server state**: TanStack Query.
+- **Form**: React Hook Form.
+- **Schema/validation**: Zod.
+- **Unit/component test**: Vitest + Testing Library.
+- **End-to-end test**: Playwright.
 - **Delivery**: production static assets disajikan melalui Nginx.
-- **Language, bundler, package manager, form library, query library, dan test library**: belum ditetapkan dalam dokumen.
 
 ### Infrastructure
 
@@ -92,18 +109,20 @@ Nama produk repository ini selalu **GSNpeeps**. `janjikupadamu.id` adalah kandid
 - **Services**: `nginx`, `frontend`, `backend-api`, `cron-worker`, `postgres`, `redis`, `nextcloud`.
 - Hanya Nginx yang boleh mengekspos port publik. Service lain berada di Docker internal network.
 
-### Larangan Pemilihan Stack
+### Batas Pemilihan Stack
 
-- Jangan menyalin stack dari project contoh.
-- Jangan mengasumsikan Next.js, TypeScript/JavaScript, Gin, Echo, GORM, sqlc, goose, Axios, Zustand, atau library lain sebelum diputuskan.
-- Jika fondasi belum dibuat, ajukan satu keputusan stack yang koheren beserta trade-off sebelum menambah dependency utama.
-- Setelah keputusan tercatat di repository, pertahankan stack tersebut dan jangan memperkenalkan alternatif kedua.
+- Stack di atas adalah baseline final keputusan produk tanggal 29 Juli 2026.
+- Jangan menambahkan Next.js, TypeScript, Gin, Echo, GORM, sqlc, npm/yarn lockfile, Jest,
+  atau HTTP/query/form/router alternatif.
+- Library yang belum dipilih dan bukan bagian baseline (misalnya chart, data-table, icon,
+  mocking network, client-state global, scheduler, export, dan linter tambahan) dipilih hanya
+  saat kebutuhan nyata muncul dan dicatat tanpa mengganti baseline.
 
 ---
 
 ## 4. Struktur Monorepo
 
-Gunakan struktur target berikut. Sesuaikan detail internal hanya setelah library utama diputuskan.
+Gunakan struktur target berikut sesuai stack final.
 
 ```text
 GSNpeeps/
@@ -144,19 +163,22 @@ GSNpeeps/
 ├── frontend/
 │   ├── src/
 │   │   ├── app/
+│   │   ├── routes/
 │   │   ├── modules/
 │   │   ├── components/
 │   │   ├── lib/
 │   │   │   └── api/
-│   │   ├── hooks/
-│   │   ├── stores/
-│   │   ├── schemas/
-│   │   ├── mocks/
+│   │   ├── hooks/             # hook lintas modul saja
+│   │   ├── stores/            # hanya jika global client-state disetujui
+│   │   ├── schemas/           # schema shared; resource schema tetap di modul
+│   │   ├── mocks/             # test/dev only, tidak masuk production
 │   │   └── styles/
 │   ├── public/
 │   ├── .env.example
 │   ├── Dockerfile
-│   └── package.json
+│   ├── package.json
+│   ├── pnpm-lock.yaml
+│   └── vite.config.js
 ├── docs/
 ├── .claude/
 ├── docker-compose.yml
@@ -241,14 +263,15 @@ mengirim label tampilan sebagai nilai status API.
   hanya untuk primitive, form adapter, layout, dan feedback yang benar-benar lintas modul.
 - Simpan transport HTTP, normalisasi error, response envelope, dan konfigurasi query bersama
   di `src/lib`; endpoint suatu resource tetap berada di `src/modules/<module>/api`.
-- Jika Next.js App Router disetujui, gunakan `src/app/(auth)` dan
-  `src/app/(dashboard)` sebagai route group dengan file route yang tipis. Jika router
-  client-side lain yang disetujui, gunakan `src/routes`. Jangan membuat kedua sistem routing.
+- Gunakan React Router di `src/routes`; `src/app` hanya untuk bootstrap/provider composition,
+  bukan file-based routing. Jangan membuat struktur Next.js `src/app/(group)`.
 - Jika tampilan berbeda menurut role, letakkan variasinya di dalam modul pemilik, misalnya
   `modules/dashboard/components/hr` dan `modules/dashboard/components/employee`; jangan
   menduplikasi seluruh struktur aplikasi per role.
-- `.next`, `node_modules`, output build, coverage, dan log debug adalah generated artifacts
+- `dist`, `node_modules`, output Playwright, coverage, dan log debug adalah generated artifacts
   dan tidak boleh di-commit.
+- Gunakan Axios melalui satu instance di `src/lib/api`, TanStack Query untuk server state,
+  React Hook Form + Zod untuk form, serta Vitest/Testing Library dan Playwright untuk test.
 - Centralize API base URL, Bearer token, response envelope, error mapping, dan multipart upload.
 - Jangan mendefinisikan request/response shape berdasarkan tebakan komponen; ikuti API Contract.
 - Server state tidak boleh diduplikasi tanpa alasan ke global client state.
@@ -464,7 +487,7 @@ Total: **46 endpoint dalam 13 modul**.
 | GET | `/lembur` | Approver terkait |
 | GET | `/lembur/{id}` | Pemohon/approver terkait |
 | PUT | `/lembur/{id}/decision` | Approver pada tahap aktif |
-| GET | `/lembur/rekap` | HR |
+| GET | `/lembur/rekap` | HR, Top Management read-only |
 
 ### Akses
 
@@ -671,7 +694,7 @@ Task detail ada di `.claude/skills/1.TASK.md`.
 
 - Ketika field atau endpoint tidak ada di dokumen.
 - Ketika ada konflik antar dokumen yang mengubah behavior.
-- Ketika harus memilih dependency atau stack utama yang belum ditetapkan.
+- Ketika harus memilih dependency optional di luar baseline dan dampaknya material.
 - Ketika tindakan bersifat destruktif atau menyentuh production.
 
 Jangan meminta klarifikasi untuk pilihan implementasi kecil yang sudah dibatasi jelas oleh stack dan pola repository.
@@ -712,7 +735,7 @@ NEXTCLOUD_BASE_URL=http://nextcloud/remote.php/dav/files/gsnpeeps
 NEXTCLOUD_USER=gsnpeeps-service
 NEXTCLOUD_APP_PASSWORD=change-me
 
-CORS_ALLOWED_ORIGIN=http://localhost:3000
+CORS_ALLOWED_ORIGIN=http://localhost:5173
 RATE_LIMIT_LOGIN=5
 RATE_LIMIT_DEFAULT=120
 LOG_LEVEL=debug
@@ -725,7 +748,8 @@ APP_NAME=GSNpeeps
 API_BASE_URL=http://localhost:8080/api/v1
 ```
 
-Nama prefix publik untuk environment frontend bergantung pada bundler yang dipilih. Jangan mengekspos secret dengan prefix publik.
+Environment frontend yang boleh masuk bundle memakai prefix `VITE_`. Jangan mengekspos secret
+dengan prefix tersebut.
 
 Nilai di atas hanya placeholder development untuk `.env.example`; jangan gunakan credential contoh sebagai production secret.
 
@@ -733,7 +757,7 @@ Nilai di atas hanya placeholder development untuk `.env.example`; jangan gunakan
 
 ## 13. Perintah Umum
 
-Perintah final mengikuti tooling yang dipilih pada Task Foundation. Minimal sediakan interface command yang setara:
+Gunakan command baseline berikut atau script repository yang ekuivalen:
 
 ### Backend
 
@@ -744,9 +768,9 @@ test
 vet
 lint
 fmt
-migrate-up
-migrate-down-one
-migrate-new
+goose up
+goose down
+goose create
 seed
 worker
 ```
@@ -754,12 +778,12 @@ worker
 ### Frontend
 
 ```text
-dev
-build
-lint
-format
-test
-test-e2e
+pnpm run dev
+pnpm run build
+pnpm run lint
+pnpm run format
+pnpm run test
+pnpm run test:e2e
 ```
 
 ### Root
@@ -770,7 +794,7 @@ docker compose config
 docker compose down
 ```
 
-Jangan menulis perintah package manager tertentu sebelum package manager diputuskan dan dicatat.
+Gunakan pnpm untuk seluruh command frontend; jangan membuat npm/yarn lockfile.
 
 ---
 

@@ -1,7 +1,5 @@
 # Pull request checklist
 
-# Pull request checklist
-
 Use this checklist before preparing, opening, reviewing, or merging a GSNpeeps PR.
 
 ## Contents

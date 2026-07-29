@@ -136,7 +136,9 @@ notifications.
 Features:
 
 - Public login.
+- Public rate-limited self-reset with current-password verification.
 - Authenticated logout.
+- Authenticated current-user restoration and own-password change.
 - JWT Bearer with eight-hour lifetime.
 - Active session cross-check in Redis.
 - Five consecutive failures lock the account.
@@ -146,6 +148,9 @@ Features:
 Requirements:
 
 - Never log or expose password/token.
+- Self-reset uses generic failures, account+IP rate limiting, the login failure counter,
+  revokes all sessions on success, and never exposes a password to HR.
+- Forgot-password via email/OTP remains outside scope.
 - Frontend must not display protected content before auth resolution.
 - Backend remains final authorization authority.
 - No refresh endpoint is approved.
@@ -156,11 +161,14 @@ Features:
 
 - Read departments.
 - Read positions.
+- Read active office locations for WFO selection.
 - Use department/position relations in employee forms, filters, org chart, and validation.
 
 Requirements:
 
 - Position/department selections must remain consistent with schema.
+- Employees may choose any active office for WFO; there is no permanent employee-office
+  assignment.
 - HR owns organization data changes only where API Contract permits them.
 
 ### 3. Employee database
@@ -340,7 +348,8 @@ Requirements:
 - `UNIQUE(recipient_user_id, event_key)` prevents duplicates.
 - Dismiss sets `dismissed_at`, not hard delete.
 - Retried dismissed event must not reappear.
-- H-30 goes to direct supervisor and HR with no incorrect self-notification.
+- H-30 goes to the active direct supervisor plus every eligible active HR except the subject;
+  if no eligible HR exists, it falls back to the single active Top Management account.
 
 ### 11. Access administration
 
@@ -459,7 +468,12 @@ Requirements:
 - Modular monolith with API and worker composition roots.
 - Feature-oriented React with shared accessible primitives.
 - OpenAPI as frontend/backend contract.
-- Architecture decision gate for unspecified dependencies.
+- Frontend baseline: React JavaScript/JSX, Vite, React Router, Tailwind CSS, Axios,
+  TanStack Query, React Hook Form, Zod, Vitest, Testing Library, Playwright, and pnpm.
+- Backend baseline: Go, `net/http` + `gorilla/mux`, pgx, Goose,
+  go-playground/validator, golang-jwt/jwt/v5, go-redis, `slog`, and Testify.
+- Additional non-baseline libraries require a focused need and must not duplicate an
+  approved responsibility.
 - Automated format/lint/test/build/contract checks.
 
 ## Information architecture
@@ -521,12 +535,13 @@ Do not show inaccessible navigation, but still enforce backend authorization.
 
 ## Open decisions
 
-- Reset-password public contract.
-- Frontend reload/session strategy without refresh endpoint.
-- Exact employee document read/download scope for Top Management.
-- Exact metric formulas/period boundaries where summaries are insufficient.
+Product-level subset; the canonical complete list is in `document-index.md`:
+
+- Exact browser token-persistence strategy without a refresh endpoint.
 - File download/URL authorization mechanism.
-- Unspecified backend/frontend libraries.
+- Official office names, addresses, and coordinates for seed data.
+- Company/public holiday calendar.
+- Task-specific optional libraries not covered by the approved baseline, only when needed.
 
 Resolve through `document-index.md`; do not silently add behavior.
 

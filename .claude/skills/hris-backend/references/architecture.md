@@ -24,12 +24,15 @@ integration in GSNpeeps.
 - [Configuration and secrets](#configuration-and-secrets)
 - [Observability](#observability)
 - [Testing seams](#testing-seams)
-- [Architecture decision gate](#architecture-decision-gate)
+- [Architecture extension gate](#architecture-extension-gate)
 - [Review checklist](#review-checklist)
 
 ## Architecture target
 
 Build GSNpeeps as a modular monolith with two executable composition roots:
+
+Approved foundation: Go, `net/http` + `gorilla/mux`, pgx/pgxpool, Goose,
+go-playground/validator, golang-jwt/jwt/v5, go-redis/v9, `log/slog`, and Testify.
 
 ```text
 cmd/api    -> REST API and health endpoint
@@ -555,8 +558,9 @@ unexpected defect -> internal error + correlated server log
 - Retry only transient errors and only when the operation is idempotent.
 - Use bounded exponential backoff with jitter for worker delivery/reconciliation.
 - Never turn an unknown infrastructure failure into `not found`.
-- Keep `/health` lightweight. Separate liveness from dependency readiness if the deployment
-  platform requires both semantics.
+- Keep `/health` lightweight and implement the approved combined API/PostgreSQL/Redis probe.
+  Separate liveness from dependency readiness only if a later deployment contract explicitly
+  requires both semantics.
 
 ## Configuration and secrets
 
@@ -608,25 +612,22 @@ Use:
 Do not mock internal implementation details. Test through the narrow boundary consumed by
 the subject.
 
-## Architecture decision gate
+## Architecture extension gate
 
-The approved project stack fixes Go, PostgreSQL 16, Redis 7, Nextcloud WebDAV, Docker,
-Nginx, and the external API/database contracts. It does not automatically approve a
-particular router, SQL abstraction, migration tool, validator, logger, scheduler, test
-library, or export library.
+The foundation stack is final. Scheduler, export, password hashing, and other optional
+task-specific libraries are not automatically approved.
 
 Before introducing a dependency not already established:
 
 1. Search the repository, `CLAUDE.md`, active prompt, specs, and lock/module files.
 2. Reuse the existing dependency when it satisfies the requirement.
-3. If no choice exists, present a short decision with requirements, alternatives, and
-   tradeoffs.
+3. If no choice exists, present a short decision for the missing task-specific capability.
 4. Obtain approval when the choice affects architecture, contract, security, operations,
    or long-term maintenance.
 5. Record the approved choice in the appropriate project guidance.
 
-Do not copy dependency choices from another project merely because its folder structure is
-similar.
+Never add Gin/Echo, GORM/sqlc, another router/driver/migration/validation/JWT/Redis/logger,
+or an assertion library parallel to the approved baseline.
 
 ## Review checklist
 
@@ -644,5 +645,5 @@ Before completing a backend architecture change, verify:
 - [ ] Audit and notification writes cannot be silently lost.
 - [ ] Timeouts, cancellation, idempotency, and retry behavior are defined.
 - [ ] Logs and responses do not leak HR data or secrets.
-- [ ] New dependencies passed the architecture decision gate.
+- [ ] New non-baseline dependencies passed the architecture extension gate.
 - [ ] Relevant unit, integration, contract, and worker tests exist.

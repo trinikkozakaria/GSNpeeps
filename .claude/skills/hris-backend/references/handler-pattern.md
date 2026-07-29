@@ -1,6 +1,7 @@
 # Handler pattern
 
-Handlers are thin HTTP adapters: parse, validate, call one service method, and write a standard response. Examples use `net/http`; use the approved router's path extraction without changing the layering.
+Handlers are thin `net/http` adapters: parse, validate with go-playground/validator, call one
+service method, and write a standard response. Extract path variables with `mux.Vars(r)`.
 
 ## Contents
 

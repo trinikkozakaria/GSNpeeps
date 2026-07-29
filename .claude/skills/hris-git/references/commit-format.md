@@ -1,7 +1,5 @@
 # Commit format
 
-# Commit format
-
 Use Conventional Commits 1.0.0 for commit messages and squash-merge PR titles.
 
 ## Contents

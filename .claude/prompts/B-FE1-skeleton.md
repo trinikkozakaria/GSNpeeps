@@ -20,7 +20,10 @@ Sebelum mulai:
 
 Konteks:
 - Nama produk: GSNpeeps.
-- Frontend: React + Tailwind CSS.
+- Frontend: React JavaScript/JSX + Vite + React Router + Tailwind CSS.
+- Package manager: pnpm.
+- HTTP/server-state/form: Axios + TanStack Query + React Hook Form + Zod.
+- Test: Vitest + Testing Library + Playwright.
 - Production assets disajikan sebagai static assets melalui Nginx.
 - Backend base path: `/api/v1`.
 - UI dan pesan end-user: Bahasa Indonesia.
@@ -28,39 +31,17 @@ Konteks:
 - Empat role: Karyawan, Atasan, HR, Top Management.
 - Tidak boleh membuat mock contract yang berbeda dari OpenAPI.
 
-FRONTEND DECISION GATE:
+STACK FINAL:
 
-Periksa apakah repository sudah menetapkan:
-- React version dan build tool/framework.
-- JavaScript atau TypeScript.
-- Package manager.
-- Router.
-- Server-state/query library.
-- Client-state strategy.
-- Form + validation library.
-- Component primitive/design system.
-- Icon library.
-- Linter dan formatter.
-- Unit/component/E2E test stack.
-- Mocking strategy.
-- Bila mengusulkan Next.js: putuskan static export atau Node/standalone runtime; baseline
-  tetap static Nginx kecuali perubahan deployment disetujui eksplisit.
-
-Jika belum:
-1. Buat `docs/architecture/frontend-stack-proposal.md`.
-2. Usulkan satu stack utama dan maksimal satu alternatif per keputusan.
-3. Pastikan compatible dengan React, Tailwind, static Nginx delivery, camera,
-   geolocation, multipart upload, charts, tables, dan OpenAPI 3.1.
-4. Jelaskan bundle impact, accessibility, testing, maintenance, dan learning cost.
-5. Jangan menambah dependency utama atau scaffold yang menguncinya sebelum disetujui.
-6. Berhenti dan laporkan keputusan yang dibutuhkan.
-
-Jika stack sudah disetujui, kerjakan:
+Jangan membuat proposal ulang atau menambahkan Next.js, TypeScript, npm/yarn, Jest, atau
+HTTP/query/form/router alternatif. Client-state global, table/chart/icon, network mock,
+component workbench, formatter, dan linter tambahan hanya dipilih jika task nyata
+membutuhkannya.
 
 1. PROJECT SCAFFOLD
 
-   - Inisialisasi `frontend/` memakai tool yang disetujui.
-   - Gunakan package manager yang disetujui dan commit lockfile.
+   - Inisialisasi `frontend/` memakai Vite React JavaScript.
+   - Gunakan pnpm dan commit hanya `pnpm-lock.yaml`.
    - Set target browser yang masuk akal untuk camera/geolocation.
    - Buat production build untuk static delivery.
    - Jangan mengaktifkan telemetry yang tidak diperlukan.
@@ -69,10 +50,8 @@ Jika stack sudah disetujui, kerjakan:
 2. FOLDER STRUCTURE
 
    Target:
-   - `src/app` untuk entry routing dan providers sesuai framework.
-   - Jika Next.js App Router disetujui, gunakan route group `(auth)` dan `(dashboard)`;
-     jangan membuat `src/routes`.
-   - Jika client router lain disetujui, gunakan `src/routes` dan jangan meniru file route Next.js.
+   - `src/app` untuk provider/bootstrap composition.
+   - `src/routes` untuk React Router, guards, dan navigation.
    - `src/modules` untuk modul bisnis. Setiap modul memiliki folder sendiri.
    - Di dalam modul, pisahkan `pages`, `components`, `hooks`, `api`, `schemas`, `utils`,
      dan `tests` sesuai kebutuhan; jangan membuat folder kosong.
@@ -80,10 +59,10 @@ Jika stack sudah disetujui, kerjakan:
    - `src/components/layout` untuk shell.
    - `src/lib/api` untuk transport client, response envelope, dan error mapping.
    - `src/hooks`, `src/stores`, `src/schemas`, `src/mocks`, `src/styles`, `src/test`.
-   - `.storybook` hanya jika Storybook/component workbench sudah disetujui.
+   - Jangan membuat `.storybook` sebelum component workbench dipilih khusus.
 
    Jangan membuat barrel file besar atau folder duplikat tanpa kebutuhan. Jangan commit
-   `.next`, `dist`, `node_modules`, coverage, cache, atau debug log.
+   `dist`, `node_modules`, coverage, Playwright output, cache, atau debug log.
 
 3. ENVIRONMENT CONFIG
 
@@ -93,7 +72,7 @@ Jika stack sudah disetujui, kerjakan:
    - Environment marker bila diperlukan.
 
    Aturan:
-   - Gunakan prefix public sesuai build tool.
+   - Gunakan prefix public `VITE_`.
    - Validate config pada startup/build.
    - `.env.example` hanya placeholder.
    - Jangan expose JWT secret, DB, Redis, atau Nextcloud credential.
@@ -153,7 +132,7 @@ Jika stack sudah disetujui, kerjakan:
 
 7. SERVER STATE FOUNDATION
 
-   - Configure query/cache library yang disetujui.
+   - Configure TanStack Query client.
    - Default retry hanya untuk safe transient read.
    - Central query key factory.
    - Cache tidak boleh shared lintas user setelah logout.
@@ -234,12 +213,12 @@ Jika stack sudah disetujui, kerjakan:
 12. TEST FOUNDATION
 
     Configure:
-    - Unit/component test.
+    - Vitest + Testing Library.
     - DOM matchers.
     - User-event.
     - API mocking yang mengikuti OpenAPI.
     - Accessibility smoke testing bila stack mendukung.
-    - E2E skeleton tanpa production credential.
+    - Playwright E2E skeleton tanpa production credential.
 
     Minimal test:
     - App renders GSNpeeps.
@@ -256,7 +235,7 @@ Jika stack sudah disetujui, kerjakan:
     - Production image menyajikan static assets melalui Nginx sesuai System Design,
       atau terintegrasi dengan root Nginx decision yang disetujui.
     - Non-root bila image memungkinkan.
-    - SPA route fallback aman bila memakai client router.
+    - SPA route fallback React Router ke `index.html`.
     - Cache hashed assets; jangan cache HTML shell secara berlebihan.
     - Security headers tidak merusak camera/geolocation/API.
     - Update Compose tanpa expose service internal ke public selain entry Nginx.
@@ -273,7 +252,7 @@ Jika stack sudah disetujui, kerjakan:
     - test e2e.
 
     Jalankan:
-    1. Install dari lockfile secara reproducible.
+    1. `pnpm install --frozen-lockfile`.
     2. Format check.
     3. Lint.
     4. Unit/component tests.
@@ -301,14 +280,14 @@ Aturan akhir:
 - Jangan membuat halaman bisnis palsu.
 - Jangan membuat data dashboard palsu.
 - Jangan membuat kontrak selain OpenAPI.
-- Jangan memilih dependency utama tanpa decision.
+- Jangan menambahkan dependency di luar baseline tanpa kebutuhan dan extension decision.
 - Jangan menyimpan token sebelum strategy FE.2 disetujui.
 - Jangan menggunakan nama produk selain GSNpeeps.
 ```
 
 ## Acceptance Criteria
 
-- [ ] Frontend stack telah disetujui dan terdokumentasi.
+- [ ] Frontend memakai stack final tanpa dependency paralel.
 - [ ] React + Tailwind scaffold dan production build berfungsi.
 - [ ] Struktur module/shared jelas tanpa folder duplikat.
 - [ ] Design tokens dan primitives memenuhi accessibility dasar.
@@ -324,24 +303,24 @@ Aturan akhir:
 frontend/
 ├── src/
 │   ├── app/
+│   ├── routes/
 │   ├── modules/
 │   ├── components/{ui,form,layout,feedback,data-table,charts}/
 │   ├── lib/api/
 │   ├── hooks/
-│   ├── stores/
-│   ├── schemas/
-│   ├── mocks/
+│   ├── stores/               # hanya bila global client-state dipilih kemudian
+│   ├── schemas/              # shared-only
+│   ├── mocks/                # dev/test-only
 │   ├── styles/
 │   └── test/
-├── .storybook/                # hanya jika disetujui
 ├── public/
 ├── .env.example
 ├── Dockerfile
 ├── package.json
-└── lockfile
+├── pnpm-lock.yaml
+└── vite.config.js
 
-docs/architecture/frontend-stack-proposal.md
 docker-compose.yml
 ```
 
-Nama file mengikuti language/tooling yang disetujui.
+Gunakan `.jsx` untuk modul yang merender JSX dan `.js` untuk modul non-JSX.

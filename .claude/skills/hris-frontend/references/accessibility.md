@@ -1,7 +1,5 @@
 # Accessibility and responsive behavior
 
-# Accessibility and responsive behavior
-
 Target WCAG 2.2 AA behavior for critical GSNpeeps workflows.
 
 ## Contents

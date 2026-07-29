@@ -1,6 +1,7 @@
 # Router pattern
 
-Use the approved router. Keep route registration declarative and dependency injection in `cmd/api`, not inside handlers or route functions.
+Use `github.com/gorilla/mux` on top of `net/http`. Keep route registration declarative and
+dependency injection in `cmd/api`, not inside handlers or route functions.
 
 ## Dependencies
 
@@ -30,10 +31,13 @@ Public:
 
 - `GET /health`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/reset-password`
 
 Authenticated:
 
 - `POST /api/v1/auth/logout`
+- `GET /api/v1/auth/me`
+- `PATCH /api/v1/auth/me/password`
 - All master, employee, profile, dashboard, attendance, report, leave, overtime, access, and notification operations defined in OpenAPI.
 
 Do not register:
@@ -46,21 +50,28 @@ Do not register:
 ## Conceptual registration
 
 ```go
-func RegisterRoutes(r Router, d HTTPDependencies) {
-    r.GET("/health", d.Health)
+func RegisterRoutes(r *mux.Router, d HTTPDependencies) {
+    r.HandleFunc("/health", d.Health).Methods(http.MethodGet)
 
-    api := r.Group("/api/v1")
-    api.POST("/auth/login", d.Auth.Login, d.LoginRateLimit)
-    api.POST("/auth/logout", d.Auth.Logout, d.Authenticate)
+    api := r.PathPrefix("/api/v1").Subrouter()
+    api.Handle("/auth/login", d.LoginRateLimit(d.Auth.Login)).Methods(http.MethodPost)
+    api.Handle("/auth/reset-password", d.ResetRateLimit(d.Auth.ResetPassword)).
+        Methods(http.MethodPost)
 
-    protected := api.Group("", d.Authenticate)
-    protected.GET("/karyawan", d.Employees.List, d.Authorize.Roles("hr", "top_management"))
-    protected.POST("/karyawan", d.Employees.Create, d.Authorize.Roles("hr"))
+    protected := api.NewRoute().Subrouter()
+    protected.Use(d.Authenticate)
+    protected.HandleFunc("/auth/logout", d.Auth.Logout).Methods(http.MethodPost)
+    protected.HandleFunc("/auth/me", d.Auth.Me).Methods(http.MethodGet)
+    protected.HandleFunc("/auth/me/password", d.Auth.ChangePassword).Methods(http.MethodPatch)
+    protected.Handle("/karyawan", d.Authorize.Roles("hr", "top_management")(d.Employees.List)).
+        Methods(http.MethodGet)
+    protected.Handle("/karyawan", d.Authorize.Roles("hr")(d.Employees.Create)).
+        Methods(http.MethodPost)
     // Register the remaining operations from OpenAPI.
 }
 ```
 
-Adapt syntax to the approved router. Route policy is unchanged.
+`ResetRateLimit` is conceptual middleware naming; reuse the established middleware signature.
 
 ## Authorization
 

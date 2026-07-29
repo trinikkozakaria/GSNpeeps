@@ -3,7 +3,7 @@
 **Agent**: Frontend  
 **Branch**: `feat/fe-auth-rbac`  
 **Estimasi**: 1.5–2 hari  
-**Prerequisite**: B-FE.1 dan B-BE.2 selesai; login/logout OpenAPI tersedia
+**Prerequisite**: B-FE.1 dan B-BE.2 selesai; lima operasi auth/password OpenAPI tersedia
 
 ## Prompt untuk Claude Code
 
@@ -15,8 +15,10 @@ Sebelum mulai:
 - Baca `CLAUDE.md`, `docs/openapi.yaml`, dan openapi decision log.
 - Baca `.claude/skills/3.TASK_AUTH_RBAC.md`.
 - Baca access matrix dan frontend skill references.
-- Pastikan backend hanya memiliki POST `/auth/login` dan POST `/auth/logout`.
+- Pastikan lima operasi auth/password OpenAPI 0.4.0 tersedia; jangan menambah refresh.
 - Pertahankan stack dan patterns B-FE.1.
+- Gunakan React JavaScript/JSX, React Router, Axios, TanStack Query, React Hook Form, Zod,
+  Tailwind CSS, Vitest/Testing Library, Playwright, dan pnpm.
 
 Contract:
 - Login body: email + password.
@@ -235,11 +237,11 @@ frontend/src/
 │   ├── schemas/
 │   ├── store/
 │   └── tests/
-├── <routing-root>/             # app untuk Next.js; routes untuk client router
+├── routes/                     # React Router route tree dan guards
 ├── components/layout/{Sidebar,Topbar,UserMenu}.*
 └── lib/api/client.*
 
 docs/architecture/frontend-auth-session.md
 ```
 
-Ikuti language dan naming convention stack yang telah disetujui.
+Gunakan JavaScript/JSX dan konvensi stack final.

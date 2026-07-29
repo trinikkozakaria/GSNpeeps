@@ -1,6 +1,7 @@
 # DTO and validation
 
 DTOs are typed request/response contracts separate from domain and persistence models.
+Validation tags and custom validators use `github.com/go-playground/validator/v10`.
 
 ## Contents
 
@@ -12,7 +13,7 @@ DTOs are typed request/response contracts separate from domain and persistence m
 
 ## Create request
 
-Use non-pointer values for required fields and pointers only for genuinely optional values. Tags below are illustrative; use the approved validation library.
+Use non-pointer values for required fields and pointers only for genuinely optional values.
 
 ```go
 type CreateEmployeeRequest struct {

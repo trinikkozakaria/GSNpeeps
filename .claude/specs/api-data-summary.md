@@ -35,6 +35,7 @@ Public operations:
 
 - `GET /health`.
 - `POST /api/v1/auth/login`.
+- `POST /api/v1/auth/reset-password`.
 
 All other operations require:
 
@@ -153,13 +154,35 @@ Revision 0.4.0 additions:
 | POST | `/api/v1/auth/reset-password` | Public, rate-limited | Self-reset after current-password verification |
 | GET | `/api/v1/master/lokasi-kantor` | Authenticated | Active trusted office coordinates for WFO |
 
+Active module totals (including revision additions):
+
+| Module | Operations |
+|---|---:|
+| System | 1 |
+| Authentication | 5 |
+| Organization master | 3 |
+| Employee database | 8 |
+| Own profile/metrics | 2 |
+| Dashboard | 1 |
+| Attendance | 2 |
+| Attendance reports | 2 |
+| Leave/absence | 6 |
+| Master leave type | 3 |
+| Overtime | 5 |
+| Access/audit | 4 |
+| Notifications | 4 |
+| **Total** | **46** |
+
+The numbered inventory below preserves the 42-operation PDF baseline for traceability; the
+four revision operations above are additional and are not renumbered into that source list.
+
 ### 1. System — 1
 
 | # | Method | Path | Access | Purpose |
 |---:|---|---|---|---|
 | 1 | GET | `/health` | Public | Service/dependency health according to contract |
 
-### 2. Authentication — 2
+### 2. Authentication — 2 (PDF baseline)
 
 | # | Method | Path | Access | Purpose |
 |---:|---|---|---|---|
@@ -169,7 +192,7 @@ Revision 0.4.0 additions:
 The PDF lists no current-user or reset operation; revision 0.4.0 adds them. Refresh,
 registration, HR password reset, and forgot-password email/OTP remain out of scope.
 
-### 3. Organization master — 2
+### 3. Organization master — 2 (PDF baseline)
 
 | # | Method | Path | Access | Purpose |
 |---:|---|---|---|---|
@@ -249,7 +272,7 @@ create `/checkout` silently.
 | 31 | GET | `/api/v1/lembur` | Active related approver | Approver list |
 | 32 | GET | `/api/v1/lembur/{id}` | Applicant/related approver | Scoped detail |
 | 33 | PUT | `/api/v1/lembur/{id}/decision` | Active approver | Atomic approve/reject |
-| 34 | GET | `/api/v1/lembur/rekap` | HR | Overtime recap, no compensation calculation |
+| 34 | GET | `/api/v1/lembur/rekap` | HR, Top Management read-only | Overtime recap, no compensation calculation |
 
 ### 12. Access and audit — 4
 
@@ -454,17 +477,17 @@ For concurrency:
 
 ## Contract gaps
 
-Remaining decisions:
+This is the API/data subset of the canonical gaps in `document-index.md`:
 
 1. Exact file download/access mechanism.
-2. Multi-office schema, coordinates, employee assignment, and WFO office-selection rule.
-3. Exact formulas for dashboard joiners, resignations, turnover, leave, payroll cost, and
-   organization chart; period/attendance/inactive/gender rules are resolved by D-015.
+2. Browser token persistence without refresh.
+3. Official office seed data.
+4. Company/public holiday calendar and exceptional weekend-work policy.
 
 ## Implementation checklist
 
-- [ ] Exact active operation count remains 45.
-- [ ] Exact table count/names reconcile with Database Schema.
+- [ ] Exact active operation count remains 46.
+- [ ] Exact table count remains 26, including decision D-013 `office_locations`.
 - [ ] Payloads and columns are transcribed, not guessed.
 - [ ] API and DB nullability/optionality match.
 - [ ] Authorization uses `access-matrix.md`.
