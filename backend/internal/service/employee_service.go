@@ -373,7 +373,9 @@ func (s *EmployeeService) Detail(
 	identity domain.Identity,
 	id uuid.UUID,
 ) (domain.EmployeeDetail, error) {
-	if identity.Role != domain.RoleHR && identity.Role != domain.RoleTopManagement {
+	isMonitoringRole := identity.Role == domain.RoleHR || identity.Role == domain.RoleTopManagement
+	isSelf := identity.EmployeeID == id
+	if !isMonitoringRole && !isSelf {
 		return domain.EmployeeDetail{}, domain.ErrForbidden
 	}
 	item, err := s.employees.FindByID(ctx, id)

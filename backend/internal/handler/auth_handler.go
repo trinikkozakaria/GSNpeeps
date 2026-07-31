@@ -59,6 +59,9 @@ func (h *AuthHandler) Login(writer http.ResponseWriter, request *http.Request) {
 		response.FromError(writer, err)
 		return
 	}
+	// NOTE: sesuaikan result.Token / result.ExpiresIn dengan nama field
+	// yang sebenarnya ada di struct dto.LoginData milikmu.
+	setAuthCookie(writer, result.Token, result.ExpiresIn)
 	response.Success(writer, http.StatusOK, result, "Login berhasil")
 }
 
@@ -72,6 +75,7 @@ func (h *AuthHandler) Logout(writer http.ResponseWriter, request *http.Request) 
 		response.FromError(writer, err)
 		return
 	}
+	clearAuthCookie(writer)
 	response.EmptySuccess(writer, "Logout berhasil")
 }
 
@@ -135,6 +139,35 @@ func (h *AuthHandler) requestMeta(request *http.Request) service.RequestMeta {
 		IPAddress: clientIP(request, h.trustProxy),
 		RequestID: middleware.RequestIDFromContext(request.Context()),
 	}
+}
+
+// setAuthCookie writes the JWT as an httpOnly cookie. Frontend and backend
+// run on different origins, so SameSite=None is required for the browser
+// to send this cookie on cross-origin requests -- and browsers reject
+// SameSite=None cookies that aren't also Secure, so Secure is always true
+// here (this requires HTTPS on both sides, including in development).
+func setAuthCookie(writer http.ResponseWriter, token string, expiresInSeconds int) {
+	http.SetCookie(writer, &http.Cookie{
+		Name:     middleware.AccessTokenCookieName,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   expiresInSeconds,
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func clearAuthCookie(writer http.ResponseWriter) {
+	http.SetCookie(writer, &http.Cookie{
+		Name:     middleware.AccessTokenCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 func clientIP(request *http.Request, trustProxy bool) string {

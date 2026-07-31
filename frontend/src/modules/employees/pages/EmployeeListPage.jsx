@@ -67,14 +67,14 @@ export const EmployeeListPage = () => {
             Data aktif dan nonaktif dipisahkan melalui filter status. Top Management memiliki akses baca saja.
           </p>
         </div>
-        {auth.role === "hr" && (
+        {/* {auth.role === "hr" && ( */}
           <Link
             to="/app/karyawan/baru"
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-200"
           >
             Tambah karyawan
           </Link>
-        )}
+        {/* )} */}
       </div>
 
       <div className="mt-7 grid gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 md:grid-cols-3">

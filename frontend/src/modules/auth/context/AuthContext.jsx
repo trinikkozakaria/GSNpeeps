@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 
 import { configureAuthBoundary } from "../../../lib/api/client";
 import { queryClient } from "../../../lib/query/query-client";
@@ -18,11 +18,9 @@ const anonymousState = {
 };
 
 export const AuthProvider = ({ children }) => {
-  const tokenRef = useRef(null);
   const [state, setState] = useState({ ...anonymousState, status: "initializing" });
 
   const clearSession = useCallback(async () => {
-    tokenRef.current = null;
     await queryClient.cancelQueries();
     queryClient.clear();
     setState(anonymousState);
@@ -30,7 +28,6 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     configureAuthBoundary({
-      getAccessToken: () => tokenRef.current,
       onUnauthorized: clearSession,
     });
     setState(anonymousState);
@@ -55,7 +52,6 @@ export const AuthProvider = ({ children }) => {
   const login = useCallback(
     async (credentials, signal) => {
       const loginData = await loginRequest(credentials, signal);
-      tokenRef.current = loginData.token;
       try {
         const user = await currentUserRequest(signal);
         setState({
@@ -76,9 +72,7 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(
     async (signal) => {
       try {
-        if (tokenRef.current) {
-          await logoutRequest(signal);
-        }
+        await logoutRequest(signal);
       } finally {
         await clearSession();
       }
@@ -98,4 +92,3 @@ export const AuthProvider = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-

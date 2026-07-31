@@ -3,12 +3,15 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/pkg/response"
 )
+
+// AccessTokenCookieName is the cookie the frontend receives on login and
+// the browser sends back automatically on every request to this API.
+const AccessTokenCookieName = "gsnpeeps_token"
 
 type TokenVerifier interface {
 	Verify(context.Context, string) (domain.Identity, string, error)
@@ -21,7 +24,7 @@ type SessionValidator interface {
 func Authenticate(tokens TokenVerifier, sessions SessionValidator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			raw, ok := bearerToken(request.Header.Get("Authorization"))
+			raw, ok := tokenFromCookie(request)
 			if !ok {
 				response.FromError(writer, domain.ErrInvalidToken)
 				return
@@ -40,10 +43,10 @@ func Authenticate(tokens TokenVerifier, sessions SessionValidator) func(http.Han
 	}
 }
 
-func bearerToken(header string) (string, bool) {
-	parts := strings.Fields(header)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
+func tokenFromCookie(request *http.Request) (string, bool) {
+	cookie, err := request.Cookie(AccessTokenCookieName)
+	if err != nil || cookie.Value == "" {
 		return "", false
 	}
-	return parts[1], true
+	return cookie.Value, true
 }

@@ -1,24 +1,25 @@
 import axios from "axios";
-
+ 
 import { config } from "../config";
 import { AppError, normalizeApiError } from "./errors";
-
+ 
 let readAccessToken = () => null;
 let handleUnauthorized = () => {};
-
+ 
 export const configureAuthBoundary = ({ getAccessToken, onUnauthorized }) => {
   readAccessToken = getAccessToken ?? (() => null);
   handleUnauthorized = onUnauthorized ?? (() => {});
 };
-
+ 
 export const apiClient = axios.create({
   baseURL: config.apiBaseUrl,
   timeout: config.requestTimeoutMs,
+  withCredentials: true,
   headers: {
     Accept: "application/json",
   },
 });
-
+ 
 apiClient.interceptors.request.use((request) => {
   const token = readAccessToken();
   if (token) {
@@ -26,7 +27,7 @@ apiClient.interceptors.request.use((request) => {
   }
   return request;
 });
-
+ 
 apiClient.interceptors.response.use(
   (response) => {
     if (!response.data || response.data.success !== true || !("data" in response.data)) {
@@ -46,4 +47,4 @@ apiClient.interceptors.response.use(
     return Promise.reject(normalized);
   },
 );
-
+ 

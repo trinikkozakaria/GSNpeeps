@@ -16,6 +16,7 @@ import { AuthenticatedRoute } from "./guards/AuthenticatedRoute";
 import { PublicOnlyRoute } from "./guards/PublicOnlyRoute";
 import { RoleRoute } from "./guards/RoleRoute";
 import { roles } from "./navigation/navigation";
+import { ProfilSayaPage } from "../modules/auth/pages/ProfilSayaPage";
 
 const personalRoles = [roles.employee, roles.supervisor, roles.hr];
 const monitoringRoles = [roles.hr, roles.topManagement];
@@ -41,7 +42,7 @@ export const router = createBrowserRouter([
           {
             element: <RoleRoute allowedRoles={personalRoles} />,
             children: [
-              { path: "profil", element: <ModuleAccessPage title="Profil Saya" description="Data profil pribadi sesuai identitas sesi." /> },
+              { path: "profil", element: <ProfilSayaPage /> },
               { path: "metrik-personal", element: <ModuleAccessPage title="Metrik Personal" description="Metrik pribadi untuk Karyawan, Atasan, dan HR." /> },
               { path: "absensi", element: <ModuleAccessPage title="Kehadiran Saya" description="Check-in dan riwayat kehadiran milik pengguna aktif." /> },
               { path: "pengajuan", element: <ModuleAccessPage title="Pengajuan Saya" description="Ketidakhadiran dan lembur milik pengguna aktif." /> },
