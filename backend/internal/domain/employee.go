@@ -1,6 +1,10 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type Department struct {
 	ID   uuid.UUID `json:"id"`
@@ -45,18 +49,80 @@ type EmployeeContract struct {
 	Status    string  `json:"status"`
 }
 
+// EmployeeBPJS memetakan satu nomor kepesertaan BPJS. Satu employee menyimpan satu baris
+// `employee_bpjs`, tetapi kontrak mengirimkannya sebagai koleksi per jenis kepesertaan.
+type EmployeeBPJS struct {
+	Type   string `json:"jenis"`
+	Number string `json:"nomor"`
+}
+
+type EmployeeNPWP struct {
+	Number  string  `json:"nomor_npwp"`
+	FileURL *string `json:"file_url"`
+}
+
+type EmergencyContact struct {
+	Name         string  `json:"nama"`
+	Relationship *string `json:"hubungan"`
+	Phone        string  `json:"nomor_telepon"`
+}
+
+type EducationHistory struct {
+	Level          *string `json:"jenjang"`
+	Institution    *string `json:"institusi"`
+	GraduationYear *int    `json:"tahun_lulus"`
+}
+
+type PositionHistory struct {
+	Department *Department `json:"departemen,omitempty"`
+	Position   *Position   `json:"jabatan,omitempty"`
+	StartDate  string      `json:"tanggal_mulai"`
+	EndDate    *string     `json:"tanggal_selesai"`
+}
+
+// CurrentSalary hanya berisi periode bulan berjalan sesuai PRD; histori gaji penuh tidak
+// pernah dikirim melalui endpoint detail maupun profil.
+type CurrentSalary struct {
+	Period      string  `json:"periode"`
+	BasePay     float64 `json:"gaji_pokok"`
+	Allowance   float64 `json:"tunjangan"`
+	Deduction   float64 `json:"potongan"`
+	TakeHomePay float64 `json:"take_home_pay"`
+}
+
+type EmployeeDocument struct {
+	ID        uuid.UUID `json:"id"`
+	Type      string    `json:"jenis_dokumen"`
+	FileName  string    `json:"nama_file"`
+	FileURL   string    `json:"file_url"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type NewEmployeeDocument struct {
+	EmployeeID uuid.UUID
+	Type       string
+	FileName   string
+	FileURL    string
+}
+
 type EmployeeDetail struct {
 	EmployeeSummary
-	Gender        string             `json:"jenis_kelamin"`
-	BirthDate     string             `json:"tanggal_lahir"`
-	JoinDate      string             `json:"tanggal_join"`
-	DepartmentID  *uuid.UUID         `json:"department_id"`
-	PositionID    *uuid.UUID         `json:"position_id"`
-	SupervisorID  *uuid.UUID         `json:"atasan_id"`
-	MaritalStatus *string            `json:"status_pernikahan"`
-	Address       *EmployeeAddress   `json:"alamat"`
-	KTP           *EmployeeKTP       `json:"ktp"`
-	Contracts     []EmployeeContract `json:"kontrak"`
+	Gender            string             `json:"jenis_kelamin"`
+	BirthDate         string             `json:"tanggal_lahir"`
+	JoinDate          string             `json:"tanggal_join"`
+	DepartmentID      *uuid.UUID         `json:"department_id"`
+	PositionID        *uuid.UUID         `json:"position_id"`
+	SupervisorID      *uuid.UUID         `json:"atasan_id"`
+	MaritalStatus     *string            `json:"status_pernikahan"`
+	Address           *EmployeeAddress   `json:"alamat"`
+	KTP               *EmployeeKTP       `json:"ktp"`
+	Contracts         []EmployeeContract `json:"kontrak"`
+	BPJS              []EmployeeBPJS     `json:"bpjs"`
+	NPWP              *EmployeeNPWP      `json:"npwp,omitempty"`
+	EmergencyContacts []EmergencyContact `json:"kontak_darurat"`
+	Education         []EducationHistory `json:"pendidikan"`
+	PositionHistory   []PositionHistory  `json:"riwayat_jabatan"`
+	CurrentSalary     *CurrentSalary     `json:"gaji_berjalan,omitempty"`
 }
 
 type EmployeeFilter struct {
@@ -65,6 +131,33 @@ type EmployeeFilter struct {
 	Status       string
 	Page         int
 	Limit        int
+}
+
+// ExportFormat adalah format berkas export yang disetujui kontrak; lihat keputusan D-017.
+type ExportFormat string
+
+const (
+	ExportFormatXLSX ExportFormat = "xlsx"
+	ExportFormatPDF  ExportFormat = "pdf"
+)
+
+func (f ExportFormat) Valid() bool {
+	return f == ExportFormatXLSX || f == ExportFormatPDF
+}
+
+// EmployeeExportQuery memakai filter yang sama dengan list, ditambah `id` opsional untuk
+// mengekspor satu karyawan.
+type EmployeeExportQuery struct {
+	Format     ExportFormat
+	EmployeeID *uuid.UUID
+	Filter     EmployeeFilter
+}
+
+// ExportFile adalah berkas hasil export yang siap di-stream ke client.
+type ExportFile struct {
+	FileName    string
+	ContentType string
+	Content     []byte
 }
 
 type EmployeePage struct {
