@@ -158,6 +158,73 @@ koordinat tepercaya dari `office_locations`, bukan dari client, lalu menghitung 
 Master boleh kosong sampai nama/alamat/koordinat resmi tersedia; WFO tidak dapat diproses
 tanpa lokasi aktif, tetapi WFH/WFA tetap tidak memakai radius.
 
+### D-017 — Export format enum is `xlsx` atau `pdf`
+
+`ExportFormatParam` revisi 0.4.0 memakai enum `xlsx|csv`, sedangkan kedua operation export
+(`GET /api/v1/karyawan/export` dan `GET /api/v1/laporan/kehadiran/export`) hanya mendeklarasikan
+response `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` dan
+`application/pdf`. API Contract v1.1 §5.6 menetapkan `format=xlsx|pdf`.
+
+Karena API Contract memiliki otoritas lebih tinggi dan `csv` tidak memiliki response media type
+di kontrak manapun, enum diselaraskan menjadi `xlsx|pdf` dengan default `xlsx`. Nilai `format`
+di luar enum menghasilkan `400 VALIDATION_ERROR`. Tidak ada format export lain yang ditambahkan.
+
+### D-018 — Kolom detail karyawan yang dibutuhkan OpenAPI 0.4.0
+
+Database Schema v1.1 §3 mendefinisikan tabel detail karyawan lebih ringkas daripada schema
+`EmployeeDetail`, `CurrentSalary`, `PositionHistory`, dan `EmployeeDocument` pada OpenAPI 0.4.0.
+Selisihnya:
+
+| Schema OpenAPI | Field | Status di Database Schema v1.1 |
+|---|---|---|
+| `CurrentSalary` | `tunjangan`, `potongan`, `take_home_pay` | tidak ada |
+| `PositionHistory` | `departemen`, `jabatan` sebagai objek `Department`/`Position` | hanya `jabatan VARCHAR(100)` |
+| `EmployeeDocument` | `nama_file`, `created_at` | hanya `file_url`, `uploaded_at` |
+| `EmployeeNPWP` | `status_ptkp` | tidak ada |
+| `EducationHistory` | `jurusan` | tidak ada |
+| `EmergencyContact` | `is_primary` | tidak ada |
+
+Keputusan:
+
+1. `take_home_pay` wajib ada karena formula payroll D-015 memakainya. Migration menambahkan
+   `tunjangan`, `potongan`, dan `take_home_pay` pada `employee_salaries`. `take_home_pay`
+   adalah kolom generated `gaji_pokok + tunjangan - potongan` sehingga tidak dapat menyimpang.
+2. `employee_position_history` menambahkan `department_id` dan `position_id` nullable agar
+   objek `Department`/`Position` dapat dibentuk tanpa menebak. Kolom `jabatan VARCHAR(100)`
+   dari schema dipertahankan sebagai label historis.
+3. `employee_documents` menambahkan `nama_file`. Kolom `uploaded_at` dari schema dipertahankan
+   dan dipetakan ke field response `created_at`; tidak ada kolom kedua yang dibuat.
+4. `status_ptkp`, `jurusan`, dan `is_primary` tidak termasuk `required` pada schema manapun dan
+   belum memiliki sumber data. Field tersebut tidak dikirim sampai sumbernya ditetapkan;
+   kolom database tidak ditambahkan hanya untuk mengisi field opsional.
+5. Nama tabel mengikuti Database Schema v1.1: `employee_emergency_contacts`,
+   `employee_education`, `employee_position_history`, `employee_salaries`, dan
+   `employee_documents`.
+
+### D-019 — Status karyawan pada agregasi dashboard
+
+D-015 menyebut kelompok aktif mencakup `aktif`/`cuti` dan kelompok nonaktif mencakup
+`nonaktif`/`resign`. `employees.status` pada Database Schema v1.1 dan enum `EmployeeStatus`
+pada OpenAPI hanya memiliki `aktif` dan `nonaktif`; `cuti` dipetakan ke `aktif` dan `resign`
+dipetakan ke `nonaktif` pada boundary HTTP maupun database.
+
+Implementasi memakai pemetaan tersebut: `karyawan_aktif` menghitung `status='aktif'`,
+`karyawan_nonaktif` menghitung `status='nonaktif'`, dan `resign` menghitung karyawan dengan
+`deleted_at` di dalam rentang periode. Kolom status terpisah untuk `cuti`/`resign` tidak
+ditambahkan tanpa keputusan produk.
+
+### D-020 — Metrik yang bergantung pada modul Attendance dan Ketidakhadiran
+
+`PersonalMetrics` seluruhnya, serta `hadir_valid`, `terlambat`, `hari_izin_disetujui`, dan
+`pengajuan_menunggu` pada `DashboardMetrics`, membaca tabel `attendances`, `leave_requests`,
+dan `overtime_requests` yang belum dibuat pada epic ini.
+
+Endpoint tetap diimplementasikan dengan authorization, boundary periode, dan response shape
+sesuai kontrak. Nilai yang bergantung pada modul tersebut dibaca melalui interface
+`AttendanceMetricsReader` dan `LeaveMetricsReader` dengan implementasi sementara yang
+mengembalikan nol dan koleksi kosong — bukan data buatan. Implementasi nyata dipasang pada
+epic Attendance dan Approval tanpa mengubah response schema.
+
 ## Open contract gaps
 
 ### G-007 — Employee document delivery
@@ -174,15 +241,16 @@ kalender libur. Pengecualian kerja pada akhir pekan/libur memerlukan revisi poli
 
 ## Validation record
 
-Hasil validasi lokal revisi 0.4.0:
+Hasil validasi lokal setelah penerapan D-017 (enum `ExportFormatParam`):
 
-- YAML syntax: valid dengan PyYAML 6.0.3.
+- YAML syntax: valid dengan PyYAML.
 - OpenAPI root: `3.1.0`; metadata wajib setiap operation tersedia.
-- Path count: 38.
-- Operation count: 46.
+- Path count: 38 (tidak berubah).
+- Operation count: 46 (tidak berubah; tidak ada endpoint baru di luar kontrak).
 - Operation ID: lengkap dan unik.
 - Response coverage: setiap operation memiliki response 2xx dan 4xx.
 - `$ref` resolution: seluruh local reference terselesaikan.
+- `ExportFormatParam.enum`: `xlsx`, `pdf`.
 - Redocly: baseline 0.1.0 sebelumnya lulus tanpa warning; lint ulang 0.4.0 belum dapat
   dijalankan karena eksekusi paket pihak ketiga di luar sandbox ditolak oleh kebijakan
   keamanan lingkungan. Pemeriksaan aman lokal memakai PyYAML 6.0.3.
