@@ -47,6 +47,59 @@ const employeeContractSchema = z.object({
   status: z.enum(["aktif", "berakhir"]),
 });
 
+// Bagian berikut mengikuti schema EmployeeDetail pada OpenAPI. Field yang tidak termasuk
+// `required` boleh tidak dikirim backend, sehingga dimodelkan optional dan bukan ditebak.
+const employeeBpjsSchema = z.object({
+  jenis: z.enum(["kesehatan", "ketenagakerjaan"]),
+  nomor: z.string(),
+  status: z.enum(["aktif", "nonaktif"]).optional(),
+});
+
+const employeeNpwpSchema = z.object({
+  nomor_npwp: z.string(),
+  status_ptkp: z.string().optional(),
+  file_url: z.string().nullable().optional(),
+});
+
+const emergencyContactSchema = z.object({
+  nama: z.string(),
+  hubungan: z.string().nullable().optional(),
+  nomor_telepon: z.string(),
+  is_primary: z.boolean().optional(),
+});
+
+const educationHistorySchema = z.object({
+  jenjang: z.string().nullable().optional(),
+  institusi: z.string().nullable().optional(),
+  jurusan: z.string().nullable().optional(),
+  tahun_lulus: z.number().int().nullable().optional(),
+});
+
+const positionHistorySchema = z.object({
+  departemen: departmentSchema.optional(),
+  jabatan: positionSchema.optional(),
+  tanggal_mulai: dateSchema,
+  tanggal_selesai: dateSchema.nullable(),
+});
+
+const currentSalarySchema = z.object({
+  periode: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  gaji_pokok: z.number(),
+  tunjangan: z.number().optional(),
+  potongan: z.number().optional(),
+  take_home_pay: z.number().optional(),
+});
+
+export const employeeDocumentSchema = z.object({
+  id: uuidSchema,
+  jenis_dokumen: z.string(),
+  nama_file: z.string(),
+  file_url: z.string(),
+  created_at: z.string(),
+});
+
+export const employeeDocumentListSchema = z.array(employeeDocumentSchema);
+
 export const employeeDetailSchema = employeeSummarySchema.extend({
   jenis_kelamin: z.enum(["L", "P"]),
   tanggal_lahir: dateSchema,
@@ -58,6 +111,12 @@ export const employeeDetailSchema = employeeSummarySchema.extend({
   alamat: employeeAddressSchema.nullable(),
   ktp: employeeKtpSchema.nullable(),
   kontrak: z.array(employeeContractSchema),
+  bpjs: z.array(employeeBpjsSchema).optional().default([]),
+  npwp: employeeNpwpSchema.optional(),
+  kontak_darurat: z.array(emergencyContactSchema).optional().default([]),
+  pendidikan: z.array(educationHistorySchema).optional().default([]),
+  riwayat_jabatan: z.array(positionHistorySchema).optional().default([]),
+  gaji_berjalan: currentSalarySchema.optional(),
 });
 
 export const departmentListSchema = z.array(departmentSchema);

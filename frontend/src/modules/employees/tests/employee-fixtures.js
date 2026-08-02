@@ -1,0 +1,105 @@
+// Fixture sintetis untuk test. Tidak memuat data karyawan nyata, nomor identitas asli,
+// maupun alamat sungguhan.
+export const employeeDetailFixture = {
+  id: "11111111-1111-4111-8111-111111111111",
+  nip: "UJI-001",
+  nama: "Anita Sintetis",
+  email: "anita@example.test",
+  departemen: "Teknologi",
+  jabatan: "Staff",
+  status: "aktif",
+  jenis_kelamin: "P",
+  tanggal_lahir: "1995-04-10",
+  tanggal_join: "2026-01-05",
+  department_id: "22222222-2222-4222-8222-222222222222",
+  position_id: "33333333-3333-4333-8333-333333333333",
+  atasan_id: null,
+  status_pernikahan: "lajang",
+  alamat: {
+    jalan: "Jalan Sintetis 1",
+    kelurahan: null,
+    kecamatan: null,
+    kota: "Jakarta",
+    provinsi: "DKI Jakarta",
+  },
+  ktp: { nomor_ktp: "0000000000000001", file_url: null },
+  kontrak: [
+    {
+      nomor_kontrak: "UJI-PKWT-001",
+      tanggal_mulai: "2026-01-05",
+      tanggal_berakhir: "2027-01-04",
+      jenis_kontrak: "PKWT",
+      file_url: null,
+      status: "aktif",
+    },
+  ],
+  bpjs: [{ jenis: "kesehatan", nomor: "0000000001" }],
+  npwp: { nomor_npwp: "00.000.000.0-000.000", file_url: null },
+  kontak_darurat: [
+    { nama: "Kontak Sintetis", hubungan: "Saudara", nomor_telepon: "0800000000" },
+  ],
+  pendidikan: [{ jenjang: "S1", institusi: "Universitas Sintetis", tahun_lulus: 2017 }],
+  riwayat_jabatan: [
+    {
+      departemen: { id: "22222222-2222-4222-8222-222222222222", nama: "Teknologi" },
+      jabatan: {
+        id: "33333333-3333-4333-8333-333333333333",
+        department_id: "22222222-2222-4222-8222-222222222222",
+        nama: "Staff",
+      },
+      tanggal_mulai: "2026-01-05",
+      tanggal_selesai: null,
+    },
+  ],
+  gaji_berjalan: {
+    periode: "2026-08",
+    gaji_pokok: 9000000,
+    tunjangan: 1000000,
+    potongan: 500000,
+    take_home_pay: 9500000,
+  },
+};
+
+export const dashboardMetricsFixture = {
+  periode: {
+    tipe: "bulanan",
+    tanggal_mulai: "2026-08-01",
+    tanggal_selesai: "2026-08-31",
+    timezone: "Asia/Jakarta",
+  },
+  total_karyawan: 4,
+  karyawan_aktif: 3,
+  karyawan_nonaktif: 1,
+  karyawan_baru: 1,
+  resign: 1,
+  turnover_rate: 28.57,
+  hadir_valid: 0,
+  terlambat: 0,
+  hari_izin_disetujui: 0,
+  estimasi_biaya_payroll: 21000000,
+  pengajuan_menunggu: 0,
+  komposisi_departemen_aktif: [{ nama: "Teknologi", jumlah: 3 }],
+  komposisi_departemen_nonaktif: [{ nama: "Operasional", jumlah: 1 }],
+  rasio_gender: [
+    { kategori: "laki_laki", jumlah: 1 },
+    { kategori: "perempuan", jumlah: 2 },
+    { kategori: "belum_diisi", jumlah: 1 },
+  ],
+  organization_chart: [
+    {
+      employee_id: "11111111-1111-4111-8111-111111111111",
+      nama: "Anita Sintetis",
+      departemen: "Teknologi",
+      jabatan: "Manajer",
+      bawahan: [
+        {
+          employee_id: "44444444-4444-4444-8444-444444444444",
+          nama: "Budi Sintetis",
+          departemen: "Teknologi",
+          jabatan: "Staff",
+          bawahan: [],
+        },
+      ],
+    },
+  ],
+};
