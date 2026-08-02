@@ -8,6 +8,9 @@ import { LoginPage } from "../modules/auth/pages/LoginPage";
 import { ModuleAccessPage } from "../modules/auth/pages/ModuleAccessPage";
 import { ResetPasswordPage } from "../modules/auth/pages/ResetPasswordPage";
 import { RoleLandingPage } from "../modules/auth/pages/RoleLandingPage";
+import { DashboardPage } from "../modules/dashboard/pages/DashboardPage";
+import { MyProfilePage } from "../modules/profile/pages/MyProfilePage";
+import { PersonalMetricsPage } from "../modules/profile/pages/PersonalMetricsPage";
 import { EmployeeDetailPage } from "../modules/employees/pages/EmployeeDetailPage";
 import { EmployeeCreatePage } from "../modules/employees/pages/EmployeeCreatePage";
 import { EmployeeEditPage } from "../modules/employees/pages/EmployeeEditPage";
@@ -41,8 +44,8 @@ export const router = createBrowserRouter([
           {
             element: <RoleRoute allowedRoles={personalRoles} />,
             children: [
-              { path: "profil", element: <ModuleAccessPage title="Profil Saya" description="Data profil pribadi sesuai identitas sesi." /> },
-              { path: "metrik-personal", element: <ModuleAccessPage title="Metrik Personal" description="Metrik pribadi untuk Karyawan, Atasan, dan HR." /> },
+              { path: "profil", element: <MyProfilePage /> },
+              { path: "metrik-personal", element: <PersonalMetricsPage /> },
               { path: "absensi", element: <ModuleAccessPage title="Kehadiran Saya" description="Check-in dan riwayat kehadiran milik pengguna aktif." /> },
               { path: "pengajuan", element: <ModuleAccessPage title="Pengajuan Saya" description="Ketidakhadiran dan lembur milik pengguna aktif." /> },
             ],
@@ -65,7 +68,7 @@ export const router = createBrowserRouter([
                   { path: "karyawan/:id/edit", element: <EmployeeEditPage /> },
                 ],
               },
-              { path: "dashboard", element: <ModuleAccessPage title="Dashboard HR" description="Monitoring organisasi tanpa metrik fiktif." /> },
+              { path: "dashboard", element: <DashboardPage /> },
               { path: "laporan-kehadiran", element: <ModuleAccessPage title="Laporan Kehadiran" description="Laporan organisasi untuk HR dan Top Management." /> },
               { path: "akses", element: <ModuleAccessPage title="AKSES" description="Role dan permission; Top Management hanya membaca." /> },
               { path: "audit", element: <ModuleAccessPage title="Audit Log" description="Riwayat aktivitas terkontrol dan teredaksi." readOnly /> },
