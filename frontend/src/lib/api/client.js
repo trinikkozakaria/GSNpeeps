@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { config } from "../config";
+import { configureDownloadBoundary } from "./download";
 import { AppError, normalizeApiError } from "./errors";
 
 let readAccessToken = () => null;
@@ -9,6 +10,8 @@ let handleUnauthorized = () => {};
 export const configureAuthBoundary = ({ getAccessToken, onUnauthorized }) => {
   readAccessToken = getAccessToken ?? (() => null);
   handleUnauthorized = onUnauthorized ?? (() => {});
+  // Unduhan berkas memakai fetch terpisah tetapi harus memakai token yang sama.
+  configureDownloadBoundary({ getAccessToken });
 };
 
 export const apiClient = axios.create({
