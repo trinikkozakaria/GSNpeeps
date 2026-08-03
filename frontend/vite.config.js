@@ -23,5 +23,8 @@ export default defineConfig({
     setupFiles: "./src/test/setup.js",
     css: true,
     include: ["src/**/*.{test,spec}.{js,jsx}"],
+    // Test komponen absensi dan form pengajuan melakukan banyak interaksi userEvent
+    // berurutan; 5 detik bawaan terlalu ketat saat seluruh berkas berjalan paralel.
+    testTimeout: 20000,
   },
 });

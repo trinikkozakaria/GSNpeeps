@@ -8,7 +8,17 @@ import { LoginPage } from "../modules/auth/pages/LoginPage";
 import { ModuleAccessPage } from "../modules/auth/pages/ModuleAccessPage";
 import { ResetPasswordPage } from "../modules/auth/pages/ResetPasswordPage";
 import { RoleLandingPage } from "../modules/auth/pages/RoleLandingPage";
+import { ApprovalDetailPage } from "../modules/approvals/pages/ApprovalDetailPage";
+import { ApprovalInboxPage } from "../modules/approvals/pages/ApprovalInboxPage";
+import { CheckInPage } from "../modules/attendance/pages/CheckInPage";
+import { AttendanceReportPage } from "../modules/attendance-reports/pages/AttendanceReportPage";
+import { LiveFeedPage } from "../modules/attendance-reports/pages/LiveFeedPage";
 import { DashboardPage } from "../modules/dashboard/pages/DashboardPage";
+import { LeaveRequestPage } from "../modules/leave/pages/LeaveRequestPage";
+import { LeaveTypesPage } from "../modules/leave/pages/LeaveTypesPage";
+import { MyRequestsPage } from "../modules/leave/pages/MyRequestsPage";
+import { OvertimeRecapPage } from "../modules/overtime/pages/OvertimeRecapPage";
+import { OvertimeRequestPage } from "../modules/overtime/pages/OvertimeRequestPage";
 import { MyProfilePage } from "../modules/profile/pages/MyProfilePage";
 import { PersonalMetricsPage } from "../modules/profile/pages/PersonalMetricsPage";
 import { EmployeeDetailPage } from "../modules/employees/pages/EmployeeDetailPage";
@@ -46,14 +56,21 @@ export const router = createBrowserRouter([
             children: [
               { path: "profil", element: <MyProfilePage /> },
               { path: "metrik-personal", element: <PersonalMetricsPage /> },
-              { path: "absensi", element: <ModuleAccessPage title="Kehadiran Saya" description="Check-in dan riwayat kehadiran milik pengguna aktif." /> },
-              { path: "pengajuan", element: <ModuleAccessPage title="Pengajuan Saya" description="Ketidakhadiran dan lembur milik pengguna aktif." /> },
+              { path: "absensi", element: <CheckInPage /> },
+              { path: "absensi/ketidakhadiran", element: <LeaveRequestPage /> },
+              { path: "absensi/lembur", element: <OvertimeRequestPage /> },
+              { path: "pengajuan", element: <MyRequestsPage /> },
             ],
           },
           {
             element: <RoleRoute allowedRoles={approvalRoles} />,
             children: [
-              { path: "persetujuan", element: <ModuleAccessPage title="Persetujuan" description="Scope persetujuan ditentukan relasi bawahan dan tahap aktif oleh backend." /> },
+              { path: "persetujuan", element: <ApprovalInboxPage /> },
+              {
+                path: "persetujuan/ketidakhadiran/:id",
+                element: <ApprovalDetailPage kind="ketidakhadiran" />,
+              },
+              { path: "persetujuan/lembur/:id", element: <ApprovalDetailPage kind="lembur" /> },
             ],
           },
           {
@@ -69,7 +86,15 @@ export const router = createBrowserRouter([
                 ],
               },
               { path: "dashboard", element: <DashboardPage /> },
-              { path: "laporan-kehadiran", element: <ModuleAccessPage title="Laporan Kehadiran" description="Laporan organisasi untuk HR dan Top Management." /> },
+              { path: "live-feed", element: <LiveFeedPage /> },
+              { path: "laporan-kehadiran", element: <AttendanceReportPage /> },
+              {
+                element: <RoleRoute allowedRoles={[roles.hr]} />,
+                children: [
+                  { path: "master/jenis-izin", element: <LeaveTypesPage /> },
+                  { path: "lembur/rekap", element: <OvertimeRecapPage /> },
+                ],
+              },
               { path: "akses", element: <ModuleAccessPage title="AKSES" description="Role dan permission; Top Management hanya membaca." /> },
               { path: "audit", element: <ModuleAccessPage title="Audit Log" description="Riwayat aktivitas terkontrol dan teredaksi." readOnly /> },
             ],
