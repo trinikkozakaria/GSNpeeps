@@ -18,6 +18,7 @@ import (
 // AttendanceStore adalah kebutuhan penyimpanan absensi dari sisi service.
 type AttendanceStore interface {
 	FindActiveOfficeLocation(context.Context, uuid.UUID) (domain.OfficeLocation, error)
+	ListActiveOfficeLocations(context.Context) ([]domain.OfficeLocation, error)
 	ExistsForDate(context.Context, uuid.UUID, string, domain.AttendanceType) (bool, error)
 	Create(context.Context, domain.AttendanceRow) (domain.Attendance, error)
 	LiveFeed(context.Context, string) ([]domain.AttendanceLiveFeedItem, error)
@@ -45,6 +46,21 @@ func NewAttendanceService(
 		photos:      photos,
 		now:         time.Now,
 	}
+}
+
+// ListOfficeLocations mengembalikan master lokasi kantor aktif untuk dropdown WFO. Kontrak
+// membuka operasi ini bagi seluruh role terautentikasi karena karyawan bebas memilih kantor
+// tempat ia hadir; tidak ada assignment kantor permanen (D-016).
+//
+// Response dapat kosong sampai lokasi resmi tersedia; tidak ada lokasi contoh yang dibuat.
+func (s *AttendanceService) ListOfficeLocations(
+	ctx context.Context,
+) ([]domain.OfficeLocation, error) {
+	locations, err := s.attendances.ListActiveOfficeLocations(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list office locations: %w", err)
+	}
+	return locations, nil
 }
 
 // Record mencatat check-in atau check-out. Waktu server adalah satu-satunya sumber

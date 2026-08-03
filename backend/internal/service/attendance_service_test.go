@@ -31,6 +31,18 @@ type attendanceStoreStub struct {
 	reportWorkday int
 }
 
+func (s *attendanceStoreStub) ListActiveOfficeLocations(
+	context.Context,
+) ([]domain.OfficeLocation, error) {
+	if s.officeErr != nil {
+		return nil, s.officeErr
+	}
+	if s.office.ID == uuid.Nil {
+		return []domain.OfficeLocation{}, nil
+	}
+	return []domain.OfficeLocation{s.office}, nil
+}
+
 func (s *attendanceStoreStub) FindActiveOfficeLocation(
 	context.Context, uuid.UUID,
 ) (domain.OfficeLocation, error) {
