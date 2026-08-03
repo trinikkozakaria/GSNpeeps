@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../modules/auth/hooks/useAuth";
+import { NotificationBell } from "../../modules/notifications/components/NotificationBell";
 import { navigationForRole, roleLabel } from "../../routes/navigation/navigation";
 import { Button } from "../ui/Button";
 
@@ -40,6 +41,7 @@ export const AppShell = () => {
             <p className="mt-1 text-xl font-bold tracking-tight">GSNpeeps</p>
           </div>
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <div className="text-right">
               <p className="text-sm font-semibold">{auth.user.nama}</p>
               <p className="text-xs text-slate-400">{roleLabel[auth.role]}</p>
@@ -73,7 +75,17 @@ export const AppShell = () => {
           </ul>
         </nav>
         <main id="main-content" className="min-w-0">
-          <Outlet />
+          {/* Route dengan chunk terpisah memakai fallback yang sama dengan state memuat
+              halaman lain sehingga perpindahan tidak terasa berbeda. */}
+          <Suspense
+            fallback={
+              <p role="status" className="text-slate-300">
+                Memuat halaman…
+              </p>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>
