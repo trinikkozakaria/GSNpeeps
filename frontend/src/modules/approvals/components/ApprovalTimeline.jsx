@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../../lib/format";
 import { approvalDecisionLabel, approvalStageLabel } from "../../../lib/request-status";
 
 /**
@@ -27,7 +28,7 @@ export const ApprovalTimeline = ({ history }) => {
           </p>
           <p className="mt-1 text-xs text-slate-400">
             {entry.approver_nama ? `Oleh ${entry.approver_nama}` : "Dipicu sistem"} ·{" "}
-            {new Date(entry.decided_at).toLocaleString("id-ID")}
+            <time dateTime={entry.decided_at}>{formatDateTime(entry.decided_at)}</time>
           </p>
           {entry.catatan && <p className="mt-2 text-sm text-slate-300">{entry.catatan}</p>}
         </li>
