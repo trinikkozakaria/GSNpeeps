@@ -9,6 +9,15 @@ const protectedRoutes = [
   "/app/dashboard",
   "/app/profil",
   "/app/metrik-personal",
+  "/app/absensi",
+  "/app/absensi/ketidakhadiran",
+  "/app/absensi/lembur",
+  "/app/pengajuan",
+  "/app/persetujuan",
+  "/app/live-feed",
+  "/app/laporan-kehadiran",
+  "/app/master/jenis-izin",
+  "/app/lembur/rekap",
 ];
 
 for (const route of protectedRoutes) {
@@ -25,7 +34,9 @@ for (const route of protectedRoutes) {
 
     // Tidak ada permintaan data sensitif yang dikirim untuk route terlarang.
     expect(
-      apiRequests.filter((url) => /\/(karyawan|dashboard|profil)/.test(url)),
+      apiRequests.filter((url) =>
+        /\/(karyawan|dashboard|profil|absensi|ketidakhadiran|lembur|laporan|master)/.test(url),
+      ),
     ).toHaveLength(0);
   });
 }
