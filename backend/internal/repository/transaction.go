@@ -41,6 +41,7 @@ func (manager *TransactionManager) Within(
 
 func executor(ctx context.Context, pool *pgxpool.Pool) interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
 } {
 	if transaction, ok := ctx.Value(transactionContextKey{}).(pgx.Tx); ok {

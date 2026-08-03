@@ -48,17 +48,51 @@ var documentTypes = map[string]descriptor{
 	".pptx": {"application/vnd.openxmlformats-officedocument.presentationml.presentation", familyOOXML},
 }
 
+// photoTypes membatasi foto absensi pada JPG dan PNG sesuai kontrak check-in.
+var photoTypes = map[string]descriptor{
+	".jpg":  {"image/jpeg", familyJPEG},
+	".jpeg": {"image/jpeg", familyJPEG},
+	".png":  {"image/png", familyPNG},
+}
+
+// supportingTypes membatasi dokumen pendukung pengajuan pada PDF, JPG, dan PNG sesuai
+// kontrak ketidakhadiran dan lembur.
+var supportingTypes = map[string]descriptor{
+	".pdf":  {"application/pdf", familyPDF},
+	".jpg":  {"image/jpeg", familyJPEG},
+	".jpeg": {"image/jpeg", familyJPEG},
+	".png":  {"image/png", familyPNG},
+}
+
 // Descriptor adalah hasil validasi berkas.
 type Descriptor struct {
 	Extension string
 	MediaType string
 }
 
+// ValidatePhoto memvalidasi foto absensi.
+func ValidatePhoto(fileName, declaredMediaType string, head []byte) (Descriptor, error) {
+	return validate(photoTypes, fileName, declaredMediaType, head)
+}
+
+// ValidateSupportingDocument memvalidasi dokumen pendukung pengajuan.
+func ValidateSupportingDocument(fileName, declaredMediaType string, head []byte) (Descriptor, error) {
+	return validate(supportingTypes, fileName, declaredMediaType, head)
+}
+
 // ValidateDocument memastikan nama berkas, MIME type yang dilaporkan client, dan signature
 // isi berkas konsisten dengan format dokumen karyawan yang disetujui.
 func ValidateDocument(fileName, declaredMediaType string, head []byte) (Descriptor, error) {
+	return validate(documentTypes, fileName, declaredMediaType, head)
+}
+
+func validate(
+	allowed map[string]descriptor,
+	fileName, declaredMediaType string,
+	head []byte,
+) (Descriptor, error) {
 	extension := strings.ToLower(filepath.Ext(strings.TrimSpace(fileName)))
-	expected, ok := documentTypes[extension]
+	expected, ok := allowed[extension]
 	if !ok {
 		return Descriptor{}, ErrUnsupported
 	}

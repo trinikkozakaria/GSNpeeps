@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
-	"github.com/gsnpeeps/gsnpeeps/backend/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +35,7 @@ func (s *dashboardReaderStub) SalaryTotals(
 }
 
 func newDashboardServiceForTest(reader DashboardReader) *DashboardService {
-	pending := repository.NewPendingMetricsRepository()
+	pending := pendingMetricsStub{}
 	service := NewDashboardService(reader, pending, pending)
 	service.now = func() time.Time {
 		return time.Date(2026, time.August, 12, 15, 0, 0, 0, domain.Jakarta())
@@ -260,4 +259,26 @@ func metricsTimezone(t *testing.T, metrics domain.DashboardMetrics) string {
 	require.NoError(t, err)
 	assert.Contains(t, string(encoded), `"timezone":"`+domain.JakartaTimezone+`"`)
 	return domain.JakartaTimezone
+}
+
+// pendingMetricsStub menggantikan sumber metrik nyata pada unit test service sehingga
+// pengujian tidak memerlukan database absensi.
+type pendingMetricsStub struct{}
+
+func (pendingMetricsStub) AttendanceMetrics(
+	context.Context, domain.DashboardRange,
+) (domain.AttendanceMetrics, error) {
+	return domain.AttendanceMetrics{}, nil
+}
+
+func (pendingMetricsStub) LeaveMetrics(
+	context.Context, domain.DashboardRange,
+) (domain.LeaveMetrics, error) {
+	return domain.LeaveMetrics{}, nil
+}
+
+func (pendingMetricsStub) PersonalMetrics(
+	context.Context, uuid.UUID, domain.DashboardRange,
+) (domain.PersonalAttendanceMetrics, error) {
+	return domain.PersonalAttendanceMetrics{History: make([]domain.ClockHistory, 0)}, nil
 }

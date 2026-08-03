@@ -1,9 +1,7 @@
 package handler
 
 import (
-	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
@@ -51,12 +49,5 @@ func (h *EmployeeHandler) Export(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 
-	writer.Header().Set("Content-Type", file.ContentType)
-	writer.Header().Set("Content-Disposition", `attachment; filename="`+file.FileName+`"`)
-	writer.Header().Set("Content-Length", strconv.Itoa(len(file.Content)))
-	writer.Header().Set("X-Content-Type-Options", "nosniff")
-	writer.WriteHeader(http.StatusOK)
-	if _, err := writer.Write(file.Content); err != nil {
-		slog.ErrorContext(request.Context(), "write export stream failed", "error", err)
-	}
+	writeExportFile(writer, request, file)
 }

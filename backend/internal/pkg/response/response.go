@@ -96,6 +96,36 @@ func FromError(writer http.ResponseWriter, err error) {
 		Error(writer, http.StatusConflict, "CONFLICT", "Data sudah digunakan atau telah berubah")
 	case errors.Is(err, domain.ErrInvalidRequest):
 		Error(writer, http.StatusBadRequest, "INVALID_PARAM", "Parameter request tidak valid")
+	case errors.Is(err, domain.ErrAlreadyDecided):
+		Error(writer, http.StatusConflict, "ALREADY_DECIDED", "Pengajuan sudah diputuskan")
+	case errors.Is(err, domain.ErrNonWorkingDay):
+		Error(writer, http.StatusUnprocessableEntity, "NON_WORKING_DAY",
+			"Absensi reguler hanya tersedia Senin sampai Jumat")
+	case errors.Is(err, domain.ErrOutOfRadius):
+		Error(writer, http.StatusUnprocessableEntity, "OUT_OF_RADIUS",
+			"Lokasi WFO berada di luar radius kantor")
+	case errors.Is(err, domain.ErrDuplicateCheckIn):
+		Error(writer, http.StatusUnprocessableEntity, "DUPLICATE_CHECKIN",
+			"Check-in hari ini sudah tercatat")
+	case errors.Is(err, domain.ErrCheckoutWithoutCheckIn):
+		Error(writer, http.StatusUnprocessableEntity, "CHECKOUT_WITHOUT_CHECKIN",
+			"Check-out memerlukan check-in aktif")
+	case errors.Is(err, domain.ErrInvalidOfficeLocation):
+		Error(writer, http.StatusUnprocessableEntity, "INVALID_OFFICE_LOCATION",
+			"Lokasi kantor WFO tidak valid atau tidak aktif")
+	case errors.Is(err, domain.ErrInsufficientLeaveBalance):
+		Error(writer, http.StatusUnprocessableEntity, "INSUFFICIENT_LEAVE_BALANCE",
+			"Saldo cuti tidak mencukupi")
+	case errors.Is(err, domain.ErrDocumentRequired):
+		ValidationError(writer, map[string]string{
+			"dokumen_pendukung": "Dokumen pendukung wajib untuk jenis izin ini",
+		})
+	case errors.Is(err, domain.ErrFileTooLarge):
+		Error(writer, http.StatusRequestEntityTooLarge, "FILE_TOO_LARGE",
+			"Ukuran berkas melebihi batas 5 MB")
+	case errors.Is(err, domain.ErrUnsupportedFile):
+		Error(writer, http.StatusUnsupportedMediaType, "UNSUPPORTED_FILE_TYPE",
+			"Format berkas tidak didukung")
 	default:
 		slog.Error("unmapped application error", "error", err)
 		Error(writer, http.StatusInternalServerError, "INTERNAL_ERROR", "Terjadi kesalahan internal")

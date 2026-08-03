@@ -225,6 +225,95 @@ sesuai kontrak. Nilai yang bergantung pada modul tersebut dibaca melalui interfa
 mengembalikan nol dan koleksi kosong — bukan data buatan. Implementasi nyata dipasang pada
 epic Attendance dan Approval tanpa mengubah response schema.
 
+### D-021 — Nama status pengajuan mengikuti OpenAPI
+
+Database Schema v1.1 menuliskan `menunggu_topmanagement` tanpa underscore, sedangkan D-005
+dan schema `RequestStatus` memakai `menunggu_top_management`. API Contract memiliki otoritas
+lebih tinggi, sehingga database, query, dan response memakai `menunggu_top_management`.
+
+CHECK constraint juga menyertakan `dibatalkan` karena nilai tersebut ada pada `RequestStatus`
+meskipun belum ada operasi yang memicunya pada kontrak aktif. Tidak ada endpoint pembatalan
+yang ditambahkan.
+
+### D-022 — Kolom absensi mengikuti schema `Attendance`
+
+Schema `Attendance` memuat `office_location_id` dan `distance_meters` yang tidak ada pada
+Database Schema v1.1, serta enum status `tepat_waktu|terlambat|pulang_cepat|valid` sedangkan
+schema database menuliskan `('tepat_waktu','telat')`. Migration mengikuti OpenAPI:
+
+- `office_location_id` nullable dengan FK ke `office_locations`, terisi hanya untuk WFO;
+- `distance_meters` nullable, hasil hitung server untuk WFO;
+- CHECK status memakai keempat nilai OpenAPI.
+
+`AttendanceCheckRequest` tidak memiliki field `waktu_local`, sedangkan kolomnya `NOT NULL`.
+Karena waktu perangkat tidak tepercaya dan menambah request field memerlukan perubahan
+kontrak, backend mengisi `waktu_local` dari waktu server yang dikonversi ke Asia/Jakarta.
+Tidak ada timestamp dari client maupun dari metadata gambar yang dipakai sebagai sumber waktu.
+
+### D-023 — Master jenis izin memakai kode dan flag dokumen
+
+Schema `LeaveType` memuat `kode`, `kuota_tahunan`, `memerlukan_dokumen`, dan `is_active`,
+sedangkan Database Schema v1.1 hanya memiliki `nama`, `kuota_hari`, dan `aktif`. Migration
+mengikuti OpenAPI: `kode` unik, `kuota_tahunan`, `memerlukan_dokumen`, dan `is_active`.
+
+Seed 15 jenis izin belum dibuat karena daftar resmi berada pada User Story US-33 yang tidak
+memuat nama dan kuota lengkap pada sumber yang tersedia. Menebak nama atau kuota dilarang,
+sehingga seed ditunda dan dicatat sebagai gap G-011.
+
+### D-024 — Dokumen pendukung ketidakhadiran bersifat kondisional
+
+CLAUDE.md menyatakan dokumen pendukung wajib untuk semua jenis, sedangkan `CreateLeaveRequest`
+menyatakan dokumen wajib hanya bila master jenis izin mensyaratkannya dan `LeaveType`
+menyediakan `memerlukan_dokumen`. Kontrak API lebih spesifik dan dapat dieksekusi, sehingga:
+
+- `leave_requests.dokumen_url` nullable;
+- backend menolak request tanpa dokumen ketika `memerlukan_dokumen` bernilai true;
+- seluruh jenis izin dapat dikonfigurasi mewajibkan dokumen melalui master.
+
+Field `keperluan_tugas` pada Database Schema dikirim sebagai `keterangan_lokasi` di
+`LeaveRequestDetail`. Nama kolom database dipertahankan sesuai schema dan pemetaan dilakukan
+pada lapisan response; tidak ada kolom kedua yang dibuat.
+
+### D-025 — Riwayat approval memuat tahap Top Management dan auto-escalation
+
+`ApprovalHistory` revisi 0.4.0 membatasi `tahap` pada `atasan|hr` dan `keputusan` pada
+`disetujui|ditolak|didelegasikan`. Alur approval yang ditetapkan PRD mewajibkan tahap
+`top_management` untuk pengajuan milik HR dan keputusan sistem `auto_escalate` setelah SLA
+2x24 jam. Tanpa kedua nilai tersebut riwayat tidak dapat merepresentasikan alur yang sudah
+disetujui.
+
+Schema diperbarui: `tahap` menerima `top_management` dan `keputusan` menerima `auto_eskalasi`.
+`approver_id` dan `approver_nama` menjadi nullable karena keputusan sistem tidak memiliki
+approver. Nilai database memakai `approve|reject|delegate|auto_escalate` sesuai Database
+Schema dan dipetakan ke nilai response di atas.
+
+### D-026 — Parameter periode laporan kehadiran
+
+`AttendancePeriodParam` bertipe `YearMonth`, bukan enum `harian|mingguan|bulanan|custom`.
+Implementasi mengikuti OpenAPI:
+
+- `tanggal_mulai` dan `tanggal_selesai` keduanya terisi menghasilkan rentang custom;
+- hanya salah satu terisi menghasilkan `400 VALIDATION_ERROR`;
+- tanpa rentang, `periode=YYYY-MM` menghasilkan satu bulan kalender;
+- tanpa keduanya, laporan memakai bulan berjalan.
+
+Seluruh boundary dihitung pada Asia/Jakarta.
+
+### D-027 — Tidak ada delegasi lembur
+
+API Contract dan OpenAPI hanya menyediakan `PUT /api/v1/lembur/{id}/decision`. Tidak ada
+operasi delegasi lembur, sehingga endpoint tersebut tidak dibuat. Auto-escalation tetap
+berlaku untuk lembur karena dipicu worker, bukan endpoint. Bila delegasi lembur dibutuhkan,
+kontrak harus direvisi lebih dahulu.
+
+### D-028 — Kepemilikan watermark foto absensi
+
+Watermark adalah tanggung jawab frontend. Backend tidak membuat maupun menormalisasi
+watermark, tidak membaca timestamp dari isi gambar, dan tidak menambah field request untuk
+metadata watermark. Backend memvalidasi tipe dan ukuran berkas, menyimpan foto melalui
+Nextcloud dengan path yang dibentuk server, dan mencatat `waktu_network` dari jam server
+sebagai satu-satunya sumber waktu absensi.
+
 ## Open contract gaps
 
 ### G-007 — Employee document delivery
@@ -232,6 +321,21 @@ epic Attendance dan Approval tanpa mengubah response schema.
 Kontrak mengembalikan URL tetapi belum menetapkan expiry, signed URL, proxy download, atau
 authorization ketika URL dibuka. Keputusan ini ditunda sesuai arahan produk. Implementasi
 file delivery belum boleh membuat dokumen public permanen.
+
+### G-011 — Daftar resmi 15 jenis izin
+
+Database Schema menyebut seed 15 jenis izin sesuai SOP dengan rujukan User Story US-33,
+tetapi nama dan kuota lengkap tidak tersedia pada sumber yang ada. Master `leave_types`
+dibuat kosong dan HR mengisinya melalui `POST /api/v1/master/jenis-izin`. Jangan menebak
+nama maupun kuota jenis izin pada seed atau test.
+
+### G-012 — Jenis izin tidak terbaca oleh pemohon
+
+`GET /api/v1/master/jenis-izin` dibatasi HR pada API Contract, sedangkan Karyawan dan Atasan
+memerlukan daftar jenis izin untuk mengisi `jenis_izin_id` pada `POST /api/v1/ketidakhadiran`.
+Implementasi mengikuti kontrak dan tetap membatasi endpoint ke HR. Diperlukan keputusan
+produk apakah endpoint dibuka untuk seluruh role terautentikasi atau disediakan operasi
+master terpisah.
 
 ### G-010 — Company and public holiday calendar
 

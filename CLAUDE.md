@@ -863,7 +863,6 @@ Jangan menandai task selesai hanya karena happy path berjalan.
 - `.claude/specs/workflows.md` — approval, notification, dan attendance invariants.
 - `.claude/skills/` — task dan reusable implementation guidance.
 - `.claude/prompts/` — prompt bertahap backend, frontend, dan integration.
-- `.claude/region-data/SCHEMA.md` — kontrak dataset wilayah bila sumber resmi tersedia.
 
 ---
 

@@ -28,6 +28,18 @@ type DashboardRoutes struct {
 	Handler *handler.DashboardHandler
 }
 
+type AttendanceRoutes struct {
+	Handler *handler.AttendanceHandler
+}
+
+type LeaveRoutes struct {
+	Handler *handler.LeaveHandler
+}
+
+type OvertimeRoutes struct {
+	Handler *handler.OvertimeHandler
+}
+
 func New(
 	cfg config.HTTP,
 	logger *slog.Logger,
@@ -36,6 +48,9 @@ func New(
 	employees EmployeeRoutes,
 	profiles ProfileRoutes,
 	dashboards DashboardRoutes,
+	attendances AttendanceRoutes,
+	leaves LeaveRoutes,
+	overtimes OvertimeRoutes,
 ) http.Handler {
 	router := mux.NewRouter()
 	router.Handle("/health", healthHandler).Methods(http.MethodGet)
@@ -66,6 +81,33 @@ func New(
 	api.Handle("/profil/saya", protected(profiles.Handler.Me)).Methods(http.MethodGet)
 	api.Handle("/profil/saya/metrik", protected(profiles.Handler.Metrics)).Methods(http.MethodGet)
 	api.Handle("/dashboard/metrik", protected(dashboards.Handler.Metrics)).Methods(http.MethodGet)
+
+	api.Handle("/absensi/checkin", protected(attendances.Handler.Record)).Methods(http.MethodPost)
+	api.Handle("/absensi/livefeed", protected(attendances.Handler.LiveFeed)).Methods(http.MethodGet)
+	// Route literal export didaftarkan sebelum pola lain pada prefix yang sama.
+	api.Handle("/laporan/kehadiran/export", protected(attendances.Handler.ExportReport)).
+		Methods(http.MethodGet)
+	api.Handle("/laporan/kehadiran", protected(attendances.Handler.Report)).Methods(http.MethodGet)
+
+	api.Handle("/master/jenis-izin", protected(leaves.Handler.ListTypes)).Methods(http.MethodGet)
+	api.Handle("/master/jenis-izin", protected(leaves.Handler.CreateType)).Methods(http.MethodPost)
+	api.Handle("/master/jenis-izin/{id}", protected(leaves.Handler.UpdateType)).Methods(http.MethodPut)
+
+	api.Handle("/ketidakhadiran", protected(leaves.Handler.Create)).Methods(http.MethodPost)
+	api.Handle("/ketidakhadiran", protected(leaves.Handler.ListForApproval)).Methods(http.MethodGet)
+	api.Handle("/ketidakhadiran/saya", protected(leaves.Handler.ListMine)).Methods(http.MethodGet)
+	api.Handle("/ketidakhadiran/{id}", protected(leaves.Handler.Detail)).Methods(http.MethodGet)
+	api.Handle("/ketidakhadiran/{id}/decision", protected(leaves.Handler.Decide)).
+		Methods(http.MethodPut)
+	api.Handle("/ketidakhadiran/{id}/delegate", protected(leaves.Handler.Delegate)).
+		Methods(http.MethodPut)
+
+	api.Handle("/lembur", protected(overtimes.Handler.Create)).Methods(http.MethodPost)
+	api.Handle("/lembur", protected(overtimes.Handler.List)).Methods(http.MethodGet)
+	api.Handle("/lembur/rekap", protected(overtimes.Handler.Recap)).Methods(http.MethodGet)
+	api.Handle("/lembur/{id}", protected(overtimes.Handler.Detail)).Methods(http.MethodGet)
+	api.Handle("/lembur/{id}/decision", protected(overtimes.Handler.Decide)).Methods(http.MethodPut)
+
 	api.PathPrefix("").Handler(http.NotFoundHandler())
 
 	var handler http.Handler = router

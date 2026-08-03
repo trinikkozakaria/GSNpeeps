@@ -2565,13 +2565,23 @@ components:
           type: string
           description: Wajib secara kondisional untuk Perjalanan Dinas.
     ApprovalHistory:
+      description: >
+        Satu baris riwayat per tahap keputusan. Tahap `top_management` dan keputusan
+        `auto_eskalasi` diperlukan oleh alur approval yang ditetapkan PRD; lihat
+        keputusan D-025. `approver_id` dan `approver_nama` kosong ketika keputusan
+        dipicu sistem melalui auto-escalation.
       type: object
-      required: [tahap, approver_nama, keputusan, decided_at]
+      required: [tahap, keputusan, decided_at]
       properties:
-        tahap: { type: string, enum: [atasan, hr] }
-        approver_id: { $ref: "#/components/schemas/UUID" }
-        approver_nama: { type: string }
-        keputusan: { type: string, enum: [disetujui, ditolak, didelegasikan] }
+        tahap: { type: string, enum: [atasan, hr, top_management] }
+        approver_id:
+          oneOf:
+            - $ref: "#/components/schemas/UUID"
+            - type: "null"
+        approver_nama: { type: [string, "null"] }
+        keputusan:
+          type: string
+          enum: [disetujui, ditolak, didelegasikan, auto_eskalasi]
         catatan: { type: [string, "null"] }
         decided_at: { type: string, format: date-time }
     LeaveRequestSummary:
