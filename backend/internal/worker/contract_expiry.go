@@ -59,6 +59,13 @@ func NewContractExpiryJob(
 	}
 }
 
+// WithClock mengganti sumber waktu job. Tanggal acuan menentukan siklus H-30, sehingga test
+// memerlukan jam yang deterministik agar tidak bergantung pada hari eksekusi.
+func (j *ContractExpiryJob) WithClock(clock func() time.Time) *ContractExpiryJob {
+	j.now = clock
+	return j
+}
+
 func (j *ContractExpiryJob) Run(ctx context.Context) (ContractExpiryResult, error) {
 	runID := uuid.NewString()
 	started := j.now()

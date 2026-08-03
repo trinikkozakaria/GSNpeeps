@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"sync"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/repository"
+	"github.com/gsnpeeps/gsnpeeps/backend/internal/worker"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -593,4 +595,39 @@ func TestSeededMatrixKeepsTopManagementReadOnly(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.True(t, readable)
+}
+
+// Smoke test worker: job H-30 sungguhan dijalankan dua kali terhadap PostgreSQL nyata dan
+// tetap menghasilkan satu notifikasi per penerima.
+func TestContractExpiryWorkerRepeatRunIsIdempotent(t *testing.T) {
+	f := newAccessFixture(t)
+	ctx := context.Background()
+
+	// Tanggal berakhir dipilih tepat H+30 dari tanggal acuan job yang di-inject.
+	reference := time.Date(2027, 5, 4, 8, 0, 0, 0, domain.Jakarta())
+	endDate := reference.AddDate(0, 0, 30).Format(domain.DateLayout)
+	f.insertContract(t, endDate)
+
+	job := worker.NewContractExpiryJob(f.notifications, f.tx, slog.New(slog.DiscardHandler)).
+		WithClock(func() time.Time { return reference })
+
+	first, err := job.Run(ctx)
+	require.NoError(t, err)
+	second, err := job.Run(ctx)
+	require.NoError(t, err)
+
+	assert.Positive(t, first.Created)
+	assert.Zero(t, second.Created)
+	assert.Equal(t, first.Created, second.Duplicate)
+	assert.Zero(t, first.Failed)
+
+	// Atasan langsung menerima pengingat; subjek kontrak tidak pernah menerimanya.
+	supervisorInbox, err := f.notifications.List(ctx, f.supervisor, nil, 1, 10)
+	require.NoError(t, err)
+	assert.Len(t, supervisorInbox.Items, 1)
+	assert.Equal(t, string(domain.NotificationContractExpiring), supervisorInbox.Items[0].Type)
+
+	subjectInbox, err := f.notifications.List(ctx, f.subordinate, nil, 1, 10)
+	require.NoError(t, err)
+	assert.Empty(t, subjectInbox.Items)
 }
