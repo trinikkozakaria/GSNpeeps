@@ -121,7 +121,7 @@ func (s supervisorStub) SupervisorEmployeeID(
 
 type eventRecorder struct{ events []domain.ApprovalEvent }
 
-func (r *eventRecorder) Publish(events ...domain.ApprovalEvent) error {
+func (r *eventRecorder) Publish(_ context.Context, events ...domain.ApprovalEvent) error {
 	r.events = append(r.events, events...)
 	return nil
 }

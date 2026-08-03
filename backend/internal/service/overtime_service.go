@@ -137,12 +137,14 @@ func (s *OvertimeService) Create(
 		}); err != nil {
 			return err
 		}
-		return s.events.Publish(domain.ApprovalEvent{
+		initialStage, _ := domain.StageForStatus(status)
+		return s.events.Publish(txContext, domain.ApprovalEvent{
 			Type:            domain.EventOvertimeSubmitted,
 			RequestID:       created,
 			RequesterUserID: identity.UserID,
 			ActorUserID:     &identity.UserID,
 			Status:          status,
+			Stage:           initialStage,
 			NextStage:       domain.NextStageForStatus(status),
 			OccurredAt:      s.now().UTC(),
 		})
@@ -282,12 +284,13 @@ func (s *OvertimeService) Decide(
 			return err
 		}
 		result = domain.RequestStateData{ID: id, Status: next}
-		return s.events.Publish(domain.ApprovalEvent{
+		return s.events.Publish(txContext, domain.ApprovalEvent{
 			Type:            domain.EventOvertimeDecisionChanged,
 			RequestID:       id,
 			RequesterUserID: lock.RequesterUserID,
 			ActorUserID:     &identity.UserID,
 			Status:          next,
+			Stage:           stage,
 			NextStage:       domain.NextStageForStatus(next),
 			OccurredAt:      s.now().UTC(),
 		})
