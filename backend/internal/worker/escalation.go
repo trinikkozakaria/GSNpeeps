@@ -129,13 +129,15 @@ func (j *EscalationJob) escalate(
 		return err
 	}
 	stage := domain.StageHR
-	return j.events.Publish(domain.ApprovalEvent{
+	return j.events.Publish(ctx, domain.ApprovalEvent{
 		Type:            j.eventType,
 		RequestID:       candidate.RequestID,
 		RequesterUserID: candidate.RequesterUserID,
 		ActorUserID:     nil,
 		Status:          domain.StatusWaitingHR,
-		NextStage:       &stage,
-		OccurredAt:      j.now().UTC(),
+		// Eskalasi terjadi pada tahap Atasan yang terlewat SLA.
+		Stage:      domain.StageSupervisor,
+		NextStage:  &stage,
+		OccurredAt: j.now().UTC(),
 	})
 }

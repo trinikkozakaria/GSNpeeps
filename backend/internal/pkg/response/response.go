@@ -116,6 +116,10 @@ func FromError(writer http.ResponseWriter, err error) {
 	case errors.Is(err, domain.ErrInsufficientLeaveBalance):
 		Error(writer, http.StatusUnprocessableEntity, "INSUFFICIENT_LEAVE_BALANCE",
 			"Saldo cuti tidak mencukupi")
+	case errors.Is(err, domain.ErrPermissionInvariant):
+		ValidationError(writer, map[string]string{
+			"is_allowed": "Perubahan melanggar batasan akses produk dan tidak dapat disimpan",
+		})
 	case errors.Is(err, domain.ErrDocumentRequired):
 		ValidationError(writer, map[string]string{
 			"dokumen_pendukung": "Dokumen pendukung wajib untuk jenis izin ini",

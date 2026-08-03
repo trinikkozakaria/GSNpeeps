@@ -88,8 +88,12 @@ func newApprovalFixture(t *testing.T) *approvalFixture {
 			[]uuid.UUID{f.requester, f.approver})
 		_, _ = pool.Exec(cleanup, `DELETE FROM leave_balances WHERE user_id = ANY($1)`,
 			[]uuid.UUID{f.requester, f.approver})
+		// Audit Log append-only bagi aplikasi; trigger dinonaktifkan sementara agar user uji
+		// yang direferensikan audit tetap dapat dihapus.
+		_, _ = pool.Exec(cleanup, `ALTER TABLE audit_logs DISABLE TRIGGER trg_audit_logs_append_only`)
 		_, _ = pool.Exec(cleanup, `DELETE FROM audit_logs WHERE user_id = ANY($1)`,
 			[]uuid.UUID{f.requester, f.approver})
+		_, _ = pool.Exec(cleanup, `ALTER TABLE audit_logs ENABLE TRIGGER trg_audit_logs_append_only`)
 		_, _ = pool.Exec(cleanup, `DELETE FROM leave_types WHERE id = $1`, f.leaveTypeID)
 		_, _ = pool.Exec(cleanup, `DELETE FROM users WHERE id = ANY($1)`,
 			[]uuid.UUID{f.requester, f.approver})

@@ -31,4 +31,7 @@ var (
 	// Aturan approval.
 	ErrAlreadyDecided           = errors.New("request already decided")
 	ErrInsufficientLeaveBalance = errors.New("insufficient leave balance")
+
+	// Aturan administrasi akses.
+	ErrPermissionInvariant = errors.New("permission change violates product invariant")
 )

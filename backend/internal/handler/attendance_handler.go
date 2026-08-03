@@ -17,6 +17,7 @@ import (
 )
 
 type AttendanceService interface {
+	ListOfficeLocations(context.Context) ([]domain.OfficeLocation, error)
 	Record(
 		context.Context, domain.Identity, domain.RecordAttendance, service.RequestMeta,
 	) (domain.Attendance, error)
@@ -37,6 +38,23 @@ type AttendanceHandler struct {
 
 func NewAttendanceHandler(service AttendanceService, trustProxy bool) *AttendanceHandler {
 	return &AttendanceHandler{service: service, trustProxy: trustProxy}
+}
+
+// ListOfficeLocations melayani dropdown lokasi WFO untuk seluruh role terautentikasi.
+func (h *AttendanceHandler) ListOfficeLocations(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	if _, ok := middleware.IdentityFromContext(request.Context()); !ok {
+		response.FromError(writer, domain.ErrInvalidToken)
+		return
+	}
+	locations, err := h.service.ListOfficeLocations(request.Context())
+	if err != nil {
+		response.FromError(writer, err)
+		return
+	}
+	response.Success(writer, http.StatusOK, locations, "OK")
 }
 
 func (h *AttendanceHandler) requestMeta(request *http.Request) service.RequestMeta {

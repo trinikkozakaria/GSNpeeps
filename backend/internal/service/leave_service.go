@@ -267,12 +267,14 @@ func (s *LeaveService) Create(
 		}
 		// Event dipublikasikan di dalam transaction agar kegagalan publikasi membatalkan
 		// pengajuan dan tidak menghasilkan side effect yang hilang diam-diam.
-		return s.events.Publish(domain.ApprovalEvent{
+		initialStage, _ := domain.StageForStatus(status)
+		return s.events.Publish(txContext, domain.ApprovalEvent{
 			Type:            domain.EventLeaveSubmitted,
 			RequestID:       created,
 			RequesterUserID: identity.UserID,
 			ActorUserID:     &identity.UserID,
 			Status:          status,
+			Stage:           initialStage,
 			NextStage:       domain.NextStageForStatus(status),
 			OccurredAt:      s.now().UTC(),
 		})
@@ -510,12 +512,13 @@ func (s *LeaveService) Decide(
 			return err
 		}
 		result = domain.RequestStateData{ID: id, Status: next}
-		return s.events.Publish(domain.ApprovalEvent{
+		return s.events.Publish(txContext, domain.ApprovalEvent{
 			Type:            domain.EventLeaveDecisionChanged,
 			RequestID:       id,
 			RequesterUserID: lock.RequesterUserID,
 			ActorUserID:     &identity.UserID,
 			Status:          next,
+			Stage:           stage,
 			NextStage:       domain.NextStageForStatus(next),
 			OccurredAt:      s.now().UTC(),
 		})
@@ -586,12 +589,13 @@ func (s *LeaveService) Delegate(
 			return err
 		}
 		result = domain.RequestStateData{ID: id, Status: domain.StatusWaitingHR}
-		return s.events.Publish(domain.ApprovalEvent{
+		return s.events.Publish(txContext, domain.ApprovalEvent{
 			Type:            domain.EventLeaveDelegated,
 			RequestID:       id,
 			RequesterUserID: lock.RequesterUserID,
 			ActorUserID:     &identity.UserID,
 			Status:          domain.StatusWaitingHR,
+			Stage:           domain.StageSupervisor,
 			NextStage:       domain.NextStageForStatus(domain.StatusWaitingHR),
 			OccurredAt:      s.now().UTC(),
 		})
