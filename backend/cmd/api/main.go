@@ -13,7 +13,6 @@ import (
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/handler"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/middleware"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/pkg/validation"
-	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/events"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/password"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/postgres"
 	redisstore "github.com/gsnpeeps/gsnpeeps/backend/internal/platform/redis"
@@ -109,7 +108,26 @@ func run() int {
 		overtimeRepository,
 	))
 
-	eventPublisher := events.NewLoggingPublisher(logger)
+	// Notifikasi ditulis di dalam transaction keputusan approval (D-033).
+	notificationRepository := repository.NewNotificationRepository(db.Pool())
+	eventPublisher := service.NewNotificationPublisher(notificationRepository, logger)
+	notificationHandler := handler.NewNotificationHandler(
+		service.NewNotificationService(notificationRepository),
+	)
+
+	permissionRepository := repository.NewPermissionRepository(db.Pool())
+	permissionCache := redisstore.NewPermissionCache(cache.Raw())
+	permissionChecker := service.NewCachedPermissionChecker(
+		permissionRepository, permissionCache, logger,
+	)
+	accessHandler := handler.NewAccessHandler(
+		service.NewAccessService(
+			permissionRepository, auditRepository, transactionManager,
+			auditRepository, permissionCache,
+		),
+		validation.New(), cfg.HTTP.TrustProxy,
+	)
+
 	attendanceHandler := handler.NewAttendanceHandler(
 		service.NewAttendanceService(
 			attendanceRepository, transactionManager, auditRepository, documentStore,
@@ -147,6 +165,13 @@ func run() int {
 		Handler: leaveHandler,
 	}, router.OvertimeRoutes{
 		Handler: overtimeHandler,
+	}, router.NotificationRoutes{
+		Handler: notificationHandler,
+	}, router.AccessRoutes{
+		Handler: accessHandler,
+		RequirePermission: func(module, action string) func(http.Handler) http.Handler {
+			return middleware.RequirePermission(permissionChecker, module, action)
+		},
 	})
 
 	server := &http.Server{

@@ -196,6 +196,14 @@ func newRouterFixture() routerFixture {
 			AttendanceRoutes{Handler: handler.NewAttendanceHandler(nil, false)},
 			LeaveRoutes{Handler: handler.NewLeaveHandler(nil, permissiveValidator{}, false)},
 			OvertimeRoutes{Handler: handler.NewOvertimeHandler(nil, permissiveValidator{}, false)},
+			NotificationRoutes{Handler: handler.NewNotificationHandler(nil)},
+			AccessRoutes{
+				Handler: handler.NewAccessHandler(nil, permissiveValidator{}, false),
+				// Test ini memverifikasi pemetaan route, bukan matriks permission.
+				RequirePermission: func(string, string) func(http.Handler) http.Handler {
+					return func(next http.Handler) http.Handler { return next }
+				},
+			},
 		),
 		employees: employees,
 		profiles:  profiles,

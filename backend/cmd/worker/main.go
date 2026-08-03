@@ -10,11 +10,11 @@ import (
 
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/config"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
-	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/events"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/postgres"
 	redisstore "github.com/gsnpeeps/gsnpeeps/backend/internal/platform/redis"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/webdav"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/repository"
+	"github.com/gsnpeeps/gsnpeeps/backend/internal/service"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/worker"
 )
 
@@ -23,6 +23,9 @@ import (
 const (
 	escalationInterval = 5 * time.Minute
 	retentionInterval  = 24 * time.Hour
+	// Pengingat kontrak H-30 bersifat harian. Job idempotent, sehingga interval yang lebih
+	// rapat pun tidak menghasilkan notifikasi ganda.
+	contractReminderInterval = 24 * time.Hour
 )
 
 func main() {
@@ -62,7 +65,8 @@ func run() int {
 
 	transactions := repository.NewTransactionManager(db.Pool())
 	audit := repository.NewAuditRepository(db.Pool())
-	publisher := events.NewLoggingPublisher(logger)
+	notifications := repository.NewNotificationRepository(db.Pool())
+	publisher := service.NewNotificationPublisher(notifications, logger)
 
 	leaveEscalation := worker.NewEscalationJob(
 		"ketidakhadiran", repository.NewLeaveRepository(db.Pool()),
@@ -75,11 +79,14 @@ func run() int {
 	photoRetention := worker.NewPhotoRetentionJob(
 		repository.NewAttendanceRepository(db.Pool()), storage, transactions, logger,
 	)
+	contractExpiry := worker.NewContractExpiryJob(notifications, transactions, logger)
 
 	escalationTicker := time.NewTicker(escalationInterval)
 	defer escalationTicker.Stop()
 	retentionTicker := time.NewTicker(retentionInterval)
 	defer retentionTicker.Stop()
+	contractTicker := time.NewTicker(contractReminderInterval)
+	defer contractTicker.Stop()
 
 	runEscalation := func() {
 		if _, err := leaveEscalation.Run(ctx); err != nil {
@@ -94,13 +101,21 @@ func run() int {
 			logger.Error("photo retention job failed", "error", err)
 		}
 	}
+	runContractReminder := func() {
+		if _, err := contractExpiry.Run(ctx); err != nil {
+			logger.Error("contract expiry job failed", "error", err)
+		}
+	}
 
 	logger.Info("worker started",
-		"escalation_interval", escalationInterval, "retention_interval", retentionInterval)
+		"escalation_interval", escalationInterval,
+		"retention_interval", retentionInterval,
+		"contract_reminder_interval", contractReminderInterval)
 	// Eksekusi awal agar backlog tertangani tanpa menunggu tick pertama. Seluruh job
 	// idempotent sehingga aman dijalankan berulang.
 	runEscalation()
 	runRetention()
+	runContractReminder()
 
 	for {
 		select {
@@ -111,6 +126,8 @@ func run() int {
 			runEscalation()
 		case <-retentionTicker.C:
 			runRetention()
+		case <-contractTicker.C:
+			runContractReminder()
 		}
 	}
 }
