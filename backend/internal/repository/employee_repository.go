@@ -855,3 +855,24 @@ func (r *EmployeeRepository) ExportRows(
 	}
 	return items, rows.Err()
 }
+
+// SupervisorEmployeeID mengembalikan atasan langsung seorang karyawan, atau nil bila tidak
+// memiliki atasan. Dipakai untuk routing pengajuan dan otorisasi inbox Atasan.
+func (r *EmployeeRepository) SupervisorEmployeeID(
+	ctx context.Context,
+	employeeID uuid.UUID,
+) (*uuid.UUID, error) {
+	var supervisor *uuid.UUID
+	err := executor(ctx, r.pool).QueryRow(ctx, `
+		SELECT e.atasan_id
+		FROM employees e
+		WHERE e.id = $1 AND e.deleted_at IS NULL
+	`, employeeID).Scan(&supervisor)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find supervisor: %w", err)
+	}
+	return supervisor, nil
+}
