@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import { Pagination } from "../../../components/data-table/Pagination";
 import { Button } from "../../../components/ui/Button";
 import { useAuth } from "../../auth/hooks/useAuth";
+import { EmployeeExportMenu } from "../components/EmployeeExportMenu";
 import { EmployeeTable } from "../components/EmployeeTable";
 import { useDepartments, useEmployees } from "../hooks/useEmployees";
 
@@ -68,18 +70,21 @@ export const EmployeeListPage = () => {
           </p>
         </div>
         {auth.role === "hr" && (
-          <Link
-            to="/app/karyawan/baru"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-200"
-          >
-            Tambah karyawan
-          </Link>
+          <div className="flex flex-col items-start gap-3">
+            <Link
+              to="/app/karyawan/baru"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-200"
+            >
+              Tambah karyawan
+            </Link>
+            <EmployeeExportMenu filters={filters} label="Export hasil filter" />
+          </div>
         )}
       </div>
 
       <div className="mt-7 grid gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 md:grid-cols-3">
         <label className="text-sm font-medium text-slate-200">
-          Cari nama, NIP, atau email
+          Cari nama atau NIP
           <input
             type="search"
             value={searchInput}
@@ -136,27 +141,11 @@ export const EmployeeListPage = () => {
           <>
             <p className="mb-3 text-sm text-slate-400">{data.meta.total_data} karyawan ditemukan</p>
             <EmployeeTable employees={data.items} />
-            <div className="mt-4 flex items-center justify-between">
-              <p className="text-sm text-slate-400">
-                Halaman {data.meta.page} dari {Math.max(data.meta.total_page, 1)}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  disabled={data.meta.page <= 1}
-                  onClick={() => setFilter("page", String(data.meta.page - 1))}
-                >
-                  Sebelumnya
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={data.meta.page >= data.meta.total_page}
-                  onClick={() => setFilter("page", String(data.meta.page + 1))}
-                >
-                  Berikutnya
-                </Button>
-              </div>
-            </div>
+            <Pagination
+              meta={data.meta}
+              label="Navigasi halaman daftar karyawan"
+              onPageChange={(page) => setFilter("page", String(page))}
+            />
           </>
         )}
       </div>

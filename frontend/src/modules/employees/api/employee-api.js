@@ -1,7 +1,9 @@
 import { apiClient } from "../../../lib/api/client";
+import { downloadFile } from "../../../lib/api/download";
 import {
   departmentListSchema,
   employeeDetailSchema,
+  employeeDocumentListSchema,
   employeeListSchema,
   positionListSchema,
 } from "../schemas/employee-schema";
@@ -49,3 +51,26 @@ export const createEmployeeRequest = async (payload, signal) => {
   const envelope = await apiClient.post("/karyawan", payload, { signal });
   return envelope.data;
 };
+
+export const employeeDocumentsRequest = async (id, signal) => {
+  const envelope = await apiClient.get(`/karyawan/${id}/dokumen`, { signal });
+  return employeeDocumentListSchema.parse(envelope.data);
+};
+
+/**
+ * Field multipart mengikuti EmployeeDocumentUploadRequest: `jenis_dokumen` dan `file`.
+ * Isi berkas tidak pernah disimpan ke state global; hanya diteruskan ke request.
+ */
+export const uploadEmployeeDocumentRequest = async (id, { jenisDokumen, file }, signal) => {
+  const form = new FormData();
+  form.append("jenis_dokumen", jenisDokumen);
+  form.append("file", file);
+  const envelope = await apiClient.post(`/karyawan/${id}/dokumen`, form, { signal });
+  return envelope.data;
+};
+
+export const exportEmployeesRequest = (query, signal) =>
+  downloadFile("/karyawan/export", query, {
+    signal,
+    fallbackFileName: `karyawan.${query.format ?? "xlsx"}`,
+  });

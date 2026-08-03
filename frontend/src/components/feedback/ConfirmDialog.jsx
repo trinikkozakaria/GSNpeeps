@@ -1,0 +1,89 @@
+import { useEffect, useRef } from "react";
+
+import { Button } from "../ui/Button";
+
+/**
+ * Dialog konfirmasi modal yang dapat diakses keyboard. Fokus dipindahkan ke tombol batal
+ * saat dibuka, Escape menutup dialog, dan fokus dikurung di dalam dialog.
+ */
+export const ConfirmDialog = ({
+  open,
+  title,
+  description,
+  confirmLabel,
+  cancelLabel = "Batal",
+  destructive = false,
+  busy = false,
+  error,
+  onConfirm,
+  onCancel,
+}) => {
+  const dialogRef = useRef(null);
+  const cancelRef = useRef(null);
+
+  useEffect(() => {
+    if (open) cancelRef.current?.focus();
+  }, [open]);
+
+  if (!open) return null;
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Escape" && !busy) {
+      event.stopPropagation();
+      onCancel();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = dialogRef.current?.querySelectorAll(
+      "button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+    );
+    if (!focusable || focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
+      <div
+        ref={dialogRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-description"
+        onKeyDown={handleKeyDown}
+        className="w-full max-w-md rounded-xl border border-white/10 bg-slate-900 p-6 shadow-xl"
+      >
+        <h2 id="confirm-dialog-title" className="text-xl font-bold text-white">
+          {title}
+        </h2>
+        <p id="confirm-dialog-description" className="mt-3 text-sm text-slate-300">
+          {description}
+        </p>
+        {error && (
+          <p role="alert" className="mt-4 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-200">
+            {error}
+          </p>
+        )}
+        <div className="mt-6 flex flex-wrap justify-end gap-3">
+          <Button ref={cancelRef} variant="secondary" onClick={onCancel} disabled={busy}>
+            {cancelLabel}
+          </Button>
+          <Button
+            onClick={onConfirm}
+            disabled={busy}
+            className={destructive ? "bg-rose-400 text-slate-950 hover:bg-rose-300" : undefined}
+          >
+            {busy ? "Memproses…" : confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};

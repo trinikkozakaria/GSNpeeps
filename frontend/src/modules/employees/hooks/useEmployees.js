@@ -5,16 +5,19 @@ import {
   deactivateEmployeeRequest,
   createEmployeeRequest,
   employeeDetailRequest,
+  employeeDocumentsRequest,
   listDepartmentsRequest,
   listEmployeesRequest,
   listPositionsRequest,
   updateEmployeeRequest,
+  uploadEmployeeDocumentRequest,
 } from "../api/employee-api";
 
 export const employeeKeys = {
   all: ["employees"],
   list: (scope, filters) => ["employees", "list", scope, filters],
   detail: (scope, id) => ["employees", "detail", scope, id],
+  documents: (scope, id) => ["employees", "documents", scope, id],
   departments: ["organization", "departments"],
   positions: (departmentId) => ["organization", "positions", departmentId ?? "all"],
 };
@@ -67,6 +70,22 @@ export const useCreateEmployee = () =>
     retry: false,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+    },
+  });
+
+export const useEmployeeDocuments = (scope, id, enabled = true) =>
+  useQuery({
+    queryKey: employeeKeys.documents(scope, id),
+    queryFn: ({ signal }) => employeeDocumentsRequest(id, signal),
+    enabled: Boolean(id) && enabled,
+  });
+
+export const useUploadEmployeeDocument = (scope, id) =>
+  useMutation({
+    mutationFn: (input) => uploadEmployeeDocumentRequest(id, input),
+    retry: false,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: employeeKeys.documents(scope, id) });
     },
   });
 
