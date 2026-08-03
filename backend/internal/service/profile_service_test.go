@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
-	"github.com/gsnpeeps/gsnpeeps/backend/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +29,7 @@ func (s *profileReaderStub) FindByID(
 }
 
 func newProfileServiceForTest(reader ProfileReader) *ProfileService {
-	service := NewProfileService(reader, repository.NewPendingMetricsRepository())
+	service := NewProfileService(reader, pendingMetricsStub{})
 	service.now = func() time.Time {
 		return time.Date(2026, time.August, 1, 9, 30, 0, 0, domain.Jakarta())
 	}

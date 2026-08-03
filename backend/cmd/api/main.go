@@ -13,6 +13,7 @@ import (
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/handler"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/middleware"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/pkg/validation"
+	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/events"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/password"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/postgres"
 	redisstore "github.com/gsnpeeps/gsnpeeps/backend/internal/platform/redis"
@@ -93,17 +94,42 @@ func run() int {
 	)
 	employeeHandler := handler.NewEmployeeHandler(employeeService, validation.New(), cfg.HTTP.TrustProxy)
 
-	// Metrik Attendance/Ketidakhadiran belum memiliki tabel sumber pada epic ini; adapter
-	// sementara mengembalikan empty state sesuai keputusan D-020.
-	pendingMetrics := repository.NewPendingMetricsRepository()
+	// Metrik kini dibaca dari tabel absensi, ketidakhadiran, dan lembur yang sudah tersedia,
+	// menggantikan adapter sementara D-020.
+	attendanceRepository := repository.NewAttendanceRepository(db.Pool())
+	leaveRepository := repository.NewLeaveRepository(db.Pool())
+	overtimeRepository := repository.NewOvertimeRepository(db.Pool())
+
 	profileHandler := handler.NewProfileHandler(
-		service.NewProfileService(employeeRepository, pendingMetrics),
+		service.NewProfileService(employeeRepository, attendanceRepository),
 	)
 	dashboardHandler := handler.NewDashboardHandler(service.NewDashboardService(
 		repository.NewDashboardRepository(db.Pool()),
-		pendingMetrics,
-		pendingMetrics,
+		attendanceRepository,
+		overtimeRepository,
 	))
+
+	eventPublisher := events.NewLoggingPublisher(logger)
+	attendanceHandler := handler.NewAttendanceHandler(
+		service.NewAttendanceService(
+			attendanceRepository, transactionManager, auditRepository, documentStore,
+		),
+		cfg.HTTP.TrustProxy,
+	)
+	leaveHandler := handler.NewLeaveHandler(
+		service.NewLeaveService(
+			leaveRepository, employeeRepository, transactionManager, auditRepository,
+			documentStore, eventPublisher,
+		),
+		validation.New(), cfg.HTTP.TrustProxy,
+	)
+	overtimeHandler := handler.NewOvertimeHandler(
+		service.NewOvertimeService(
+			overtimeRepository, employeeRepository, transactionManager, auditRepository,
+			documentStore, eventPublisher,
+		),
+		validation.New(), cfg.HTTP.TrustProxy,
+	)
 
 	httpRouter := router.New(cfg.HTTP, logger, healthHandler, router.AuthRoutes{
 		Handler:            authHandler,
@@ -115,6 +141,12 @@ func run() int {
 		Handler: profileHandler,
 	}, router.DashboardRoutes{
 		Handler: dashboardHandler,
+	}, router.AttendanceRoutes{
+		Handler: attendanceHandler,
+	}, router.LeaveRoutes{
+		Handler: leaveHandler,
+	}, router.OvertimeRoutes{
+		Handler: overtimeHandler,
 	})
 
 	server := &http.Server{
