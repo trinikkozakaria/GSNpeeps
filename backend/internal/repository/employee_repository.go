@@ -379,8 +379,9 @@ func (r *EmployeeRepository) List(
 	}
 	offset := (filter.Page - 1) * filter.Limit
 	args := []any{search, filter.DepartmentID, filter.Status}
+	// Pencarian dibatasi pada nama dan NIP sesuai API Contract v1.1 §5.1.
 	where := `
-		($1 = '' OR e.nama ILIKE $1 OR e.nip ILIKE $1 OR COALESCE(u.email, '') ILIKE $1)
+		($1 = '' OR e.nama ILIKE $1 OR e.nip ILIKE $1)
 		AND ($2::uuid IS NULL OR e.department_id = $2)
 		AND ($3 = '' OR e.status = $3)`
 
@@ -431,7 +432,13 @@ func (r *EmployeeRepository) List(
 	return domain.EmployeePage{Items: items, Total: total, Page: filter.Page, Limit: filter.Limit}, nil
 }
 
-func (r *EmployeeRepository) FindByID(ctx context.Context, id uuid.UUID) (domain.EmployeeDetail, error) {
+// FindByID mengambil detail Point 1-11. `salaryPeriod` membatasi gaji ke bulan berjalan
+// sesuai PRD; histori gaji penuh tidak pernah dibaca di sini.
+func (r *EmployeeRepository) FindByID(
+	ctx context.Context,
+	id uuid.UUID,
+	salaryPeriod string,
+) (domain.EmployeeDetail, error) {
 	var item domain.EmployeeDetail
 	err := r.pool.QueryRow(ctx, `
 		SELECT e.id, e.nip, e.nama, COALESCE(u.email, ''),
@@ -466,13 +473,17 @@ func (r *EmployeeRepository) FindByID(ctx context.Context, id uuid.UUID) (domain
 	if err != nil {
 		return domain.EmployeeDetail{}, fmt.Errorf("find employee: %w", err)
 	}
-	if err := r.loadEmployeeDetails(ctx, &item); err != nil {
+	if err := r.loadEmployeeDetails(ctx, &item, salaryPeriod); err != nil {
 		return domain.EmployeeDetail{}, err
 	}
 	return item, nil
 }
 
-func (r *EmployeeRepository) loadEmployeeDetails(ctx context.Context, item *domain.EmployeeDetail) error {
+func (r *EmployeeRepository) loadEmployeeDetails(
+	ctx context.Context,
+	item *domain.EmployeeDetail,
+	salaryPeriod string,
+) error {
 	var address domain.EmployeeAddress
 	err := r.pool.QueryRow(ctx, `
 		SELECT jalan, kelurahan, kecamatan, kota, provinsi
@@ -500,6 +511,40 @@ func (r *EmployeeRepository) loadEmployeeDetails(ctx context.Context, item *doma
 		return fmt.Errorf("load employee ktp: %w", err)
 	}
 
+	var npwp domain.EmployeeNPWP
+	var npwpNumber *string
+	err = r.pool.QueryRow(ctx, `
+		SELECT nomor_npwp, file_url FROM employee_npwp WHERE employee_id = $1
+	`, item.ID).Scan(&npwpNumber, &npwp.FileURL)
+	if err == nil && npwpNumber != nil {
+		npwp.Number = *npwpNumber
+		item.NPWP = &npwp
+	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("load employee npwp: %w", err)
+	}
+
+	if err := r.loadEmployeeContracts(ctx, item); err != nil {
+		return err
+	}
+	if err := r.loadEmployeeBPJS(ctx, item); err != nil {
+		return err
+	}
+	if err := r.loadEmergencyContacts(ctx, item); err != nil {
+		return err
+	}
+	if err := r.loadEmployeeEducation(ctx, item); err != nil {
+		return err
+	}
+	if err := r.loadPositionHistory(ctx, item); err != nil {
+		return err
+	}
+	return r.loadCurrentSalary(ctx, item, salaryPeriod)
+}
+
+func (r *EmployeeRepository) loadEmployeeContracts(
+	ctx context.Context,
+	item *domain.EmployeeDetail,
+) error {
 	rows, err := r.pool.Query(ctx, `
 		SELECT nomor_kontrak, TO_CHAR(tanggal_mulai, 'YYYY-MM-DD'),
 		       TO_CHAR(tanggal_berakhir, 'YYYY-MM-DD'), jenis_kontrak, file_url, status
@@ -527,4 +572,286 @@ func (r *EmployeeRepository) loadEmployeeDetails(ctx context.Context, item *doma
 		item.Contracts = append(item.Contracts, contract)
 	}
 	return rows.Err()
+}
+
+// loadEmployeeBPJS memetakan satu baris `employee_bpjs` menjadi koleksi per jenis
+// kepesertaan sesuai schema EmployeeBPJS; nomor kosong tidak dikirim.
+func (r *EmployeeRepository) loadEmployeeBPJS(
+	ctx context.Context,
+	item *domain.EmployeeDetail,
+) error {
+	item.BPJS = make([]domain.EmployeeBPJS, 0, 2)
+	var health, employment *string
+	err := r.pool.QueryRow(ctx, `
+		SELECT no_bpjs_kesehatan, no_bpjs_ketenagakerjaan
+		FROM employee_bpjs WHERE employee_id = $1
+	`, item.ID).Scan(&health, &employment)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("load employee bpjs: %w", err)
+	}
+	if health != nil && *health != "" {
+		item.BPJS = append(item.BPJS, domain.EmployeeBPJS{Type: "kesehatan", Number: *health})
+	}
+	if employment != nil && *employment != "" {
+		item.BPJS = append(item.BPJS, domain.EmployeeBPJS{Type: "ketenagakerjaan", Number: *employment})
+	}
+	return nil
+}
+
+func (r *EmployeeRepository) loadEmergencyContacts(
+	ctx context.Context,
+	item *domain.EmployeeDetail,
+) error {
+	rows, err := r.pool.Query(ctx, `
+		SELECT nama, hubungan, no_hp
+		FROM employee_emergency_contacts
+		WHERE employee_id = $1
+		ORDER BY nama, id
+	`, item.ID)
+	if err != nil {
+		return fmt.Errorf("load employee emergency contacts: %w", err)
+	}
+	defer rows.Close()
+	item.EmergencyContacts = make([]domain.EmergencyContact, 0)
+	for rows.Next() {
+		var contact domain.EmergencyContact
+		if err := rows.Scan(&contact.Name, &contact.Relationship, &contact.Phone); err != nil {
+			return fmt.Errorf("scan employee emergency contact: %w", err)
+		}
+		item.EmergencyContacts = append(item.EmergencyContacts, contact)
+	}
+	return rows.Err()
+}
+
+func (r *EmployeeRepository) loadEmployeeEducation(
+	ctx context.Context,
+	item *domain.EmployeeDetail,
+) error {
+	rows, err := r.pool.Query(ctx, `
+		SELECT jenjang, institusi, tahun_lulus
+		FROM employee_education
+		WHERE employee_id = $1
+		ORDER BY tahun_lulus DESC NULLS LAST, id
+	`, item.ID)
+	if err != nil {
+		return fmt.Errorf("load employee education: %w", err)
+	}
+	defer rows.Close()
+	item.Education = make([]domain.EducationHistory, 0)
+	for rows.Next() {
+		var education domain.EducationHistory
+		var year *int16
+		if err := rows.Scan(&education.Level, &education.Institution, &year); err != nil {
+			return fmt.Errorf("scan employee education: %w", err)
+		}
+		if year != nil {
+			value := int(*year)
+			education.GraduationYear = &value
+		}
+		item.Education = append(item.Education, education)
+	}
+	return rows.Err()
+}
+
+func (r *EmployeeRepository) loadPositionHistory(
+	ctx context.Context,
+	item *domain.EmployeeDetail,
+) error {
+	rows, err := r.pool.Query(ctx, `
+		SELECT h.department_id, d.nama, h.position_id, p.department_id, p.nama,
+		       TO_CHAR(h.tanggal_mulai, 'YYYY-MM-DD'),
+		       TO_CHAR(h.tanggal_selesai, 'YYYY-MM-DD')
+		FROM employee_position_history h
+		LEFT JOIN departments d ON d.id = h.department_id
+		LEFT JOIN positions p ON p.id = h.position_id
+		WHERE h.employee_id = $1
+		ORDER BY h.tanggal_mulai DESC, h.id
+	`, item.ID)
+	if err != nil {
+		return fmt.Errorf("load employee position history: %w", err)
+	}
+	defer rows.Close()
+	item.PositionHistory = make([]domain.PositionHistory, 0)
+	for rows.Next() {
+		var (
+			entry              domain.PositionHistory
+			departmentID       *uuid.UUID
+			departmentName     *string
+			positionID         *uuid.UUID
+			positionDepartment *uuid.UUID
+			positionName       *string
+		)
+		if err := rows.Scan(
+			&departmentID,
+			&departmentName,
+			&positionID,
+			&positionDepartment,
+			&positionName,
+			&entry.StartDate,
+			&entry.EndDate,
+		); err != nil {
+			return fmt.Errorf("scan employee position history: %w", err)
+		}
+		if departmentID != nil && departmentName != nil {
+			entry.Department = &domain.Department{ID: *departmentID, Name: *departmentName}
+		}
+		if positionID != nil && positionDepartment != nil && positionName != nil {
+			entry.Position = &domain.Position{
+				ID:           *positionID,
+				DepartmentID: *positionDepartment,
+				Name:         *positionName,
+			}
+		}
+		item.PositionHistory = append(item.PositionHistory, entry)
+	}
+	return rows.Err()
+}
+
+func (r *EmployeeRepository) loadCurrentSalary(
+	ctx context.Context,
+	item *domain.EmployeeDetail,
+	period string,
+) error {
+	if period == "" {
+		return nil
+	}
+	var salary domain.CurrentSalary
+	err := r.pool.QueryRow(ctx, `
+		SELECT periode, gaji_pokok::float8, tunjangan::float8, potongan::float8,
+		       take_home_pay::float8
+		FROM employee_salaries
+		WHERE employee_id = $1 AND periode = $2
+	`, item.ID, period).Scan(
+		&salary.Period,
+		&salary.BasePay,
+		&salary.Allowance,
+		&salary.Deduction,
+		&salary.TakeHomePay,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("load employee current salary: %w", err)
+	}
+	item.CurrentSalary = &salary
+	return nil
+}
+
+// FindDocuments mengembalikan metadata dokumen; isi berkas tidak pernah dibaca dari database.
+func (r *EmployeeRepository) FindDocuments(
+	ctx context.Context,
+	employeeID uuid.UUID,
+) ([]domain.EmployeeDocument, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, jenis_dokumen, nama_file, file_url, uploaded_at
+		FROM employee_documents
+		WHERE employee_id = $1
+		ORDER BY uploaded_at DESC, id
+	`, employeeID)
+	if err != nil {
+		return nil, fmt.Errorf("list employee documents: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]domain.EmployeeDocument, 0)
+	for rows.Next() {
+		var item domain.EmployeeDocument
+		if err := rows.Scan(
+			&item.ID,
+			&item.Type,
+			&item.FileName,
+			&item.FileURL,
+			&item.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan employee document: %w", err)
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// CreateDocument menyimpan locator dokumen. Dipanggil di dalam transaction agar kegagalan
+// setelah upload dapat dikompensasi oleh service.
+func (r *EmployeeRepository) CreateDocument(
+	ctx context.Context,
+	document domain.NewEmployeeDocument,
+) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := executor(ctx, r.pool).QueryRow(ctx, `
+		INSERT INTO employee_documents (employee_id, jenis_dokumen, nama_file, file_url)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id
+	`, document.EmployeeID, document.Type, document.FileName, document.FileURL).Scan(&id)
+	if err != nil {
+		return uuid.Nil, mapEmployeeMutationError(err)
+	}
+	return id, nil
+}
+
+// ExistsActive memastikan employee ada dan belum soft-deleted sebelum operasi dokumen.
+func (r *EmployeeRepository) ExistsActive(ctx context.Context, employeeID uuid.UUID) error {
+	var exists bool
+	err := executor(ctx, r.pool).QueryRow(ctx, `
+		SELECT EXISTS(SELECT 1 FROM employees WHERE id = $1 AND deleted_at IS NULL)
+	`, employeeID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("check employee existence: %w", err)
+	}
+	if !exists {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ExportRows membaca dataset export dengan filter yang sama seperti list. Batas maksimum
+// menjaga export tetap terikat dan tidak menarik seluruh tabel tanpa kendali.
+func (r *EmployeeRepository) ExportRows(
+	ctx context.Context,
+	query domain.EmployeeExportQuery,
+	maxRows int,
+) ([]domain.EmployeeSummary, error) {
+	search := strings.TrimSpace(query.Filter.Search)
+	if search != "" {
+		search = "%" + search + "%"
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT e.id, e.nip, e.nama, COALESCE(u.email, ''),
+		       COALESCE(d.nama, ''), COALESCE(p.nama, ''), e.status
+		FROM employees e
+		LEFT JOIN users u ON u.employee_id = e.id
+		LEFT JOIN departments d ON d.id = e.department_id
+		LEFT JOIN positions p ON p.id = e.position_id
+		WHERE ($1::uuid IS NULL OR e.id = $1)
+		  AND ($2 = '' OR e.nama ILIKE $2 OR e.nip ILIKE $2)
+		  AND ($3::uuid IS NULL OR e.department_id = $3)
+		  AND ($4 = '' OR e.status = $4)
+		ORDER BY e.nama, e.id
+		LIMIT $5
+	`, query.EmployeeID, search, query.Filter.DepartmentID, query.Filter.Status, maxRows)
+	if err != nil {
+		return nil, fmt.Errorf("query employee export rows: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]domain.EmployeeSummary, 0)
+	for rows.Next() {
+		var item domain.EmployeeSummary
+		if err := rows.Scan(
+			&item.ID,
+			&item.NIP,
+			&item.Name,
+			&item.Email,
+			&item.Department,
+			&item.Position,
+			&item.Status,
+		); err != nil {
+			return nil, fmt.Errorf("scan employee export row: %w", err)
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
 }

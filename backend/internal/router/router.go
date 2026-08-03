@@ -20,12 +20,22 @@ type EmployeeRoutes struct {
 	Handler *handler.EmployeeHandler
 }
 
+type ProfileRoutes struct {
+	Handler *handler.ProfileHandler
+}
+
+type DashboardRoutes struct {
+	Handler *handler.DashboardHandler
+}
+
 func New(
 	cfg config.HTTP,
 	logger *slog.Logger,
 	healthHandler http.Handler,
 	auth AuthRoutes,
 	employees EmployeeRoutes,
+	profiles ProfileRoutes,
+	dashboards DashboardRoutes,
 ) http.Handler {
 	router := mux.NewRouter()
 	router.Handle("/health", healthHandler).Methods(http.MethodGet)
@@ -43,13 +53,23 @@ func New(
 	api.Handle("/master/jabatan", protected(employees.Handler.ListPositions)).Methods(http.MethodGet)
 	api.Handle("/karyawan", protected(employees.Handler.List)).Methods(http.MethodGet)
 	api.Handle("/karyawan", protected(employees.Handler.Create)).Methods(http.MethodPost)
+	// Route literal harus terdaftar sebelum pola `{id}` agar `/karyawan/export` tidak
+	// tertangkap sebagai ID karyawan.
+	api.Handle("/karyawan/export", protected(employees.Handler.Export)).Methods(http.MethodGet)
 	api.Handle("/karyawan/{id}", protected(employees.Handler.Detail)).Methods(http.MethodGet)
 	api.Handle("/karyawan/{id}", protected(employees.Handler.Update)).Methods(http.MethodPut)
 	api.Handle("/karyawan/{id}", protected(employees.Handler.Deactivate)).Methods(http.MethodDelete)
+	api.Handle("/karyawan/{id}/dokumen", protected(employees.Handler.ListDocuments)).
+		Methods(http.MethodGet)
+	api.Handle("/karyawan/{id}/dokumen", protected(employees.Handler.UploadDocument)).
+		Methods(http.MethodPost)
+	api.Handle("/profil/saya", protected(profiles.Handler.Me)).Methods(http.MethodGet)
+	api.Handle("/profil/saya/metrik", protected(profiles.Handler.Metrics)).Methods(http.MethodGet)
+	api.Handle("/dashboard/metrik", protected(dashboards.Handler.Metrics)).Methods(http.MethodGet)
 	api.PathPrefix("").Handler(http.NotFoundHandler())
 
 	var handler http.Handler = router
-	handler = middleware.BodyLimit(cfg.MaxBodyBytes)(handler)
+	handler = middleware.BodyLimit(cfg.MaxBodyBytes, cfg.MaxUploadBytes)(handler)
 	handler = middleware.CORS(cfg.AllowedOrigin)(handler)
 	handler = middleware.AccessLog(logger)(handler)
 	handler = middleware.RequestID(handler)

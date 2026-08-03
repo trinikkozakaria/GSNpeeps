@@ -1,8 +1,14 @@
 package service
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"errors"
+	"io"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
@@ -13,9 +19,17 @@ import (
 )
 
 type employeeReaderStub struct {
-	receivedFilter domain.EmployeeFilter
-	detailError    error
-	createCommand  domain.CreateEmployee
+	receivedFilter    domain.EmployeeFilter
+	detailError       error
+	createCommand     domain.CreateEmployee
+	detailPeriod      string
+	detail            domain.EmployeeDetail
+	existsError       error
+	documents         []domain.EmployeeDocument
+	createdDocument   domain.NewEmployeeDocument
+	createDocumentErr error
+	exportRows        []domain.EmployeeSummary
+	exportQuery       domain.EmployeeExportQuery
 }
 
 func (s *employeeReaderStub) ValidateCreate(context.Context, domain.CreateEmployee) error {
@@ -72,14 +86,33 @@ type passwordHasherStub struct{}
 func (passwordHasherStub) Hash(string) (string, error)         { return "locked-hash", nil }
 func (passwordHasherStub) Verify(string, string) (bool, error) { return false, nil }
 
+type failingTransactionStub struct{ err error }
+
+func (s failingTransactionStub) Within(context.Context, func(context.Context) error) error {
+	return s.err
+}
+
 func newEmployeeServiceForTest(reader EmployeeReader) *EmployeeService {
-	return NewEmployeeService(
+	return newEmployeeServiceWith(reader, transactionStub{}, &documentStoreStub{})
+}
+
+func newEmployeeServiceWith(
+	reader EmployeeReader,
+	transactions EmployeeTransactionManager,
+	documents DocumentStore,
+) *EmployeeService {
+	service := NewEmployeeService(
 		reader,
-		transactionStub{},
+		transactions,
 		auditStub{},
 		sessionRevokerStub{},
 		passwordHasherStub{},
+		documents,
 	)
+	service.now = func() time.Time {
+		return time.Date(2026, time.August, 1, 10, 0, 0, 0, domain.Jakarta())
+	}
+	return service
 }
 
 func (s *employeeReaderStub) ListDepartments(context.Context) ([]domain.Department, error) {
@@ -102,10 +135,72 @@ func (s *employeeReaderStub) List(
 }
 
 func (s *employeeReaderStub) FindByID(
+	_ context.Context,
+	_ uuid.UUID,
+	salaryPeriod string,
+) (domain.EmployeeDetail, error) {
+	s.detailPeriod = salaryPeriod
+	return s.detail, s.detailError
+}
+
+func (s *employeeReaderStub) ExistsActive(context.Context, uuid.UUID) error {
+	return s.existsError
+}
+
+func (s *employeeReaderStub) FindDocuments(
 	context.Context,
 	uuid.UUID,
-) (domain.EmployeeDetail, error) {
-	return domain.EmployeeDetail{}, s.detailError
+) ([]domain.EmployeeDocument, error) {
+	return s.documents, nil
+}
+
+func (s *employeeReaderStub) CreateDocument(
+	_ context.Context,
+	document domain.NewEmployeeDocument,
+) (uuid.UUID, error) {
+	s.createdDocument = document
+	if s.createDocumentErr != nil {
+		return uuid.Nil, s.createDocumentErr
+	}
+	return uuid.New(), nil
+}
+
+func (s *employeeReaderStub) ExportRows(
+	_ context.Context,
+	query domain.EmployeeExportQuery,
+	_ int,
+) ([]domain.EmployeeSummary, error) {
+	s.exportQuery = query
+	return s.exportRows, nil
+}
+
+// documentStoreStub merekam object yang diunggah dan dihapus agar kompensasi orphan dapat
+// diverifikasi tanpa Nextcloud sungguhan.
+type documentStoreStub struct {
+	uploadedPath string
+	deletedPath  string
+	uploadErr    error
+}
+
+func (s *documentStoreStub) Upload(
+	_ context.Context,
+	objectPath string,
+	body io.Reader,
+	_ string,
+) (string, error) {
+	if s.uploadErr != nil {
+		return "", s.uploadErr
+	}
+	if _, err := io.ReadAll(body); err != nil {
+		return "", err
+	}
+	s.uploadedPath = objectPath
+	return "GSNpeeps/" + objectPath, nil
+}
+
+func (s *documentStoreStub) Delete(_ context.Context, objectPath string) error {
+	s.deletedPath = objectPath
+	return nil
 }
 
 func TestEmployeeListRestrictsRoleAndAppliesBounds(t *testing.T) {
@@ -144,6 +239,272 @@ func TestEmployeeDetailMapsRepositoryNotFound(t *testing.T) {
 	)
 
 	require.ErrorIs(t, err, domain.ErrNotFound)
+}
+
+func TestEmployeeDetailRequestsCurrentMonthSalaryOnly(t *testing.T) {
+	stub := &employeeReaderStub{}
+	service := newEmployeeServiceForTest(stub)
+
+	_, err := service.Detail(
+		context.Background(),
+		domain.Identity{Role: domain.RoleHR},
+		uuid.New(),
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, "2026-08", stub.detailPeriod)
+}
+
+func TestEmployeeDocumentAccessMatrix(t *testing.T) {
+	forbidden := []domain.RoleName{domain.RoleEmployee, domain.RoleSupervisor}
+	for _, role := range forbidden {
+		service := newEmployeeServiceForTest(&employeeReaderStub{})
+
+		_, listErr := service.ListDocuments(
+			context.Background(),
+			domain.Identity{Role: role},
+			uuid.New(),
+		)
+		require.ErrorIs(t, listErr, domain.ErrForbidden)
+
+		_, uploadErr := service.UploadDocument(
+			context.Background(),
+			domain.Identity{Role: role},
+			uuid.New(),
+			validDocumentUpload(),
+			RequestMeta{},
+		)
+		require.ErrorIs(t, uploadErr, domain.ErrForbidden)
+	}
+
+	// Top Management membaca dokumen tetapi tidak boleh mengunggah.
+	service := newEmployeeServiceForTest(&employeeReaderStub{})
+	_, err := service.ListDocuments(
+		context.Background(),
+		domain.Identity{Role: domain.RoleTopManagement},
+		uuid.New(),
+	)
+	require.NoError(t, err)
+
+	_, err = service.UploadDocument(
+		context.Background(),
+		domain.Identity{Role: domain.RoleTopManagement},
+		uuid.New(),
+		validDocumentUpload(),
+		RequestMeta{},
+	)
+	require.ErrorIs(t, err, domain.ErrForbidden)
+}
+
+func TestEmployeeUploadDocumentDoesNotTouchStorageForForbiddenRole(t *testing.T) {
+	store := &documentStoreStub{}
+	service := newEmployeeServiceWith(&employeeReaderStub{}, transactionStub{}, store)
+
+	_, err := service.UploadDocument(
+		context.Background(),
+		domain.Identity{Role: domain.RoleEmployee},
+		uuid.New(),
+		validDocumentUpload(),
+		RequestMeta{},
+	)
+
+	require.ErrorIs(t, err, domain.ErrForbidden)
+	assert.Empty(t, store.uploadedPath, "request tertolak tidak boleh mengunggah berkas")
+}
+
+func TestEmployeeUploadDocumentBuildsNamespacedServerSidePath(t *testing.T) {
+	stub := &employeeReaderStub{}
+	store := &documentStoreStub{}
+	service := newEmployeeServiceWith(stub, transactionStub{}, store)
+	employeeID := uuid.New()
+
+	document, err := service.UploadDocument(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), Role: domain.RoleHR},
+		employeeID,
+		validDocumentUpload(),
+		RequestMeta{},
+	)
+
+	require.NoError(t, err)
+	assert.True(
+		t,
+		strings.HasPrefix(store.uploadedPath, "employee-documents/"+employeeID.String()+"/"),
+		"object path harus ter-namespace per karyawan: %s", store.uploadedPath,
+	)
+	assert.True(t, strings.HasSuffix(store.uploadedPath, ".pdf"))
+	assert.NotContains(t, store.uploadedPath, "ijazah-asli.pdf",
+		"nama berkas dari client tidak boleh menjadi nama object")
+	assert.Equal(t, "ijazah-asli.pdf", stub.createdDocument.FileName)
+	assert.Equal(t, store.uploadedPath, strings.TrimPrefix(document.FileURL, "GSNpeeps/"))
+}
+
+func TestEmployeeUploadDocumentRemovesOrphanWhenTransactionFails(t *testing.T) {
+	store := &documentStoreStub{}
+	service := newEmployeeServiceWith(
+		&employeeReaderStub{},
+		failingTransactionStub{err: errors.New("database unavailable")},
+		store,
+	)
+
+	_, err := service.UploadDocument(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), Role: domain.RoleHR},
+		uuid.New(),
+		validDocumentUpload(),
+		RequestMeta{},
+	)
+
+	require.Error(t, err)
+	assert.NotEmpty(t, store.uploadedPath)
+	assert.Equal(t, store.uploadedPath, store.deletedPath,
+		"object yang sudah terunggah harus dihapus ketika transaction gagal")
+}
+
+func TestEmployeeUploadDocumentRejectsOversizeContent(t *testing.T) {
+	store := &documentStoreStub{}
+	service := newEmployeeServiceWith(&employeeReaderStub{}, transactionStub{}, store)
+	upload := validDocumentUpload()
+	upload.Content = make([]byte, maxDocumentBytes+1)
+
+	_, err := service.UploadDocument(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), Role: domain.RoleHR},
+		uuid.New(),
+		upload,
+		RequestMeta{},
+	)
+
+	require.ErrorIs(t, err, domain.ErrInvalidRequest)
+	assert.Empty(t, store.uploadedPath)
+}
+
+func TestEmployeeExportRequiresHR(t *testing.T) {
+	for _, role := range []domain.RoleName{
+		domain.RoleEmployee,
+		domain.RoleSupervisor,
+		domain.RoleTopManagement,
+	} {
+		service := newEmployeeServiceForTest(&employeeReaderStub{exportRows: exportFixture()})
+
+		_, err := service.Export(
+			context.Background(),
+			domain.Identity{Role: role},
+			domain.EmployeeExportQuery{Format: domain.ExportFormatXLSX},
+			RequestMeta{},
+		)
+
+		require.ErrorIsf(t, err, domain.ErrForbidden, "role %s harus ditolak", role)
+	}
+}
+
+func TestEmployeeExportRejectsUnknownFormat(t *testing.T) {
+	service := newEmployeeServiceForTest(&employeeReaderStub{exportRows: exportFixture()})
+
+	_, err := service.Export(
+		context.Background(),
+		domain.Identity{Role: domain.RoleHR},
+		domain.EmployeeExportQuery{Format: domain.ExportFormat("csv")},
+		RequestMeta{},
+	)
+
+	require.ErrorIs(t, err, domain.ErrInvalidRequest)
+}
+
+func TestEmployeeExportReturnsNotFoundForEmptyResult(t *testing.T) {
+	service := newEmployeeServiceForTest(&employeeReaderStub{exportRows: nil})
+
+	_, err := service.Export(
+		context.Background(),
+		domain.Identity{Role: domain.RoleHR},
+		domain.EmployeeExportQuery{Format: domain.ExportFormatXLSX},
+		RequestMeta{},
+	)
+
+	require.ErrorIs(t, err, domain.ErrNotFound)
+}
+
+func TestEmployeeExportProducesXLSXWithNeutralizedFormula(t *testing.T) {
+	rows := exportFixture()
+	rows[0].Name = "=HYPERLINK(\"http://jahat.test\")"
+	service := newEmployeeServiceForTest(&employeeReaderStub{exportRows: rows})
+
+	file, err := service.Export(
+		context.Background(),
+		domain.Identity{Role: domain.RoleHR},
+		domain.EmployeeExportQuery{Format: domain.ExportFormatXLSX},
+		RequestMeta{},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(
+		t,
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		file.ContentType,
+	)
+	assert.True(t, strings.HasSuffix(file.FileName, ".xlsx"))
+
+	archive, err := zip.NewReader(bytes.NewReader(file.Content), int64(len(file.Content)))
+	require.NoError(t, err)
+	sheet := readZipEntry(t, archive, "xl/worksheets/sheet1.xml")
+	assert.Contains(t, sheet, "&#39;=HYPERLINK", "formula harus dinetralkan dengan apostrof")
+	assert.NotContains(t, sheet, "<t xml:space=\"preserve\">=HYPERLINK")
+}
+
+func TestEmployeeExportProducesPDFStream(t *testing.T) {
+	service := newEmployeeServiceForTest(&employeeReaderStub{exportRows: exportFixture()})
+
+	file, err := service.Export(
+		context.Background(),
+		domain.Identity{Role: domain.RoleHR},
+		domain.EmployeeExportQuery{Format: domain.ExportFormatPDF},
+		RequestMeta{},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, "application/pdf", file.ContentType)
+	assert.True(t, strings.HasSuffix(file.FileName, ".pdf"))
+	assert.True(t, bytes.HasPrefix(file.Content, []byte("%PDF-")))
+	assert.Contains(t, string(file.Content), "%%EOF")
+}
+
+func validDocumentUpload() DocumentUpload {
+	return DocumentUpload{
+		Type:      "Ijazah",
+		FileName:  "ijazah-asli.pdf",
+		Extension: ".pdf",
+		MediaType: "application/pdf",
+		Content:   []byte("%PDF-1.4 dokumen sintetis"),
+	}
+}
+
+func exportFixture() []domain.EmployeeSummary {
+	return []domain.EmployeeSummary{{
+		ID:         uuid.New(),
+		NIP:        "EMP-001",
+		Name:       "Karyawan Uji",
+		Email:      "employee@example.test",
+		Department: "Teknologi",
+		Position:   "Staff",
+		Status:     "aktif",
+	}}
+}
+
+func readZipEntry(t *testing.T, archive *zip.Reader, name string) string {
+	t.Helper()
+	for _, entry := range archive.File {
+		if entry.Name != name {
+			continue
+		}
+		reader, err := entry.Open()
+		require.NoError(t, err)
+		defer reader.Close()
+		content, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		return string(content)
+	}
+	t.Fatalf("entry %s tidak ditemukan di dalam workbook", name)
+	return ""
 }
 
 func TestEmployeeCreateRequiresHRAndBuildsLockedAccount(t *testing.T) {

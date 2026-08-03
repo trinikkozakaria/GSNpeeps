@@ -40,6 +40,20 @@ type EmployeeService interface {
 		uuid.UUID,
 		service.RequestMeta,
 	) (domain.EmployeeMutationResult, error)
+	ListDocuments(context.Context, domain.Identity, uuid.UUID) ([]domain.EmployeeDocument, error)
+	UploadDocument(
+		context.Context,
+		domain.Identity,
+		uuid.UUID,
+		service.DocumentUpload,
+		service.RequestMeta,
+	) (domain.EmployeeDocument, error)
+	Export(
+		context.Context,
+		domain.Identity,
+		domain.EmployeeExportQuery,
+		service.RequestMeta,
+	) (domain.ExportFile, error)
 }
 
 func (h *EmployeeHandler) Create(writer http.ResponseWriter, request *http.Request) {

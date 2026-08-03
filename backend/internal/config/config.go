@@ -33,6 +33,7 @@ type HTTP struct {
 	IdleTimeout       time.Duration
 	ShutdownTimeout   time.Duration
 	MaxBodyBytes      int64
+	MaxUploadBytes    int64
 	TrustProxy        bool
 }
 
@@ -90,7 +91,9 @@ func Load() (Config, error) {
 			IdleTimeout:       duration("HTTP_IDLE_TIMEOUT", 60*time.Second),
 			ShutdownTimeout:   duration("HTTP_SHUTDOWN_TIMEOUT", 10*time.Second),
 			MaxBodyBytes:      int64Value("HTTP_MAX_BODY_BYTES", 2<<20),
-			TrustProxy:        boolValue("HTTP_TRUST_PROXY", false),
+			// 5 MB berkas ditambah ruang untuk boundary dan field multipart lain.
+			MaxUploadBytes: int64Value("HTTP_MAX_UPLOAD_BYTES", 6<<20),
+			TrustProxy:     boolValue("HTTP_TRUST_PROXY", false),
 		},
 		Postgres: Postgres{
 			URL:             os.Getenv("DATABASE_URL"),

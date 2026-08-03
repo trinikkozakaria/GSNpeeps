@@ -52,7 +52,8 @@ func run() int {
 	}
 	defer cache.Close()
 
-	if _, err := webdav.New(cfg.Nextcloud); err != nil {
+	documentStore, err := webdav.New(cfg.Nextcloud)
+	if err != nil {
 		logger.Error("nextcloud adapter startup failed", "error", err)
 		return 1
 	}
@@ -88,8 +89,21 @@ func run() int {
 		auditRepository,
 		sessionStore,
 		passwordHasher,
+		documentStore,
 	)
 	employeeHandler := handler.NewEmployeeHandler(employeeService, validation.New(), cfg.HTTP.TrustProxy)
+
+	// Metrik Attendance/Ketidakhadiran belum memiliki tabel sumber pada epic ini; adapter
+	// sementara mengembalikan empty state sesuai keputusan D-020.
+	pendingMetrics := repository.NewPendingMetricsRepository()
+	profileHandler := handler.NewProfileHandler(
+		service.NewProfileService(employeeRepository, pendingMetrics),
+	)
+	dashboardHandler := handler.NewDashboardHandler(service.NewDashboardService(
+		repository.NewDashboardRepository(db.Pool()),
+		pendingMetrics,
+		pendingMetrics,
+	))
 
 	httpRouter := router.New(cfg.HTTP, logger, healthHandler, router.AuthRoutes{
 		Handler:            authHandler,
@@ -97,6 +111,10 @@ func run() int {
 		AuthenticatedLimit: middleware.AuthenticatedRateLimit(rateLimiter, cfg.Auth.RequestLimit, cfg.Auth.RequestWindow),
 	}, router.EmployeeRoutes{
 		Handler: employeeHandler,
+	}, router.ProfileRoutes{
+		Handler: profileHandler,
+	}, router.DashboardRoutes{
+		Handler: dashboardHandler,
 	})
 
 	server := &http.Server{

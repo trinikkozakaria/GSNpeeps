@@ -1685,9 +1685,10 @@ components:
     ExportFormatParam:
       name: format
       in: query
+      description: Format berkas export sesuai API Contract v1.1; lihat keputusan D-017.
       schema:
         type: string
-        enum: [xlsx, csv]
+        enum: [xlsx, pdf]
         default: xlsx
     RequestStatusParam:
       name: status

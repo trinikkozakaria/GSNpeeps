@@ -1,17 +1,22 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"path"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/dto"
+	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/export"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/repository"
 )
 
@@ -19,12 +24,23 @@ type EmployeeReader interface {
 	ListDepartments(context.Context) ([]domain.Department, error)
 	ListPositions(context.Context, *uuid.UUID) ([]domain.Position, error)
 	List(context.Context, domain.EmployeeFilter) (domain.EmployeePage, error)
-	FindByID(context.Context, uuid.UUID) (domain.EmployeeDetail, error)
+	FindByID(context.Context, uuid.UUID, string) (domain.EmployeeDetail, error)
 	ValidateCreate(context.Context, domain.CreateEmployee) error
 	Create(context.Context, domain.CreateEmployee) (domain.EmployeeMutationResult, error)
 	ValidateMutation(context.Context, uuid.UUID, domain.EmployeeChanges) error
 	Update(context.Context, uuid.UUID, domain.EmployeeChanges) (domain.EmployeeMutationResult, error)
 	SoftDelete(context.Context, uuid.UUID) (domain.EmployeeMutationResult, error)
+	ExistsActive(context.Context, uuid.UUID) error
+	FindDocuments(context.Context, uuid.UUID) ([]domain.EmployeeDocument, error)
+	CreateDocument(context.Context, domain.NewEmployeeDocument) (uuid.UUID, error)
+	ExportRows(context.Context, domain.EmployeeExportQuery, int) ([]domain.EmployeeSummary, error)
+}
+
+// DocumentStore adalah boundary penyimpanan berkas (Nextcloud WebDAV). Credential teknis
+// tidak pernah keluar dari adapter ini.
+type DocumentStore interface {
+	Upload(ctx context.Context, objectPath string, body io.Reader, contentType string) (string, error)
+	Delete(ctx context.Context, objectPath string) error
 }
 
 type EmployeeTransactionManager interface {
@@ -41,6 +57,7 @@ type EmployeeService struct {
 	audit     AuditWriter
 	sessions  SessionRevoker
 	passwords PasswordHasher
+	documents DocumentStore
 	now       func() time.Time
 }
 
@@ -50,6 +67,7 @@ func NewEmployeeService(
 	audit AuditWriter,
 	sessions SessionRevoker,
 	passwords PasswordHasher,
+	documents DocumentStore,
 ) *EmployeeService {
 	return &EmployeeService{
 		employees: employees,
@@ -57,6 +75,7 @@ func NewEmployeeService(
 		audit:     audit,
 		sessions:  sessions,
 		passwords: passwords,
+		documents: documents,
 		now:       time.Now,
 	}
 }
@@ -376,7 +395,8 @@ func (s *EmployeeService) Detail(
 	if identity.Role != domain.RoleHR && identity.Role != domain.RoleTopManagement {
 		return domain.EmployeeDetail{}, domain.ErrForbidden
 	}
-	item, err := s.employees.FindByID(ctx, id)
+	// Gaji dibatasi ke periode bulan berjalan sesuai PRD; histori gaji tidak pernah dibaca.
+	item, err := s.employees.FindByID(ctx, id, domain.CurrentSalaryPeriod(s.now()))
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.EmployeeDetail{}, domain.ErrNotFound
 	}
@@ -384,4 +404,200 @@ func (s *EmployeeService) Detail(
 		return domain.EmployeeDetail{}, fmt.Errorf("get employee detail: %w", err)
 	}
 	return item, nil
+}
+
+// maxExportRows membatasi dataset export agar permintaan tidak menarik tabel tanpa batas.
+const maxExportRows = 5000
+
+// maxDocumentBytes adalah batas 5 MB per berkas sesuai kontrak dan PRD.
+const maxDocumentBytes = 5 << 20
+
+// ListDocuments mengembalikan metadata dokumen karyawan. HR membaca penuh dan Top Management
+// read-only; Karyawan/Atasan tidak memiliki akses Point 12.
+func (s *EmployeeService) ListDocuments(
+	ctx context.Context,
+	identity domain.Identity,
+	employeeID uuid.UUID,
+) ([]domain.EmployeeDocument, error) {
+	if identity.Role != domain.RoleHR && identity.Role != domain.RoleTopManagement {
+		return nil, domain.ErrForbidden
+	}
+	if err := s.employees.ExistsActive(ctx, employeeID); err != nil {
+		return nil, mapEmployeeRepositoryError(err)
+	}
+	items, err := s.employees.FindDocuments(ctx, employeeID)
+	if err != nil {
+		return nil, fmt.Errorf("list employee documents: %w", err)
+	}
+	return items, nil
+}
+
+// DocumentUpload adalah berkas yang sudah divalidasi handler dan siap disimpan.
+type DocumentUpload struct {
+	Type      string
+	FileName  string
+	Extension string
+	MediaType string
+	Content   []byte
+}
+
+// UploadDocument menyimpan dokumen melalui backend ke Nextcloud lalu mencatat locator-nya.
+// Nama object dibentuk server-side dan tidak pernah menerima path dari client. Bila
+// transaction database gagal setelah upload, object yang sudah terunggah dihapus kembali.
+func (s *EmployeeService) UploadDocument(
+	ctx context.Context,
+	identity domain.Identity,
+	employeeID uuid.UUID,
+	upload DocumentUpload,
+	meta RequestMeta,
+) (domain.EmployeeDocument, error) {
+	if identity.Role != domain.RoleHR {
+		return domain.EmployeeDocument{}, domain.ErrForbidden
+	}
+	if len(upload.Content) == 0 || len(upload.Content) > maxDocumentBytes {
+		return domain.EmployeeDocument{}, domain.ErrInvalidRequest
+	}
+	if err := s.employees.ExistsActive(ctx, employeeID); err != nil {
+		return domain.EmployeeDocument{}, mapEmployeeRepositoryError(err)
+	}
+
+	objectPath := documentObjectPath(employeeID, upload.Extension)
+	location, err := s.documents.Upload(
+		ctx,
+		objectPath,
+		bytes.NewReader(upload.Content),
+		upload.MediaType,
+	)
+	if err != nil {
+		return domain.EmployeeDocument{}, fmt.Errorf("upload employee document: %w", err)
+	}
+
+	var documentID uuid.UUID
+	err = s.tx.Within(ctx, func(txContext context.Context) error {
+		created, err := s.employees.CreateDocument(txContext, domain.NewEmployeeDocument{
+			EmployeeID: employeeID,
+			Type:       upload.Type,
+			FileName:   upload.FileName,
+			FileURL:    location,
+		})
+		if err != nil {
+			return mapEmployeeRepositoryError(err)
+		}
+		documentID = created
+		return s.audit.Append(txContext, domain.AuditEntry{
+			UserID: &identity.UserID,
+			Action: "CREATE",
+			Module: "karyawan_dokumen",
+			DataID: &created,
+			Detail: map[string]any{
+				"employee_id":   employeeID,
+				"jenis_dokumen": upload.Type,
+				"ukuran_byte":   len(upload.Content),
+				"request_id":    meta.RequestID,
+			},
+			IPAddress: meta.IPAddress,
+			CreatedAt: s.now().UTC(),
+		})
+	})
+	if err != nil {
+		// Kompensasi object yang sudah terunggah agar tidak menjadi orphan.
+		if cleanupErr := s.documents.Delete(ctx, objectPath); cleanupErr != nil {
+			slog.ErrorContext(ctx, "orphan document cleanup failed",
+				"object_path", objectPath, "error", cleanupErr)
+		}
+		return domain.EmployeeDocument{}, fmt.Errorf("record employee document: %w", err)
+	}
+	return domain.EmployeeDocument{
+		ID:        documentID,
+		Type:      upload.Type,
+		FileName:  upload.FileName,
+		FileURL:   location,
+		CreatedAt: s.now().UTC(),
+	}, nil
+}
+
+// documentObjectPath membentuk path yang ter-namespace per karyawan. Nama berkas asli tidak
+// pernah dipakai sebagai nama object agar path traversal dan tabrakan nama tidak mungkin.
+func documentObjectPath(employeeID uuid.UUID, extension string) string {
+	return path.Join("employee-documents", employeeID.String(), uuid.NewString()+extension)
+}
+
+// Export menghasilkan berkas XLSX atau PDF berisi dataset yang sama dengan list. Hanya HR
+// yang diizinkan dan setiap unduhan dicatat pada Audit Log.
+func (s *EmployeeService) Export(
+	ctx context.Context,
+	identity domain.Identity,
+	query domain.EmployeeExportQuery,
+	meta RequestMeta,
+) (domain.ExportFile, error) {
+	if identity.Role != domain.RoleHR {
+		return domain.ExportFile{}, domain.ErrForbidden
+	}
+	if !query.Format.Valid() {
+		return domain.ExportFile{}, domain.ErrInvalidRequest
+	}
+	if status := query.Filter.Status; status != "" && status != "aktif" && status != "nonaktif" {
+		return domain.ExportFile{}, domain.ErrInvalidRequest
+	}
+	rows, err := s.employees.ExportRows(ctx, query, maxExportRows)
+	if err != nil {
+		return domain.ExportFile{}, fmt.Errorf("read employee export dataset: %w", err)
+	}
+	if len(rows) == 0 {
+		return domain.ExportFile{}, domain.ErrNotFound
+	}
+
+	table := employeeExportTable(rows, s.now())
+	var buffer bytes.Buffer
+	contentType := export.XLSXContentType
+	if query.Format == domain.ExportFormatPDF {
+		contentType = export.PDFContentType
+		err = export.WritePDF(&buffer, table)
+	} else {
+		err = export.WriteXLSX(&buffer, table)
+	}
+	if err != nil {
+		return domain.ExportFile{}, fmt.Errorf("render employee export: %w", err)
+	}
+
+	file := domain.ExportFile{
+		FileName: export.SanitizeFileName(fmt.Sprintf(
+			"karyawan-%s.%s", s.now().In(domain.Jakarta()).Format("20060102-150405"), query.Format,
+		)),
+		ContentType: contentType,
+		Content:     buffer.Bytes(),
+	}
+	if err := s.audit.Append(ctx, domain.AuditEntry{
+		UserID: &identity.UserID,
+		Action: "DOWNLOAD",
+		Module: "karyawan",
+		DataID: query.EmployeeID,
+		Detail: map[string]any{
+			"format":     string(query.Format),
+			"jumlah_row": len(rows),
+			"request_id": meta.RequestID,
+		},
+		IPAddress: meta.IPAddress,
+		CreatedAt: s.now().UTC(),
+	}); err != nil {
+		return domain.ExportFile{}, fmt.Errorf("audit employee export: %w", err)
+	}
+	return file, nil
+}
+
+func employeeExportTable(rows []domain.EmployeeSummary, generatedAt time.Time) export.Table {
+	table := export.Table{
+		Title: fmt.Sprintf(
+			"GSNpeeps - Data Karyawan (%s WIB)",
+			generatedAt.In(domain.Jakarta()).Format("2006-01-02 15:04"),
+		),
+		Headers: []string{"NIP", "Nama", "Email", "Departemen", "Jabatan", "Status"},
+		Rows:    make([][]string, 0, len(rows)),
+	}
+	for _, row := range rows {
+		table.Rows = append(table.Rows, []string{
+			row.NIP, row.Name, row.Email, row.Department, row.Position, row.Status,
+		})
+	}
+	return table
 }
