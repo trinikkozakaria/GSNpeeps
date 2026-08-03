@@ -2752,8 +2752,9 @@ components:
       required: [id, user_id, aksi, modul, created_at]
       properties:
         id: { $ref: "#/components/schemas/UUID" }
-        user_id: { $ref: "#/components/schemas/UUID" }
-        nama_user: { type: string }
+        # Aktor sistem (auto-escalation, scheduler) tidak memiliki user; lihat keputusan D-029.
+        user_id: { oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }] }
+        nama_user: { type: [string, "null"] }
         aksi: { type: string }
         modul: { type: string }
         resource_id: { oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }] }

@@ -314,6 +314,56 @@ metadata watermark. Backend memvalidasi tipe dan ukuran berkas, menyimpan foto m
 Nextcloud dengan path yang dibentuk server, dan mencatat `waktu_network` dari jam server
 sebagai satu-satunya sumber waktu absensi.
 
+### D-029 — Audit log dapat memiliki aktor sistem
+
+Schema `AuditLog` mewajibkan `user_id` bertipe UUID, sedangkan auto-escalation dan job
+terjadwal menulis audit tanpa pengguna. Baris tersebut sudah ada sejak BE.4 dan kontrak
+lama tidak dapat merepresentasikannya. OpenAPI diubah sehingga `user_id` dan `nama_user`
+menerima `null`. Response menandai aktor sistem dengan `user_id: null`; frontend
+menampilkannya sebagai "Sistem". Tidak ada aktor palsu yang dibuat hanya agar field terisi.
+
+### D-030 — Kolom `judul` dan `read_at` pada tabel notifications
+
+Database Schema mendaftar `tipe`, `pesan`, `event_key`, `is_read`, dan `dismissed_at`,
+tetapi schema response `Notification` mewajibkan `judul` dan menyediakan `read_at`.
+Kedua kolom ditambahkan pada migration agar response dapat dipenuhi tanpa mengarang nilai
+saat pembacaan. `read_at` dijaga konsisten dengan `is_read` melalui CHECK constraint.
+`judul` dan `pesan` dibentuk server dari katalog event, bukan dari input pengguna.
+
+### D-031 — Matriks permission memakai kosakata aksi kontrak
+
+Seed BE.2 memakai aksi seperti `view_own`, `manage`, `approve_direct`, dan `monitor`,
+sedangkan `Permission.aksi` pada OpenAPI dibatasi `create`, `read`, `update`, `delete`,
+`approve`, dan `export`. Nilai lama tidak dapat dikembalikan maupun diperbarui melalui
+endpoint AKSES. Baris permission dipetakan ulang ke kosakata kontrak dengan modul yang
+sama dengan menu produk.
+
+Cakupan kepemilikan (`view_own` versus `view`) tidak hilang: pembatasan pemilik, bawahan
+langsung, dan tahap approval tetap ditegakkan service dan query repository, bukan oleh
+matriks ini. Matriks adalah kontrol kasar per modul/aksi yang dapat diadministrasikan HR.
+
+### D-032 — Notifikasi milik orang lain selalu menghasilkan 403
+
+`PUT /api/v1/notifikasi/{id}/read` dan `DELETE /api/v1/notifikasi/{id}` mengembalikan 403
+`FORBIDDEN` baik ketika notifikasi tidak ada maupun ketika dimiliki pengguna lain. Kode
+yang seragam mencegah pemetaan ID milik orang lain melalui perbedaan 403 dan 404. Response
+404 tetap tercantum pada kontrak namun tidak dipakai pada dua operasi tersebut.
+
+### D-033 — Notifikasi ditulis dalam transaction yang sama, bukan melalui outbox
+
+Notifikasi berada pada PostgreSQL yang sama dengan pengajuan, sehingga penulisan notifikasi
+ikut serta dalam transaction keputusan approval. Kegagalan penulisan membatalkan keputusan
+dan tidak menghasilkan event yang hilang diam-diam. Outbox tidak dibuat karena akan
+menambah lifecycle pengiriman tanpa memberi jaminan tambahan pada satu database. Bila kanal
+eksternal ditambahkan kelak, outbox baru diperlukan dan harus punya migration sendiri.
+
+### D-034 — Matriks permission dikembalikan untuk seluruh role
+
+`GET /api/v1/akses/permission` pada OpenAPI tidak memiliki parameter `role`, sedangkan
+uraian task menyebut query role wajib. Kontrak diikuti: satu response memuat seluruh baris
+permission empat role beserta `role_id` sehingga frontend dapat mengelompokkannya sendiri.
+Jumlah baris terbatas dan diketahui, sehingga tidak diperlukan pagination.
+
 ## Open contract gaps
 
 ### G-007 — Employee document delivery
