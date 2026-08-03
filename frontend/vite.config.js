@@ -4,6 +4,18 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        /**
+         * Dependensi baseline dipisah dari kode aplikasi. Isinya jarang berubah, sehingga
+         * rilis fitur tidak membatalkan cache browser untuk React, router, query client,
+         * Axios, dan Zod sekaligus.
+         */
+        manualChunks: (id) => (id.includes("node_modules") ? "vendor" : undefined),
+      },
+    },
+  },
   server: {
     host: "0.0.0.0",
     port: 5173,
