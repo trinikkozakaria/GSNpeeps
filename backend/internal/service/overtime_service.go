@@ -78,11 +78,11 @@ func (s *OvertimeService) Create(
 	if _, err := time.ParseInLocation(domain.DateLayout, command.Date, domain.Jakarta()); err != nil {
 		return domain.RequestStateData{}, domain.ErrInvalidRequest
 	}
-	start, err := time.Parse(domain.TimeLayout, command.StartTime)
+	start, err := parseOvertimeTime(command.StartTime)
 	if err != nil {
 		return domain.RequestStateData{}, domain.ErrInvalidRequest
 	}
-	end, err := time.Parse(domain.TimeLayout, command.EndTime)
+	end, err := parseOvertimeTime(command.EndTime)
 	if err != nil || !end.After(start) {
 		// Jam selesai harus setelah jam mulai; database juga menegakkannya lewat CHECK.
 		return domain.RequestStateData{}, domain.ErrInvalidRequest
@@ -91,8 +91,8 @@ func (s *OvertimeService) Create(
 	row := domain.OvertimeRequestRow{
 		UserID:    identity.UserID,
 		Date:      command.Date,
-		StartTime: command.StartTime,
-		EndTime:   command.EndTime,
+		StartTime: start.Format(domain.TimeLayout),
+		EndTime:   end.Format(domain.TimeLayout),
 		Reason:    strings.TrimSpace(command.Reason),
 		Status:    status,
 	}
@@ -159,6 +159,16 @@ func (s *OvertimeService) Create(
 		return domain.RequestStateData{}, fmt.Errorf("create overtime request: %w", err)
 	}
 	return domain.RequestStateData{ID: requestID, Status: status}, nil
+}
+
+// parseOvertimeTime menerima nilai input time dari browser (HH:MM) dan bentuk
+// kontrak lengkap (HH:MM:SS), lalu service menyimpannya dalam bentuk kanonis.
+func parseOvertimeTime(value string) (time.Time, error) {
+	parsed, err := time.Parse(domain.TimeLayout, value)
+	if err == nil {
+		return parsed, nil
+	}
+	return time.Parse("15:04", value)
 }
 
 func (s *OvertimeService) List(

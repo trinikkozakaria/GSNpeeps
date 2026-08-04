@@ -154,6 +154,29 @@ describe("AccessPage", () => {
     );
   });
 
+  it("traps dialog focus and restores it to the permission control after cancel", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const trigger = screen.getAllByRole("button", { name: /Cabut|Izinkan/ })[0];
+    await user.click(trigger);
+
+    const dialog = screen.getByRole("alertdialog");
+    const cancel = within(dialog).getByRole("button", { name: "Batal" });
+    const confirm = within(dialog).getByRole("button", { name: /Cabut|Izinkan/ });
+    expect(cancel).toHaveFocus();
+
+    await user.tab({ shift: true });
+    expect(confirm).toHaveFocus();
+    await user.tab();
+    expect(cancel).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
   it("explains an invariant violation from the server", async () => {
     updateMock.mockRejectedValue({
       status: 422,

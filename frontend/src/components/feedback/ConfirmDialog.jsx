@@ -4,7 +4,8 @@ import { Button } from "../ui/Button";
 
 /**
  * Dialog konfirmasi modal yang dapat diakses keyboard. Fokus dipindahkan ke tombol batal
- * saat dibuka, Escape menutup dialog, dan fokus dikurung di dalam dialog.
+ * saat dibuka, Escape menutup dialog, fokus dikurung di dalam dialog, lalu dikembalikan
+ * ke elemen pemicu saat dialog ditutup.
  */
 export const ConfirmDialog = ({
   open,
@@ -22,7 +23,12 @@ export const ConfirmDialog = ({
   const cancelRef = useRef(null);
 
   useEffect(() => {
-    if (open) cancelRef.current?.focus();
+    if (!open) return undefined;
+
+    const previousFocus = document.activeElement;
+    cancelRef.current?.focus();
+
+    return () => previousFocus?.focus();
   }, [open]);
 
   if (!open) return null;

@@ -144,6 +144,25 @@ func TestOvertimeCreateAcceptsMissingDocument(t *testing.T) {
 	assert.Nil(t, store.createdRow.DocumentURL)
 }
 
+func TestOvertimeCreateAcceptsBrowserTimeAndNormalizesIt(t *testing.T) {
+	store := &overtimeStoreStub{}
+	service, _, _ := newOvertimeServiceForTest(
+		store, supervisorStub{}, transactionStub{},
+	)
+	command := overtimeCommand(nil)
+	command.StartTime, command.EndTime = "18:00", "20:30"
+
+	_, err := service.Create(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), EmployeeID: uuid.New(), Role: domain.RoleEmployee},
+		command, RequestMeta{},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, "18:00:00", store.createdRow.StartTime)
+	assert.Equal(t, "20:30:00", store.createdRow.EndTime)
+}
+
 // Jam selesai harus setelah jam mulai.
 func TestOvertimeCreateRejectsInvalidTimeRange(t *testing.T) {
 	service, _, _ := newOvertimeServiceForTest(

@@ -84,9 +84,43 @@ func run() error {
 		return fmt.Errorf("seed position: %w", err)
 	}
 
+	// Koordinat sintetis ini hanya untuk pengujian aturan radius WFO. Nilainya tidak
+	// merepresentasikan kantor nyata dan seed sendiri ditolak di luar development/test.
+	if _, err := transaction.Exec(ctx, `
+        INSERT INTO office_locations (kode, nama, alamat, latitude, longitude, is_active)
+        VALUES ('OFFICE-SYN-001', 'Kantor Sintetis', 'Alamat kantor sintetis', -6.2000000, 106.8000000, TRUE)
+        ON CONFLICT (kode) DO UPDATE
+        SET nama = EXCLUDED.nama,
+            alamat = EXCLUDED.alamat,
+            latitude = EXCLUDED.latitude,
+            longitude = EXCLUDED.longitude,
+            is_active = TRUE,
+            updated_at = NOW()
+    `); err != nil {
+		return fmt.Errorf("seed office location: %w", err)
+	}
+
+	// Dua master izin sintetis memisahkan alur approval tanpa kuota dari validasi
+	// dokumen wajib. Keduanya tidak merepresentasikan kebijakan cuti produksi.
+	if _, err := transaction.Exec(ctx, `
+        INSERT INTO leave_types (kode, nama, kuota_tahunan, memerlukan_dokumen, is_active)
+        VALUES
+            ('IZIN-SYN-E2E', 'Izin Sintetis Tanpa Kuota', 0, FALSE, TRUE),
+            ('CUTI-SYN-E2E', 'Cuti Sintetis Wajib Dokumen', 12, TRUE, TRUE)
+        ON CONFLICT (kode) DO UPDATE
+        SET nama = EXCLUDED.nama,
+            kuota_tahunan = EXCLUDED.kuota_tahunan,
+            memerlukan_dokumen = EXCLUDED.memerlukan_dokumen,
+            is_active = TRUE,
+            updated_at = NOW()
+    `); err != nil {
+		return fmt.Errorf("seed leave types: %w", err)
+	}
+
 	fixtures := []fixture{
 		{NIP: "SYN-ATASAN-001", Name: "Atasan Sintetis", Email: "atasan@example.test", Gender: "L", Role: "atasan"},
 		{NIP: "SYN-KARYAWAN-001", Name: "Karyawan Sintetis", Email: "karyawan@example.test", Gender: "P", Role: "karyawan", Supervisor: "SYN-ATASAN-001"},
+		{NIP: "SYN-KARYAWAN-002", Name: "Karyawan Tanpa Atasan Sintetis", Email: "karyawan.tanpa.atasan@example.test", Gender: "L", Role: "karyawan"},
 		{NIP: "SYN-HR-001", Name: "HR Sintetis", Email: "hr@example.test", Gender: "P", Role: "hr"},
 		{NIP: "SYN-TM-001", Name: "Top Management Sintetis", Email: "top.management@example.test", Gender: "L", Role: "top_management"},
 	}

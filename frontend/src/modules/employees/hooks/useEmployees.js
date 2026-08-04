@@ -95,8 +95,15 @@ export const useDeactivateEmployee = (scope, id) =>
     retry: false,
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: employeeKeys.all }),
-        queryClient.invalidateQueries({ queryKey: employeeKeys.detail(scope, id) }),
+        queryClient.invalidateQueries({ queryKey: ["employees", "list"] }),
+        queryClient.invalidateQueries({
+          queryKey: employeeKeys.detail(scope, id),
+          refetchType: "none",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: employeeKeys.documents(scope, id),
+          refetchType: "none",
+        }),
       ]);
     },
   });
