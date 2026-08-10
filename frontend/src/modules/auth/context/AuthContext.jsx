@@ -7,6 +7,11 @@ import {
   loginRequest,
   logoutRequest,
 } from "../api/auth-api";
+import {
+  clearStoredSession,
+  readStoredSession,
+  writeStoredSession,
+} from "../utils/session-cookie";
 
 export const AuthContext = createContext(null);
 
@@ -18,11 +23,12 @@ const anonymousState = {
 };
 
 export const AuthProvider = ({ children }) => {
-  const tokenRef = useRef(null);
+  const tokenRef = useRef(readStoredSession()?.token ?? null);
   const [state, setState] = useState({ ...anonymousState, status: "initializing" });
 
   const clearSession = useCallback(async () => {
     tokenRef.current = null;
+    clearStoredSession();
     await queryClient.cancelQueries();
     queryClient.clear();
     setState(anonymousState);
@@ -33,9 +39,43 @@ export const AuthProvider = ({ children }) => {
       getAccessToken: () => tokenRef.current,
       onUnauthorized: clearSession,
     });
-    setState(anonymousState);
     return () => {
       configureAuthBoundary({});
+    };
+  }, [clearSession]);
+
+  // Pulihkan sesi dari cookie setelah reload halaman. Token tetap harus diverifikasi
+  // ke backend karena cookie bisa saja menyimpan token yang sudah dicabut.
+  useEffect(() => {
+    const stored = readStoredSession();
+    if (!stored) {
+      tokenRef.current = null;
+      setState(anonymousState);
+      return undefined;
+    }
+
+    tokenRef.current = stored.token;
+    const controller = new AbortController();
+    let active = true;
+
+    currentUserRequest(controller.signal)
+      .then((user) => {
+        if (!active) return;
+        setState({
+          status: "authenticated",
+          user,
+          role: user.role,
+          expiresAt: stored.expiresAt,
+        });
+      })
+      .catch((error) => {
+        if (!active || error?.code === "REQUEST_ABORTED") return;
+        void clearSession();
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
     };
   }, [clearSession]);
 
@@ -55,14 +95,16 @@ export const AuthProvider = ({ children }) => {
   const login = useCallback(
     async (credentials, signal) => {
       const loginData = await loginRequest(credentials, signal);
+      const expiresAt = Date.now() + loginData.expires_in * 1000;
       tokenRef.current = loginData.token;
+      writeStoredSession({ token: loginData.token, expiresAt });
       try {
         const user = await currentUserRequest(signal);
         setState({
           status: "authenticated",
           user,
           role: user.role,
-          expiresAt: Date.now() + loginData.expires_in * 1000,
+          expiresAt,
         });
         return user;
       } catch (error) {

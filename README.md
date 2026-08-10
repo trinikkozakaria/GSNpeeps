@@ -78,10 +78,12 @@ lokal dan tidak ditulis ke repository.
 
 ## Session frontend
 
-Bearer token disimpan hanya di memori tab. Reload browser mengakhiri sesi lokal dan
-mengarahkan kembali ke login. Tidak ada `localStorage`, `sessionStorage`, refresh token,
-atau refresh cookie. Keputusan dan trade-off lengkap ada di
-`docs/architecture/frontend-auth-session.md`.
+Bearer token disimpan di cookie `gsnpeeps_session` yang ditulis dari browser (backend belum
+mengirim `Set-Cookie`), dengan `SameSite=Strict`, `Secure` saat HTTPS, dan `Max-Age`
+mengikuti sisa masa berlaku token. Setelah reload, token dipulihkan dari cookie lalu
+diverifikasi ulang ke `GET /auth/me` sebelum sesi dianggap valid. Token belum bisa
+`HttpOnly` karena masih dibaca JavaScript untuk header `Authorization`. Keputusan dan
+trade-off lengkap ada di `docs/architecture/frontend-auth-session.md`.
 
 Nextcloud pada Compose foundation menggunakan penyimpanan database bawaannya agar
 stack lokal dapat diinisialisasi tanpa database kedua. Sebelum production,
