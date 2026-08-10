@@ -30,6 +30,7 @@ type leaveStoreStub struct {
 	filter       domain.LeaveRequestFilter
 	detail       domain.LeaveRequestDetail
 	detailErr    error
+	listActive   *bool
 }
 
 type appendedApproval struct {
@@ -39,7 +40,10 @@ type appendedApproval struct {
 	note       *string
 }
 
-func (s *leaveStoreStub) ListLeaveTypes(context.Context, *bool) ([]domain.LeaveType, error) {
+func (s *leaveStoreStub) ListLeaveTypes(
+	_ context.Context, activeOnly *bool,
+) ([]domain.LeaveType, error) {
+	s.listActive = activeOnly
 	return []domain.LeaveType{s.leaveType}, nil
 }
 
@@ -621,9 +625,6 @@ func TestLeaveTypeAdministrationRestrictedToHR(t *testing.T) {
 	} {
 		identity := domain.Identity{UserID: uuid.New(), EmployeeID: uuid.New(), Role: role}
 
-		_, listErr := service.ListLeaveTypes(context.Background(), identity, nil)
-		require.ErrorIsf(t, listErr, domain.ErrForbidden, "role %s", role)
-
 		_, createErr := service.CreateLeaveType(context.Background(), identity,
 			domain.CreateLeaveType{Code: "X", Name: "Y", AnnualQuota: 1}, RequestMeta{})
 		require.ErrorIsf(t, createErr, domain.ErrForbidden, "role %s", role)
@@ -633,6 +634,47 @@ func TestLeaveTypeAdministrationRestrictedToHR(t *testing.T) {
 			domain.UpdateLeaveType{AnnualQuota: &quota}, RequestMeta{})
 		require.ErrorIsf(t, updateErr, domain.ErrForbidden, "role %s", role)
 	}
+}
+
+// Pemohon membutuhkan daftar jenis izin untuk mengisi jenis_izin_id pada POST
+// /ketidakhadiran, sehingga read master terbuka untuk seluruh role terautentikasi.
+func TestListLeaveTypesForcesActiveOnlyForNonHR(t *testing.T) {
+	for _, role := range []domain.RoleName{
+		domain.RoleEmployee, domain.RoleSupervisor, domain.RoleTopManagement,
+	} {
+		store := &leaveStoreStub{}
+		service, _, _ := newLeaveServiceForTest(store, supervisorStub{}, transactionStub{})
+		identity := domain.Identity{UserID: uuid.New(), EmployeeID: uuid.New(), Role: role}
+
+		items, err := service.ListLeaveTypes(context.Background(), identity, nil)
+		require.NoErrorf(t, err, "role %s", role)
+		require.Lenf(t, items, 1, "role %s", role)
+		require.NotNilf(t, store.listActive, "role %s", role)
+		assert.Truef(t, *store.listActive, "role %s", role)
+
+		// Permintaan eksplisit untuk master nonaktif tidak boleh melonggarkan batas ini.
+		inactive := false
+		_, err = service.ListLeaveTypes(context.Background(), identity, &inactive)
+		require.NoErrorf(t, err, "role %s", role)
+		require.NotNilf(t, store.listActive, "role %s", role)
+		assert.Truef(t, *store.listActive, "role %s", role)
+	}
+}
+
+func TestListLeaveTypesKeepsHRFilterUntouched(t *testing.T) {
+	store := &leaveStoreStub{}
+	service, _, _ := newLeaveServiceForTest(store, supervisorStub{}, transactionStub{})
+	identity := domain.Identity{UserID: uuid.New(), EmployeeID: uuid.New(), Role: domain.RoleHR}
+
+	_, err := service.ListLeaveTypes(context.Background(), identity, nil)
+	require.NoError(t, err)
+	assert.Nil(t, store.listActive)
+
+	inactive := false
+	_, err = service.ListLeaveTypes(context.Background(), identity, &inactive)
+	require.NoError(t, err)
+	require.NotNil(t, store.listActive)
+	assert.False(t, *store.listActive)
 }
 
 func TestLeaveTypeRejectsNegativeQuota(t *testing.T) {

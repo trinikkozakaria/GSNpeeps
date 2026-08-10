@@ -166,7 +166,7 @@ Exact payload/response fields remain governed by API Contract v1.1.
 
 | Method/path | Karyawan | Atasan | HR | Top Management | Scope |
 |---|---|---|---|---|---|
-| `GET /master/jenis-izin` | No | No | Read | No | HR-only master fields |
+| `GET /master/jenis-izin` | Read active | Read active | Read | Read active | Non-HR dibatasi jenis izin aktif |
 | `POST /master/jenis-izin` | No | No | Create | No | HR only |
 | `PUT /master/jenis-izin/{id}` | No | No | Update | No | HR only |
 

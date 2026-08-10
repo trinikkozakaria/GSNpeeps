@@ -69,14 +69,18 @@ func NewLeaveService(
 	}
 }
 
-// ListLeaveTypes dibatasi HR sesuai API Contract; lihat gap G-012.
+// ListLeaveTypes terbuka untuk seluruh role terautentikasi karena pemohon membutuhkan
+// jenis_izin_id saat mengajukan ketidakhadiran (resolusi G-012). Hanya HR yang boleh
+// melihat master nonaktif; role lain selalu dipaksa ke daftar aktif agar jenis izin yang
+// sengaja dinonaktifkan tidak dapat diajukan. Administrasi master tetap HR-only.
 func (s *LeaveService) ListLeaveTypes(
 	ctx context.Context,
 	identity domain.Identity,
 	activeOnly *bool,
 ) ([]domain.LeaveType, error) {
 	if identity.Role != domain.RoleHR {
-		return nil, domain.ErrForbidden
+		forced := true
+		activeOnly = &forced
 	}
 	items, err := s.leaves.ListLeaveTypes(ctx, activeOnly)
 	if err != nil {

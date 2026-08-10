@@ -25,8 +25,9 @@ const submitErrorMessage = (error) => {
 export const LeaveRequestPage = () => {
   document.title = "Ajukan Ketidakhadiran — GSNpeeps";
   const create = useCreateLeaveRequest();
-  // Master jenis izin dibatasi HR pada kontrak (gap G-012); kegagalan memuat tidak boleh
-  // memblokir halaman, sehingga daftar kosong ditangani sebagai state tersendiri.
+  // Master jenis izin dapat dibaca seluruh role terautentikasi (resolusi G-012); backend
+  // membatasi non-HR ke jenis izin aktif. Kegagalan memuat tidak boleh memblokir halaman,
+  // sehingga daftar kosong dan error ditangani sebagai state tersendiri.
   const leaveTypes = useLeaveTypes({ aktif: true });
   const [supportingDocument, setSupportingDocument] = useState(null);
   const [documentError, setDocumentError] = useState("");
@@ -121,9 +122,18 @@ export const LeaveRequestPage = () => {
       )}
 
       {leaveTypes.isError && (
-        <p role="alert" className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-100">
-          Daftar jenis izin tidak dapat dimuat dengan hak akses Anda. Hubungi HR untuk
-          memperoleh jenis izin yang tersedia.
+        <p role="alert" className="mt-5 rounded-lg border border-rose-300/30 bg-rose-300/10 p-4 text-sm text-rose-100">
+          Daftar jenis izin gagal dimuat. Muat ulang halaman, dan hubungi HR bila masalah
+          berlanjut.
+        </p>
+      )}
+
+      {/* Master jenis izin diisi HR dan dapat kosong (G-011); jelaskan agar pemohon tidak
+          mengira formulir rusak. */}
+      {!leaveTypes.isPending && !leaveTypes.isError && (leaveTypes.data ?? []).length === 0 && (
+        <p role="status" className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-100">
+          Belum ada jenis izin aktif yang dapat diajukan. Hubungi HR untuk mengaktifkan
+          master jenis izin.
         </p>
       )}
 

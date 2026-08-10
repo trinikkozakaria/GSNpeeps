@@ -260,7 +260,7 @@ create `/checkout` silently.
 
 | # | Method | Path | Access | Purpose |
 |---:|---|---|---|---|
-| 27 | GET | `/api/v1/master/jenis-izin` | HR per contract | List master leave types |
+| 27 | GET | `/api/v1/master/jenis-izin` | All roles; non-HR active only | List master leave types |
 | 28 | POST | `/api/v1/master/jenis-izin` | HR | Create master leave type |
 | 29 | PUT | `/api/v1/master/jenis-izin/{id}` | HR | Update master leave type |
 

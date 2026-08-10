@@ -185,10 +185,19 @@ describe("LeaveRequestPage", () => {
     expect(await screen.findByText("Alasan terlalu singkat menurut server")).toBeInTheDocument();
   });
 
-  it("explains when the leave type master cannot be read", () => {
-    typesState.current = { data: undefined, isError: true, error: { status: 403 } };
+  it("reports a failed leave type load without blaming access rights", () => {
+    typesState.current = { data: undefined, isError: true, error: { status: 500 } };
     render(<LeaveRequestPage />);
 
-    expect(screen.getByRole("alert")).toHaveTextContent(/hubungi hr/i);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/gagal dimuat/i);
+    expect(alert).not.toHaveTextContent(/hak akses/i);
+  });
+
+  it("explains an empty leave type master instead of showing a silent dropdown", () => {
+    typesState.current = { data: [], isError: false, isPending: false };
+    render(<LeaveRequestPage />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(/belum ada jenis izin aktif/i);
   });
 });

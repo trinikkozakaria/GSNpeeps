@@ -1193,7 +1193,11 @@ paths:
     get:
       operationId: listLeaveTypes
       summary: Ambil master jenis izin
-      description: Hanya HR sesuai API Contract v1.1.
+      description: >-
+        Terbuka untuk seluruh role terautentikasi karena pemohon membutuhkan
+        jenis_izin_id saat mengajukan ketidakhadiran (resolusi G-012). Hanya HR yang
+        menerima master nonaktif; role lain selalu dibatasi ke jenis izin aktif dan
+        parameter aktif diabaikan. Administrasi master tetap HR-only.
       tags: [Leave Types]
       security:
         - BearerAuth: []

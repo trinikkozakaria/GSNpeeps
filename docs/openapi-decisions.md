@@ -379,13 +379,17 @@ tetapi nama dan kuota lengkap tidak tersedia pada sumber yang ada. Master `leave
 dibuat kosong dan HR mengisinya melalui `POST /api/v1/master/jenis-izin`. Jangan menebak
 nama maupun kuota jenis izin pada seed atau test.
 
-### G-012 — Jenis izin tidak terbaca oleh pemohon
+### G-012 — Jenis izin tidak terbaca oleh pemohon (resolved 2026-08-11)
 
-`GET /api/v1/master/jenis-izin` dibatasi HR pada API Contract, sedangkan Karyawan dan Atasan
-memerlukan daftar jenis izin untuk mengisi `jenis_izin_id` pada `POST /api/v1/ketidakhadiran`.
-Implementasi mengikuti kontrak dan tetap membatasi endpoint ke HR. Diperlukan keputusan
-produk apakah endpoint dibuka untuk seluruh role terautentikasi atau disediakan operasi
-master terpisah.
+`GET /api/v1/master/jenis-izin` semula dibatasi HR pada API Contract, sedangkan Karyawan dan
+Atasan memerlukan daftar jenis izin untuk mengisi `jenis_izin_id` pada
+`POST /api/v1/ketidakhadiran`. Akibatnya pemohon selalu menerima `403` dan tidak dapat
+mengajukan ketidakhadiran.
+
+Keputusan produk: read dibuka untuk seluruh role terautentikasi tanpa menambah endpoint di
+luar 46 operasi kontrak. Role selain HR selalu dipaksa ke jenis izin aktif dan parameter
+`aktif` diabaikan, sehingga master yang sengaja dinonaktifkan HR tidak dapat diajukan.
+`POST` dan `PUT` master tetap HR-only.
 
 ### G-010 — Company and public holiday calendar
 

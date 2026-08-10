@@ -475,7 +475,7 @@ Total: **46 endpoint dalam 13 modul**.
 
 | Method | Path | Akses |
 |---|---|---|
-| GET | `/master/jenis-izin` | HR |
+| GET | `/master/jenis-izin` | Semua role; non-HR hanya jenis izin aktif |
 | POST | `/master/jenis-izin` | HR |
 | PUT | `/master/jenis-izin/{id}` | HR |
 
