@@ -49,7 +49,8 @@
       "Bash(grep -rniE \"\\(password|secret|token|app_password\\)\\\\s*[:=]\\\\s*[\\\\\"'][^\\\\\"'{$]{6,}\" backend/internal backend/tests backend/migrations)",
       "Bash(grep -rniE \"@\\(gmail|yahoo|hotmail\\)\\\\.com|08[0-9]{9,}\" backend/internal backend/tests)",
       "Bash(git add *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(echo \"=== VET EXIT: $? ===\")"
     ],
     "deny": [
       "Read(./.env)",
