@@ -76,6 +76,35 @@ docker compose --profile tools run --rm seed
 Email fixture memakai domain `example.test`; passwordnya adalah nilai `SEED_PASSWORD`
 lokal dan tidak ditulis ke repository.
 
+### Mode development (source code host, tanpa rebuild image)
+
+`backend/Dockerfile` dan `frontend/Dockerfile` memiliki stage `dev` dan stage produksi.
+Perintah di atas selalu memakai stage produksi. Untuk pengembangan dan pengujian browser,
+tambahkan overlay `docker-compose.dev.yml`:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+Pada mode ini:
+
+- `./frontend` di-bind mount ke container dan dijalankan oleh Vite dev server. Perubahan
+  `.jsx`/`.js` langsung tampil di browser lewat HMR. `node_modules` memakai milik image
+  melalui named volume, bukan milik host.
+- `./backend` di-bind mount dan dijalankan oleh `air`, yang mengompilasi ulang otomatis
+  setiap file `.go` berubah. Cache build dan module cache Go disimpan di named volume agar
+  kompilasi ulang cepat.
+- Nginx memakai `infra/nginx/dev.conf` yang mengarah ke Vite (`frontend:5173`) dan
+  meneruskan websocket upgrade untuk HMR. URL tetap `http://localhost:8080`.
+- Seed berjalan lewat `go run`:
+
+  ```powershell
+  docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile tools run --rm seed
+  ```
+
+Ubah dependency (`go.mod`/`go.sum`, `package.json`/`pnpm-lock.yaml`) tetap memerlukan
+`--build` karena install dependency berada di layer image.
+
 ## Session frontend
 
 Bearer token disimpan di cookie `gsnpeeps_session` yang ditulis dari browser (backend belum

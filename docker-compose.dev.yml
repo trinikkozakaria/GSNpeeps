@@ -1,0 +1,75 @@
+# Overlay development: menjalankan backend dan frontend dari source code host,
+# bukan dari binary/static assets yang sudah dibangun ke dalam image.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# docker-compose.yml sendirian tetap menghasilkan mode produksi/staging berbasis binary.
+name: gsnpeeps
+
+services:
+  nginx:
+    volumes:
+      - ./infra/nginx/dev.conf:/etc/nginx/conf.d/default.conf:ro
+
+  frontend:
+    # Tag terpisah agar build produksi tidak menimpa image dev, dan sebaliknya.
+    image: gsnpeeps-frontend-dev
+    build:
+      context: ./frontend
+      target: dev
+    expose:
+      - "5173"
+    volumes:
+      - ./frontend:/app
+      # node_modules dipakai milik image; jangan tertimpa isi host yang mungkin
+      # dibangun untuk platform berbeda.
+      - frontend-node-modules:/app/node_modules
+
+  # Seluruh service Go memakai satu image dev yang sama. Perintah yang dijalankan
+  # ditentukan environment TARGET saat runtime, bukan oleh binary yang dibangun ke image.
+  backend-api:
+    image: &backend-dev-image gsnpeeps-backend-dev
+    build: &backend-dev-build
+      context: ./backend
+      target: dev
+      args:
+        TARGET: api
+    volumes: &backend-dev-volumes
+      - ./backend:/src
+      - go-build-cache:/root/.cache/go-build
+      - go-module-cache:/go/pkg/mod
+    healthcheck:
+      # Kompilasi pertama berjalan saat container start, jadi beri waktu lebih panjang.
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 120s
+
+  cron-worker:
+    image: *backend-dev-image
+    build: *backend-dev-build
+    environment:
+      TARGET: worker
+    volumes: *backend-dev-volumes
+
+  migrate:
+    image: *backend-dev-image
+    build: *backend-dev-build
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'exec goose -dir /src/migrations postgres "$$DATABASE_URL" up'
+    volumes:
+      - ./backend/migrations:/src/migrations:ro
+
+  seed:
+    image: *backend-dev-image
+    build: *backend-dev-build
+    entrypoint: []
+    command: ["go", "run", "./cmd/seed"]
+    volumes: *backend-dev-volumes
+
+volumes:
+  frontend-node-modules:
+  go-build-cache:
+  go-module-cache:
