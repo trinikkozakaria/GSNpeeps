@@ -3,12 +3,12 @@
  * ditelusuri screen reader dan keyboard tanpa memerlukan grafik terpisah.
  */
 const OrganizationBranch = ({ nodes }) => (
-  <ul className="ml-4 border-l border-white/10 pl-4">
+  <ul className="ml-4 border-l border-slate-900/10 pl-4">
     {nodes.map((node) => (
       <li key={node.employee_id} className="mt-3">
-        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-          <p className="font-semibold text-slate-100">{node.nama}</p>
-          <p className="text-xs text-slate-400">
+        <div className="rounded-lg border border-slate-900/10 bg-slate-900/[0.03] p-3">
+          <p className="font-semibold text-slate-900">{node.nama}</p>
+          <p className="text-xs text-slate-500">
             {node.jabatan || "Jabatan belum ditetapkan"} ·{" "}
             {node.departemen || "Departemen belum ditetapkan"}
           </p>
@@ -25,7 +25,7 @@ const countMembers = (nodes) =>
 export const OrganizationChart = ({ nodes }) => {
   if (nodes.length === 0) {
     return (
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-slate-500">
         Belum ada karyawan aktif untuk menyusun struktur organisasi pada periode ini.
       </p>
     );
@@ -33,7 +33,7 @@ export const OrganizationChart = ({ nodes }) => {
 
   return (
     <div>
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-slate-500">
         {countMembers(nodes)} karyawan aktif dalam {nodes.length} jalur pelaporan teratas.
       </p>
       <div className="mt-4 overflow-x-auto">

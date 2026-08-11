@@ -21,6 +21,9 @@ type OvertimeService interface {
 	List(
 		context.Context, domain.Identity, domain.OvertimeRequestFilter,
 	) (domain.OvertimeRequestPage, error)
+	ListMine(
+		context.Context, domain.Identity, int, int,
+	) (domain.OvertimeRequestPage, error)
 	Detail(context.Context, domain.Identity, uuid.UUID) (domain.OvertimeRequestDetail, error)
 	Decide(
 		context.Context, domain.Identity, uuid.UUID, domain.DecisionInput, service.RequestMeta,
@@ -144,6 +147,33 @@ func (h *OvertimeHandler) List(writer http.ResponseWriter, request *http.Request
 	}
 
 	result, err := h.service.List(request.Context(), identity, filter)
+	if err != nil {
+		response.FromError(writer, err)
+		return
+	}
+	response.Paginated(writer, result.Items, response.PaginationMeta{
+		Page:      result.Page,
+		Limit:     result.Limit,
+		TotalData: result.Total,
+		TotalPage: totalPages(result.Total, result.Limit),
+	}, "OK")
+}
+
+func (h *OvertimeHandler) ListMine(writer http.ResponseWriter, request *http.Request) {
+	identity, ok := middleware.IdentityFromContext(request.Context())
+	if !ok {
+		response.FromError(writer, domain.ErrInvalidToken)
+		return
+	}
+	page, ok := positiveIntQuery(writer, request, "page", 1)
+	if !ok {
+		return
+	}
+	limit, ok := positiveIntQuery(writer, request, "limit", 10)
+	if !ok {
+		return
+	}
+	result, err := h.service.ListMine(request.Context(), identity, page, limit)
 	if err != nil {
 		response.FromError(writer, err)
 		return

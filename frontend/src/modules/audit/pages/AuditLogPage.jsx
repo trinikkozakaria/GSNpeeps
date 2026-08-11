@@ -54,7 +54,7 @@ export const AuditLogPage = () => {
         <h1 id="audit-title" className="text-3xl font-bold">
           Audit Log
         </h1>
-        <p role="alert" className="mt-4 text-slate-300">
+        <p role="alert" className="mt-4 text-slate-600">
           Modul ini hanya tersedia untuk HR dan Top Management.
         </p>
       </section>
@@ -80,7 +80,7 @@ export const AuditLogPage = () => {
           </span>
         ) : (
           // Aktor sistem tidak memiliki user; jangan menampilkan pengguna palsu.
-          <span className="text-slate-300">Sistem</span>
+          <span className="text-slate-600">Sistem</span>
         ),
     },
     { key: "aksi", header: "Aksi", render: (row) => row.aksi },
@@ -91,7 +91,7 @@ export const AuditLogPage = () => {
       srHeader: "Detail",
       render: (row) => {
         const detail = formatAuditDetail(row.detail);
-        if (!detail) return <span className="text-slate-400">Tanpa detail</span>;
+        if (!detail) return <span className="text-slate-500">Tanpa detail</span>;
         const isOpen = expandedId === row.id;
         return (
           <div>
@@ -107,7 +107,7 @@ export const AuditLogPage = () => {
               /* Detail dirender sebagai teks JSON, bukan HTML. */
               <pre
                 id={`audit-detail-${row.id}`}
-                className="mt-2 max-w-full overflow-x-auto rounded-lg border border-white/10 bg-slate-950 p-3 text-xs text-slate-200"
+                className="mt-2 max-w-full overflow-x-auto rounded-lg border border-slate-900/10 bg-white p-3 text-xs text-slate-700"
               >
                 {detail}
               </pre>
@@ -120,55 +120,55 @@ export const AuditLogPage = () => {
 
   return (
     <section aria-labelledby="audit-title">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Keamanan</p>
+      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Keamanan</p>
       <h1 id="audit-title" className="mt-2 text-3xl font-bold">
         Audit Log
       </h1>
-      <p className="mt-2 text-slate-300">
+      <p className="mt-2 text-slate-600">
         Riwayat aktivitas bersifat append-only dan tidak dapat diubah maupun dihapus dari
         aplikasi. Nilai sensitif sudah diredaksi.
       </p>
 
-      <div className="mt-7 grid gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:grid-cols-2 lg:grid-cols-5">
-        <label className="text-sm font-medium text-slate-200">
+      <div className="mt-7 grid gap-4 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-4 sm:grid-cols-2 lg:grid-cols-5">
+        <label className="text-sm font-medium text-slate-700">
           Tanggal mulai
           <input
             type="date"
             value={filters.tanggal_mulai ?? ""}
             onChange={(event) => setFilter("tanggal_mulai", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
-        <label className="text-sm font-medium text-slate-200">
+        <label className="text-sm font-medium text-slate-700">
           Tanggal selesai
           <input
             type="date"
             value={filters.tanggal_selesai ?? ""}
             onChange={(event) => setFilter("tanggal_selesai", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
-        <label className="text-sm font-medium text-slate-200">
+        <label className="text-sm font-medium text-slate-700">
           Modul
           <input
             type="text"
             value={filters.modul ?? ""}
             placeholder="ketidakhadiran"
             onChange={(event) => setFilter("modul", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
-        <label className="text-sm font-medium text-slate-200">
+        <label className="text-sm font-medium text-slate-700">
           Aksi
           <input
             type="text"
             value={filters.aksi ?? ""}
             placeholder="APPROVE"
             onChange={(event) => setFilter("aksi", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
-        <label className="text-sm font-medium text-slate-200">
+        <label className="text-sm font-medium text-slate-700">
           ID pengguna
           <input
             type="text"
@@ -177,7 +177,7 @@ export const AuditLogPage = () => {
             aria-invalid={!isUserFilterValid}
             aria-describedby={isUserFilterValid ? undefined : "audit-user-error"}
             onChange={(event) => setFilter("user_id", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
       </div>
@@ -186,7 +186,7 @@ export const AuditLogPage = () => {
         <p
           id="audit-user-error"
           role="alert"
-          className="mt-3 text-sm text-amber-200"
+          className="mt-3 text-sm text-amber-800"
         >
           ID pengguna harus berupa UUID. Filter aktor diabaikan sampai formatnya benar.
         </p>
@@ -194,14 +194,14 @@ export const AuditLogPage = () => {
 
       <div className="mt-6" aria-live="polite">
         {logs.isPending && (
-          <p role="status" className="text-slate-300">
+          <p role="status" className="text-slate-600">
             Memuat audit log…
           </p>
         )}
         {logs.isError && (
           <div
             role="alert"
-            className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100"
+            className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-700"
           >
             <p>Audit log belum dapat dimuat. {logs.error?.message}</p>
             <Button className="mt-3" variant="secondary" onClick={() => logs.refetch()}>

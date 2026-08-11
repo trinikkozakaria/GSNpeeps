@@ -64,7 +64,7 @@ export const LeaveTypesPage = () => {
     return (
       <section aria-labelledby="leave-types-title">
         <h1 id="leave-types-title" className="text-3xl font-bold">Master Jenis Izin</h1>
-        <p role="status" className="mt-3 text-slate-300">
+        <p role="status" className="mt-3 text-slate-600">
           Master jenis izin hanya dapat diakses HR.
         </p>
       </section>
@@ -101,15 +101,15 @@ export const LeaveTypesPage = () => {
 
   return (
     <section aria-labelledby="leave-types-title">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Master</p>
+      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Master</p>
       <h1 id="leave-types-title" className="mt-2 text-3xl font-bold">Master Jenis Izin</h1>
-      <p className="mt-2 max-w-2xl text-slate-300">
+      <p className="mt-2 max-w-2xl text-slate-600">
         Daftar resmi jenis izin belum tersedia pada dokumen sumber, sehingga master diisi HR.
         Jenis izin dinonaktifkan, bukan dihapus.
       </p>
 
       {formError && (
-        <p role="alert" className="mt-5 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-200">
+        <p role="alert" className="mt-5 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-700">
           {formError}
         </p>
       )}
@@ -117,7 +117,7 @@ export const LeaveTypesPage = () => {
       <form
         onSubmit={handleSubmit(onSubmit)}
         noValidate
-        className="mt-6 grid gap-5 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:grid-cols-2"
+        className="mt-6 grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5 sm:grid-cols-2"
       >
         <FormInput id="leave-type-code" label="Kode" registration={register("kode")} error={errors.kode?.message} disabled={isSubmitting} />
         <FormInput id="leave-type-name" label="Nama" registration={register("nama")} error={errors.nama?.message} disabled={isSubmitting} />
@@ -130,7 +130,7 @@ export const LeaveTypesPage = () => {
           error={errors.kuota_tahunan?.message}
           disabled={isSubmitting}
         />
-        <label className="flex items-end gap-2 text-sm text-slate-200">
+        <label className="flex items-end gap-2 text-sm text-slate-700">
           <input type="checkbox" {...register("memerlukan_dokumen")} disabled={isSubmitting} className="h-4 w-4" />
           Dokumen pendukung wajib
         </label>
@@ -142,9 +142,9 @@ export const LeaveTypesPage = () => {
       </form>
 
       <div className="mt-6" aria-live="polite">
-        {leaveTypes.isPending && <p role="status" className="text-slate-300">Memuat master…</p>}
+        {leaveTypes.isPending && <p role="status" className="text-slate-600">Memuat master…</p>}
         {leaveTypes.isError && (
-          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100">
+          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-700">
             <p>Master belum dapat dimuat. {leaveTypes.error.message}</p>
           </div>
         )}

@@ -38,7 +38,7 @@ export const FileField = ({
 
   return (
     <div>
-      <label htmlFor={fieldId} className="mb-2 block text-sm font-medium text-slate-200">
+      <label htmlFor={fieldId} className="mb-2 block text-sm font-medium text-slate-700">
         {label}
       </label>
       <input
@@ -50,12 +50,12 @@ export const FileField = ({
         aria-invalid={Boolean(error)}
         aria-describedby={describedBy}
         onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
-        className="block w-full rounded-lg border border-white/15 bg-slate-950 p-2 text-sm text-slate-200 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:text-sm file:font-semibold file:text-white disabled:opacity-60"
+        className="block w-full rounded-lg border border-slate-900/15 bg-white p-2 text-sm text-slate-700 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-slate-900/10 file:px-3 file:text-sm file:font-semibold file:text-slate-900 disabled:opacity-60"
       />
       {file && (
-        <p className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-300">
-          <span className="font-medium text-slate-100">{file.name}</span>
-          <span className="text-slate-400">{formatFileSize(file.size)}</span>
+        <p className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+          <span className="font-medium text-slate-900">{file.name}</span>
+          <span className="text-slate-500">{formatFileSize(file.size)}</span>
           <Button
             type="button"
             variant="secondary"
@@ -68,12 +68,12 @@ export const FileField = ({
         </p>
       )}
       {description && (
-        <p id={descriptionId} className="mt-2 text-xs text-slate-400">
+        <p id={descriptionId} className="mt-2 text-xs text-slate-500">
           {description}
         </p>
       )}
       {error && (
-        <p id={errorId} role="alert" className="mt-2 text-sm text-rose-300">
+        <p id={errorId} role="alert" className="mt-2 text-sm text-rose-700">
           {error}
         </p>
       )}

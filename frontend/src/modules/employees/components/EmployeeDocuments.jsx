@@ -87,7 +87,7 @@ export const EmployeeDocuments = ({ scope, employeeId, canUpload }) => {
     >
       {documents.isPending && <p role="status">Memuat dokumen…</p>}
       {documents.isError && (
-        <div role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-200">
+        <div role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-700">
           <p>Dokumen belum dapat dimuat. {documents.error.message}</p>
           <Button className="mt-3" variant="secondary" onClick={() => documents.refetch()}>
             Coba lagi
@@ -98,40 +98,40 @@ export const EmployeeDocuments = ({ scope, employeeId, canUpload }) => {
         <EmptyNote>Belum ada dokumen yang diunggah.</EmptyNote>
       )}
       {documents.data && documents.data.length > 0 && (
-        <ul className="divide-y divide-white/10">
+        <ul className="divide-y divide-slate-900/10">
           {documents.data.map((document) => (
             <li key={document.id} className="grid gap-2 py-4 sm:grid-cols-3">
-              <span className="font-semibold text-slate-100">{document.jenis_dokumen}</span>
+              <span className="font-semibold text-slate-900">{document.jenis_dokumen}</span>
               <a
                 href={document.file_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-cyan-300 underline hover:text-cyan-200"
+                className="font-medium text-cyan-700 underline hover:text-cyan-900"
               >
                 {document.nama_file}
                 <span className="sr-only"> (buka di tab baru)</span>
               </a>
-              <span className="text-slate-300">{formatDate(document.created_at.slice(0, 10))}</span>
+              <span className="text-slate-600">{formatDate(document.created_at.slice(0, 10))}</span>
             </li>
           ))}
         </ul>
       )}
 
       {canUpload && (
-        <form onSubmit={handleSubmit} noValidate className="mt-6 grid gap-4 border-t border-white/10 pt-6">
-          <h3 className="text-base font-semibold text-white">Unggah dokumen baru</h3>
+        <form onSubmit={handleSubmit} noValidate className="mt-6 grid gap-4 border-t border-slate-900/10 pt-6">
+          <h3 className="text-base font-semibold text-slate-900">Unggah dokumen baru</h3>
           {formError && (
-            <p role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-200">
+            <p role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-700">
               {formError}
             </p>
           )}
           {successMessage && (
-            <p role="status" className="rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-200">
+            <p role="status" className="rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-700">
               {successMessage}
             </p>
           )}
           <div>
-            <label htmlFor="document-type" className="mb-2 block text-sm font-medium text-slate-200">
+            <label htmlFor="document-type" className="mb-2 block text-sm font-medium text-slate-700">
               Jenis dokumen
             </label>
             <input
@@ -142,10 +142,10 @@ export const EmployeeDocuments = ({ scope, employeeId, canUpload }) => {
               aria-describedby={typeError ? "document-type-error" : undefined}
               onChange={(event) => setDocumentType(event.target.value)}
               disabled={upload.isPending}
-              className="min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300 disabled:opacity-60"
+              className="min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300 disabled:opacity-60"
             />
             {typeError && (
-              <p id="document-type-error" role="alert" className="mt-2 text-sm text-rose-300">
+              <p id="document-type-error" role="alert" className="mt-2 text-sm text-rose-700">
                 {typeError}
               </p>
             )}

@@ -48,7 +48,7 @@ export const ReportExportMenu = ({ filters }) => {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Export laporan">
-        <span className="text-sm text-slate-400">Export laporan:</span>
+        <span className="text-sm text-slate-500">Export laporan:</span>
         <Button variant="secondary" disabled={Boolean(busyFormat)} onClick={() => runExport("xlsx")}>
           {busyFormat === "xlsx" ? "Menyiapkan XLSX…" : "XLSX"}
         </Button>
@@ -56,8 +56,8 @@ export const ReportExportMenu = ({ filters }) => {
           {busyFormat === "pdf" ? "Menyiapkan PDF…" : "PDF"}
         </Button>
       </div>
-      <p aria-live="polite" className="mt-2 text-sm text-slate-400">{status}</p>
-      {error && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
+      <p aria-live="polite" className="mt-2 text-sm text-slate-500">{status}</p>
+      {error && <p role="alert" className="mt-2 text-sm text-rose-700">{error}</p>}
     </div>
   );
 };

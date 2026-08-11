@@ -25,15 +25,15 @@ const genderLabel = {
 };
 
 const MetricCard = ({ label, value, hint }) => (
-  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+  <div className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-    <p className="mt-2 text-3xl font-bold tabular-nums text-white">{value}</p>
-    {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+    <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{value}</p>
+    {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
   </div>
 );
 
 const Panel = ({ title, children, id }) => (
-  <section aria-labelledby={id} className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+  <section aria-labelledby={id} className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
     <h2 id={id} className="text-lg font-bold">
       {title}
     </h2>
@@ -70,22 +70,22 @@ export const DashboardPage = () => {
 
   return (
     <section aria-labelledby="dashboard-title">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Monitoring</p>
+      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Monitoring</p>
       <h1 id="dashboard-title" className="mt-2 text-3xl font-bold">
         Dashboard HR
       </h1>
-      <p className="mt-2 max-w-3xl text-slate-300">
+      <p className="mt-2 max-w-3xl text-slate-600">
         Seluruh angka dihitung server pada zona waktu Asia/Jakarta.
         {isReadOnlyMonitor && " Akses Anda bersifat pemantauan saja."}
       </p>
 
-      <div className="mt-7 grid gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:grid-cols-2 lg:grid-cols-3">
-        <label className="text-sm font-medium text-slate-200">
+      <div className="mt-7 grid gap-4 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-4 sm:grid-cols-2 lg:grid-cols-3">
+        <label className="text-sm font-medium text-slate-700">
           Periode
           <select
             value={filters.periode}
             onChange={(event) => setFilter("periode", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           >
             {dashboardPeriods.map((period) => (
               <option key={period} value={period}>
@@ -94,15 +94,15 @@ export const DashboardPage = () => {
             ))}
           </select>
         </label>
-        <label className="text-sm font-medium text-slate-200">
+        <label className="text-sm font-medium text-slate-700">
           Tanggal acuan
           <input
             type="date"
             value={filters.tanggalAcuan}
             onChange={(event) => setFilter("tanggal_acuan", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
-          <span className="mt-2 block text-xs text-slate-400">
+          <span className="mt-2 block text-xs text-slate-500">
             Kosongkan untuk memakai tanggal hari ini.
           </span>
         </label>
@@ -110,12 +110,12 @@ export const DashboardPage = () => {
 
       <div className="mt-6" aria-live="polite">
         {metrics.isPending && (
-          <p role="status" className="text-slate-300">
+          <p role="status" className="text-slate-600">
             Memuat metrik dashboard…
           </p>
         )}
         {metrics.isError && (
-          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100">
+          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-700">
             <p>Metrik belum dapat dimuat. {metrics.error.message}</p>
             <Button className="mt-3" variant="secondary" onClick={() => metrics.refetch()}>
               Coba lagi
@@ -125,7 +125,7 @@ export const DashboardPage = () => {
 
         {data && (
           <>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-500">
               Periode {periodLabel[data.periode.tipe]}: {formatDate(data.periode.tanggal_mulai)} —{" "}
               {formatDate(data.periode.tanggal_selesai)} ({data.periode.timezone})
             </p>

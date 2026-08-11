@@ -33,13 +33,13 @@ export const NotificationBell = () => {
     <Link
       to="/app/notifikasi"
       aria-label={label()}
-      className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-white/15 text-lg text-slate-200 hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300"
+      className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-900/15 text-lg text-slate-700 hover:bg-slate-900/5 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700"
     >
       <span aria-hidden="true">🔔</span>
       {hasUnread && (
         <span
           aria-hidden="true"
-          className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-cyan-300 px-1.5 text-center text-xs font-bold leading-5 text-slate-950"
+          className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-cyan-700 px-1.5 text-center text-xs font-bold leading-5 text-white"
         >
           {badgeText}
         </span>

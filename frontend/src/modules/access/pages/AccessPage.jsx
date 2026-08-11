@@ -65,7 +65,7 @@ export const AccessPage = () => {
         <h1 id="access-title" className="text-3xl font-bold">
           AKSES
         </h1>
-        <p role="alert" className="mt-4 text-slate-300">
+        <p role="alert" className="mt-4 text-slate-600">
           Modul ini hanya tersedia untuk HR dan Top Management.
         </p>
       </section>
@@ -74,13 +74,13 @@ export const AccessPage = () => {
 
   return (
     <section aria-labelledby="access-title">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">
+      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">
         Administrasi
       </p>
       <h1 id="access-title" className="mt-2 text-3xl font-bold">
         AKSES
       </h1>
-      <p className="mt-2 text-slate-300">
+      <p className="mt-2 text-slate-600">
         Empat role sistem beserta kapabilitasnya.
         {canEdit
           ? " Perubahan berlaku segera dan tercatat pada Audit Log."
@@ -89,14 +89,14 @@ export const AccessPage = () => {
 
       <div className="mt-7" aria-live="polite">
         {roles.isPending && (
-          <p role="status" className="text-slate-300">
+          <p role="status" className="text-slate-600">
             Memuat daftar role…
           </p>
         )}
         {roles.isError && (
           <div
             role="alert"
-            className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100"
+            className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-700"
           >
             <p>Daftar role belum dapat dimuat. {roles.error?.message}</p>
             <Button className="mt-3" variant="secondary" onClick={() => roles.refetch()}>
@@ -106,7 +106,7 @@ export const AccessPage = () => {
         )}
 
         {roles.data && roles.data.length === 0 && (
-          <div className="rounded-xl border border-white/10 p-8 text-center text-slate-300">
+          <div className="rounded-xl border border-slate-900/10 p-8 text-center text-slate-600">
             Belum ada role terdaftar.
           </div>
         )}
@@ -117,10 +117,10 @@ export const AccessPage = () => {
               {roles.data.map((role) => (
                 <li
                   key={role.id}
-                  className="rounded-xl border border-white/10 bg-slate-900/40 p-4"
+                  className="rounded-xl border border-slate-900/10 bg-slate-50 p-4"
                 >
-                  <p className="font-semibold text-white">{roleLabel[role.nama] ?? role.nama}</p>
-                  <p className="mt-1 text-sm text-slate-300">{role.deskripsi}</p>
+                  <p className="font-semibold text-slate-900">{roleLabel[role.nama] ?? role.nama}</p>
+                  <p className="mt-1 text-sm text-slate-600">{role.deskripsi}</p>
                 </li>
               ))}
             </ul>
@@ -155,14 +155,14 @@ export const AccessPage = () => {
 
       <div className="mt-4" aria-live="polite">
         {permissions.isPending && (
-          <p role="status" className="text-slate-300">
+          <p role="status" className="text-slate-600">
             Memuat matriks permission…
           </p>
         )}
         {permissions.isError && (
           <div
             role="alert"
-            className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100"
+            className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-700"
           >
             <p>Matriks permission belum dapat dimuat. {permissions.error?.message}</p>
             <Button className="mt-3" variant="secondary" onClick={() => permissions.refetch()}>

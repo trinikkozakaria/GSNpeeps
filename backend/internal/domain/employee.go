@@ -180,6 +180,15 @@ type EmployeeChanges struct {
 	MaritalStatus *string
 	Status        *string
 	Role          *RoleName
+	// Field detail berikut memakai pointer (objek/slice) sebagai penanda "disertakan pada
+	// request"; nil berarti tidak diubah. Slice yang disertakan (termasuk slice kosong)
+	// menggantikan seluruh baris lama untuk employee tersebut (replace-all semantics).
+	BPJS              *CreateEmployeeBPJS
+	NPWP              *CreateEmployeeNPWP
+	EmergencyContacts *[]CreateEmergencyContact
+	Education         *[]CreateEducation
+	PositionHistory   *[]CreatePositionHistory
+	CurrentSalary     *CreateCurrentSalary
 }
 
 type EmployeeMutationResult struct {
@@ -188,21 +197,27 @@ type EmployeeMutationResult struct {
 }
 
 type CreateEmployee struct {
-	NIP           string
-	Name          string
-	Email         string
-	PasswordHash  string
-	Gender        string
-	BirthDate     string
-	JoinDate      string
-	DepartmentID  uuid.UUID
-	PositionID    uuid.UUID
-	SupervisorID  *uuid.UUID
-	MaritalStatus *string
-	Role          RoleName
-	Address       EmployeeAddress
-	KTPNumber     string
-	Contract      CreateEmployeeContract
+	NIP               string
+	Name              string
+	Email             string
+	PasswordHash      string
+	Gender            string
+	BirthDate         string
+	JoinDate          string
+	DepartmentID      uuid.UUID
+	PositionID        uuid.UUID
+	SupervisorID      *uuid.UUID
+	MaritalStatus     *string
+	Role              RoleName
+	Address           EmployeeAddress
+	KTPNumber         string
+	Contract          CreateEmployeeContract
+	BPJS              *CreateEmployeeBPJS
+	NPWP              *CreateEmployeeNPWP
+	EmergencyContacts []CreateEmergencyContact
+	Education         []CreateEducation
+	PositionHistory   []CreatePositionHistory
+	CurrentSalary     *CreateCurrentSalary
 }
 
 type CreateEmployeeContract struct {
@@ -210,4 +225,44 @@ type CreateEmployeeContract struct {
 	Type      string
 	StartDate string
 	EndDate   string
+}
+
+// CreateEmployeeBPJS menulis satu baris `employee_bpjs`; kedua nomor bersifat opsional dan
+// independen, selaras dengan bentuk penyimpanan (satu baris per employee).
+type CreateEmployeeBPJS struct {
+	HealthNumber     *string
+	EmploymentNumber *string
+}
+
+type CreateEmployeeNPWP struct {
+	Number string
+}
+
+type CreateEmergencyContact struct {
+	Name         string
+	Relationship *string
+	Phone        string
+}
+
+type CreateEducation struct {
+	Level          *string
+	Institution    *string
+	GraduationYear *int
+}
+
+// CreatePositionHistory menerima referensi department/position; label `jabatan` yang
+// tersimpan diturunkan dari posisi pada saat penulisan agar tetap akurat sebagai snapshot
+// historis meski posisi berubah nama di kemudian hari.
+type CreatePositionHistory struct {
+	DepartmentID *uuid.UUID
+	PositionID   *uuid.UUID
+	StartDate    string
+	EndDate      *string
+}
+
+type CreateCurrentSalary struct {
+	Period    string
+	BasePay   float64
+	Allowance float64
+	Deduction float64
 }

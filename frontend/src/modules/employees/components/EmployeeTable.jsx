@@ -13,8 +13,8 @@ export const EmployeeTable = ({ employees }) => {
       header: "Karyawan",
       render: (employee) => (
         <>
-          <span className="block font-semibold text-white">{employee.nama}</span>
-          <span className="mt-1 block text-xs text-slate-400">
+          <span className="block font-semibold text-slate-900">{employee.nama}</span>
+          <span className="mt-1 block text-xs text-slate-500">
             {employee.nip} · {employee.email || "Email belum tersedia"}
           </span>
         </>
@@ -23,13 +23,13 @@ export const EmployeeTable = ({ employees }) => {
     {
       key: "departemen",
       header: "Departemen",
-      cellClassName: "text-slate-300",
+      cellClassName: "text-slate-600",
       render: (employee) => employee.departemen || "Belum ditetapkan",
     },
     {
       key: "jabatan",
       header: "Jabatan",
-      cellClassName: "text-slate-300",
+      cellClassName: "text-slate-600",
       render: (employee) => employee.jabatan || "Belum ditetapkan",
     },
     {
@@ -45,7 +45,7 @@ export const EmployeeTable = ({ employees }) => {
         <Link
           to={`/app/karyawan/${employee.id}`}
           state={{ from }}
-          className="font-semibold text-cyan-300 hover:text-cyan-200"
+          className="font-semibold text-cyan-700 hover:text-cyan-900"
         >
           Lihat detail
           <span className="sr-only"> {employee.nama}</span>

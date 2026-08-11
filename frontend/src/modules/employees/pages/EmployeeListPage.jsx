@@ -63,9 +63,9 @@ export const EmployeeListPage = () => {
     <section aria-labelledby="employee-title">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Organisasi</p>
+          <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Organisasi</p>
           <h1 id="employee-title" className="mt-2 text-3xl font-bold">Employee Database</h1>
-          <p className="mt-2 text-slate-300">
+          <p className="mt-2 text-slate-600">
             Data aktif dan nonaktif dipisahkan melalui filter status. Top Management memiliki akses baca saja.
           </p>
         </div>
@@ -73,7 +73,7 @@ export const EmployeeListPage = () => {
           <div className="flex flex-col items-start gap-3">
             <Link
               to="/app/karyawan/baru"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-200"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800"
             >
               Tambah karyawan
             </Link>
@@ -82,22 +82,22 @@ export const EmployeeListPage = () => {
         )}
       </div>
 
-      <div className="mt-7 grid gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 md:grid-cols-3">
-        <label className="text-sm font-medium text-slate-200">
+      <div className="mt-7 grid gap-4 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-4 md:grid-cols-3">
+        <label className="text-sm font-medium text-slate-700">
           Cari nama atau NIP
           <input
             type="search"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
-        <label className="text-sm font-medium text-slate-200">
+        <label className="text-sm font-medium text-slate-700">
           Departemen
           <select
             value={filters.department_id ?? ""}
             onChange={(event) => setFilter("department_id", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           >
             <option value="">Semua departemen</option>
             {(departments.data ?? []).map((department) => (
@@ -105,12 +105,12 @@ export const EmployeeListPage = () => {
             ))}
           </select>
         </label>
-        <label className="text-sm font-medium text-slate-200">
+        <label className="text-sm font-medium text-slate-700">
           Status
           <select
             value={filters.status ?? ""}
             onChange={(event) => setFilter("status", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           >
             <option value="">Semua status</option>
             <option value="aktif">Aktif</option>
@@ -118,28 +118,28 @@ export const EmployeeListPage = () => {
           </select>
         </label>
         {isFiltered && (
-          <button type="button" onClick={clearFilters} className="justify-self-start text-sm font-semibold text-cyan-300">
+          <button type="button" onClick={clearFilters} className="justify-self-start text-sm font-semibold text-cyan-700">
             Hapus semua filter
           </button>
         )}
       </div>
 
       <div className="mt-6" aria-live="polite">
-        {employees.isPending && <p role="status" className="text-slate-300">Memuat data karyawan…</p>}
+        {employees.isPending && <p role="status" className="text-slate-600">Memuat data karyawan…</p>}
         {employees.isError && (
-          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100">
+          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-700">
             <p>Data karyawan belum dapat dimuat. {employees.error.message}</p>
             <Button className="mt-3" variant="secondary" onClick={() => employees.refetch()}>Coba lagi</Button>
           </div>
         )}
         {data && data.items.length === 0 && (
-          <div className="rounded-xl border border-white/10 p-8 text-center text-slate-300">
+          <div className="rounded-xl border border-slate-900/10 p-8 text-center text-slate-600">
             {isFiltered ? "Tidak ada karyawan yang cocok dengan filter." : "Belum ada data karyawan."}
           </div>
         )}
         {data && data.items.length > 0 && (
           <>
-            <p className="mb-3 text-sm text-slate-400">{data.meta.total_data} karyawan ditemukan</p>
+            <p className="mb-3 text-sm text-slate-500">{data.meta.total_data} karyawan ditemukan</p>
             <EmployeeTable employees={data.items} />
             <Pagination
               meta={data.meta}

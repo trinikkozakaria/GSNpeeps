@@ -136,7 +136,165 @@ func (r *EmployeeRepository) Create(
 	if err != nil {
 		return domain.EmployeeMutationResult{}, mapEmployeeMutationError(err)
 	}
+
+	if err := r.writeBPJS(ctx, employeeID, command.BPJS); err != nil {
+		return domain.EmployeeMutationResult{}, err
+	}
+	if err := r.writeNPWP(ctx, employeeID, command.NPWP); err != nil {
+		return domain.EmployeeMutationResult{}, err
+	}
+	if err := r.replaceEmergencyContacts(ctx, employeeID, command.EmergencyContacts); err != nil {
+		return domain.EmployeeMutationResult{}, err
+	}
+	if err := r.replaceEducation(ctx, employeeID, command.Education); err != nil {
+		return domain.EmployeeMutationResult{}, err
+	}
+	if err := r.replacePositionHistory(ctx, employeeID, command.PositionHistory); err != nil {
+		return domain.EmployeeMutationResult{}, err
+	}
+	if err := r.writeCurrentSalary(ctx, employeeID, command.CurrentSalary); err != nil {
+		return domain.EmployeeMutationResult{}, err
+	}
 	return domain.EmployeeMutationResult{EmployeeID: employeeID, UserID: &userID}, nil
+}
+
+// writeBPJS melakukan upsert satu baris `employee_bpjs`; nil berarti detail tidak
+// disertakan pada request sehingga baris tidak disentuh.
+func (r *EmployeeRepository) writeBPJS(
+	ctx context.Context, employeeID uuid.UUID, bpjs *domain.CreateEmployeeBPJS,
+) error {
+	if bpjs == nil {
+		return nil
+	}
+	exec := executor(ctx, r.pool)
+	_, err := exec.Exec(ctx, `
+		INSERT INTO employee_bpjs (employee_id, no_bpjs_kesehatan, no_bpjs_ketenagakerjaan)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (employee_id) DO UPDATE SET
+			no_bpjs_kesehatan = EXCLUDED.no_bpjs_kesehatan,
+			no_bpjs_ketenagakerjaan = EXCLUDED.no_bpjs_ketenagakerjaan
+	`, employeeID, bpjs.HealthNumber, bpjs.EmploymentNumber)
+	if err != nil {
+		return mapEmployeeMutationError(err)
+	}
+	return nil
+}
+
+func (r *EmployeeRepository) writeNPWP(
+	ctx context.Context, employeeID uuid.UUID, npwp *domain.CreateEmployeeNPWP,
+) error {
+	if npwp == nil {
+		return nil
+	}
+	exec := executor(ctx, r.pool)
+	_, err := exec.Exec(ctx, `
+		INSERT INTO employee_npwp (employee_id, nomor_npwp)
+		VALUES ($1, $2)
+		ON CONFLICT (employee_id) DO UPDATE SET nomor_npwp = EXCLUDED.nomor_npwp
+	`, employeeID, npwp.Number)
+	if err != nil {
+		return mapEmployeeMutationError(err)
+	}
+	return nil
+}
+
+// replaceEmergencyContacts, replaceEducation, dan replacePositionHistory memakai semantik
+// replace-all: seluruh baris lama employee dihapus lalu diganti set baru, karena kontrak
+// tidak mengirim identitas baris individual untuk operasi patch granular.
+func (r *EmployeeRepository) replaceEmergencyContacts(
+	ctx context.Context, employeeID uuid.UUID, contacts []domain.CreateEmergencyContact,
+) error {
+	if contacts == nil {
+		return nil
+	}
+	exec := executor(ctx, r.pool)
+	if _, err := exec.Exec(ctx,
+		`DELETE FROM employee_emergency_contacts WHERE employee_id = $1`, employeeID,
+	); err != nil {
+		return mapEmployeeMutationError(err)
+	}
+	for _, contact := range contacts {
+		if _, err := exec.Exec(ctx, `
+			INSERT INTO employee_emergency_contacts (employee_id, nama, hubungan, no_hp)
+			VALUES ($1, $2, $3, $4)
+		`, employeeID, contact.Name, contact.Relationship, contact.Phone); err != nil {
+			return mapEmployeeMutationError(err)
+		}
+	}
+	return nil
+}
+
+func (r *EmployeeRepository) replaceEducation(
+	ctx context.Context, employeeID uuid.UUID, entries []domain.CreateEducation,
+) error {
+	if entries == nil {
+		return nil
+	}
+	exec := executor(ctx, r.pool)
+	if _, err := exec.Exec(ctx,
+		`DELETE FROM employee_education WHERE employee_id = $1`, employeeID,
+	); err != nil {
+		return mapEmployeeMutationError(err)
+	}
+	for _, entry := range entries {
+		if _, err := exec.Exec(ctx, `
+			INSERT INTO employee_education (employee_id, jenjang, institusi, tahun_lulus)
+			VALUES ($1, $2, $3, $4)
+		`, employeeID, entry.Level, entry.Institution, entry.GraduationYear); err != nil {
+			return mapEmployeeMutationError(err)
+		}
+	}
+	return nil
+}
+
+func (r *EmployeeRepository) replacePositionHistory(
+	ctx context.Context, employeeID uuid.UUID, entries []domain.CreatePositionHistory,
+) error {
+	if entries == nil {
+		return nil
+	}
+	exec := executor(ctx, r.pool)
+	if _, err := exec.Exec(ctx,
+		`DELETE FROM employee_position_history WHERE employee_id = $1`, employeeID,
+	); err != nil {
+		return mapEmployeeMutationError(err)
+	}
+	for _, entry := range entries {
+		if _, err := exec.Exec(ctx, `
+			INSERT INTO employee_position_history (
+				employee_id, department_id, position_id, jabatan, tanggal_mulai, tanggal_selesai
+			)
+			VALUES (
+				$1, $2, $3, COALESCE((SELECT nama FROM positions WHERE id = $3), ''), $4, $5
+			)
+		`, employeeID, entry.DepartmentID, entry.PositionID, entry.StartDate, entry.EndDate); err != nil {
+			return mapEmployeeMutationError(err)
+		}
+	}
+	return nil
+}
+
+// writeCurrentSalary melakukan upsert per `(employee_id, periode)`; take_home_pay adalah
+// kolom generated sehingga tidak pernah ditulis langsung.
+func (r *EmployeeRepository) writeCurrentSalary(
+	ctx context.Context, employeeID uuid.UUID, salary *domain.CreateCurrentSalary,
+) error {
+	if salary == nil {
+		return nil
+	}
+	exec := executor(ctx, r.pool)
+	_, err := exec.Exec(ctx, `
+		INSERT INTO employee_salaries (employee_id, periode, gaji_pokok, tunjangan, potongan)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (employee_id, periode) DO UPDATE SET
+			gaji_pokok = EXCLUDED.gaji_pokok,
+			tunjangan = EXCLUDED.tunjangan,
+			potongan = EXCLUDED.potongan
+	`, employeeID, salary.Period, salary.BasePay, salary.Allowance, salary.Deduction)
+	if err != nil {
+		return mapEmployeeMutationError(err)
+	}
+	return nil
 }
 
 func (r *EmployeeRepository) ValidateMutation(
@@ -280,6 +438,30 @@ func (r *EmployeeRepository) Update(
 		`, userArgs...); err != nil {
 			return domain.EmployeeMutationResult{}, mapEmployeeMutationError(err)
 		}
+	}
+	if err := r.writeBPJS(ctx, id, changes.BPJS); err != nil {
+		return domain.EmployeeMutationResult{}, err
+	}
+	if err := r.writeNPWP(ctx, id, changes.NPWP); err != nil {
+		return domain.EmployeeMutationResult{}, err
+	}
+	if changes.EmergencyContacts != nil {
+		if err := r.replaceEmergencyContacts(ctx, id, *changes.EmergencyContacts); err != nil {
+			return domain.EmployeeMutationResult{}, err
+		}
+	}
+	if changes.Education != nil {
+		if err := r.replaceEducation(ctx, id, *changes.Education); err != nil {
+			return domain.EmployeeMutationResult{}, err
+		}
+	}
+	if changes.PositionHistory != nil {
+		if err := r.replacePositionHistory(ctx, id, *changes.PositionHistory); err != nil {
+			return domain.EmployeeMutationResult{}, err
+		}
+	}
+	if err := r.writeCurrentSalary(ctx, id, changes.CurrentSalary); err != nil {
+		return domain.EmployeeMutationResult{}, err
 	}
 	return domain.EmployeeMutationResult{EmployeeID: id, UserID: userID}, nil
 }

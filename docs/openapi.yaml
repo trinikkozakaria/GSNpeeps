@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: GSNpeeps API
-  version: 0.4.0
+  version: 0.6.0
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -1348,6 +1348,29 @@ paths:
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "500": { $ref: "#/components/responses/InternalError" }
 
+  /api/v1/lembur/saya:
+    get:
+      operationId: listMyOvertimeRequests
+      summary: Ambil pengajuan lembur sendiri
+      description: Karyawan, Atasan, dan HR hanya membaca pengajuan lembur milik sendiri.
+      tags: [Overtime]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: Histori pengajuan lembur milik user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OvertimeRequestListResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
   /api/v1/lembur/rekap:
     get:
       operationId: getOvertimeRecap
@@ -2179,6 +2202,67 @@ components:
         tunjangan: { type: number, format: double, minimum: 0 }
         potongan: { type: number, format: double, minimum: 0 }
         take_home_pay: { type: number, format: double }
+    EmployeeBPJSInput:
+      type: object
+      additionalProperties: false
+      description: |
+        Satu employee menyimpan satu baris `employee_bpjs`; kedua nomor bersifat opsional
+        dan independen. Dokumen pendukung BPJS diunggah melalui
+        `POST /karyawan/{id}/dokumen` dengan `jenis_dokumen` bebas (mis. "BPJS"), bukan
+        field ini.
+      properties:
+        nomor_kesehatan: { type: [string, "null"], maxLength: 20 }
+        nomor_ketenagakerjaan: { type: [string, "null"], maxLength: 20 }
+    EmployeeNPWPInput:
+      type: object
+      additionalProperties: false
+      required: [nomor_npwp]
+      description: |
+        Dokumen pendukung NPWP diunggah melalui `POST /karyawan/{id}/dokumen`, bukan field
+        ini.
+      properties:
+        nomor_npwp: { type: string, minLength: 1, maxLength: 25 }
+    EmergencyContactInput:
+      type: object
+      additionalProperties: false
+      required: [nama, nomor_telepon]
+      properties:
+        nama: { type: string, minLength: 1, maxLength: 150 }
+        hubungan: { type: [string, "null"], maxLength: 50 }
+        nomor_telepon: { type: string, minLength: 1, maxLength: 20 }
+    EducationHistoryInput:
+      type: object
+      additionalProperties: false
+      properties:
+        jenjang: { type: [string, "null"], maxLength: 20 }
+        institusi: { type: [string, "null"], maxLength: 150 }
+        tahun_lulus: { type: [integer, "null"], minimum: 1900, maximum: 2200 }
+    PositionHistoryInput:
+      type: object
+      additionalProperties: false
+      required: [tanggal_mulai]
+      description: |
+        Label jabatan pada riwayat diturunkan server dari `position_id` saat penulisan,
+        bukan dikirim client.
+      properties:
+        department_id:
+          oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }]
+        position_id:
+          oneOf: [{ $ref: "#/components/schemas/UUID" }, { type: "null" }]
+        tanggal_mulai: { type: string, format: date }
+        tanggal_selesai: { type: [string, "null"], format: date }
+    CurrentSalaryInput:
+      type: object
+      additionalProperties: false
+      required: [periode, gaji_pokok]
+      description: |
+        Upsert per `(employee_id, periode)`. `take_home_pay` selalu dihitung server
+        (`gaji_pokok + tunjangan - potongan`) dan tidak pernah diterima dari client.
+      properties:
+        periode: { $ref: "#/components/schemas/YearMonth" }
+        gaji_pokok: { type: number, format: double, minimum: 0 }
+        tunjangan: { type: number, format: double, minimum: 0 }
+        potongan: { type: number, format: double, minimum: 0 }
     EmployeeDocument:
       type: object
       required: [id, jenis_dokumen, nama_file, file_url, created_at]
@@ -2250,11 +2334,28 @@ components:
         alamat: { $ref: "#/components/schemas/EmployeeAddressInput" }
         ktp: { $ref: "#/components/schemas/EmployeeKTPInput" }
         kontrak: { $ref: "#/components/schemas/EmployeeContractInput" }
+        bpjs: { $ref: "#/components/schemas/EmployeeBPJSInput" }
+        npwp: { $ref: "#/components/schemas/EmployeeNPWPInput" }
+        kontak_darurat:
+          type: array
+          items: { $ref: "#/components/schemas/EmergencyContactInput" }
+        pendidikan:
+          type: array
+          items: { $ref: "#/components/schemas/EducationHistoryInput" }
+        riwayat_jabatan:
+          type: array
+          items: { $ref: "#/components/schemas/PositionHistoryInput" }
+        gaji_berjalan: { $ref: "#/components/schemas/CurrentSalaryInput" }
     UpdateEmployeeRequest:
       type: object
       additionalProperties: false
       minProperties: 1
-      description: Semua field bersifat opsional; PUT ini menggunakan partial update sesuai kontrak.
+      description: |
+        Semua field bersifat opsional; PUT ini menggunakan partial update sesuai kontrak.
+        `kontak_darurat`, `pendidikan`, dan `riwayat_jabatan` memakai semantik replace-all:
+        bila disertakan (termasuk array kosong), seluruh baris lama diganti set yang
+        dikirim karena kontrak tidak membawa identitas baris individual untuk patch
+        granular.
       properties:
         nama: { type: string, minLength: 1, maxLength: 150 }
         email: { type: string, format: email, maxLength: 150 }
@@ -2267,6 +2368,18 @@ components:
         role: { $ref: "#/components/schemas/RoleName" }
         status: { $ref: "#/components/schemas/EmployeeStatus" }
         status_pernikahan: { type: string, enum: [lajang, menikah, cerai] }
+        bpjs: { $ref: "#/components/schemas/EmployeeBPJSInput" }
+        npwp: { $ref: "#/components/schemas/EmployeeNPWPInput" }
+        kontak_darurat:
+          type: array
+          items: { $ref: "#/components/schemas/EmergencyContactInput" }
+        pendidikan:
+          type: array
+          items: { $ref: "#/components/schemas/EducationHistoryInput" }
+        riwayat_jabatan:
+          type: array
+          items: { $ref: "#/components/schemas/PositionHistoryInput" }
+        gaji_berjalan: { $ref: "#/components/schemas/CurrentSalaryInput" }
     EmployeeDocumentUploadRequest:
       type: object
       required: [jenis_dokumen, file]

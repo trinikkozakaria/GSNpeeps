@@ -5,10 +5,10 @@ import { useAuth } from "../../auth/hooks/useAuth";
 import { usePersonalMetrics } from "../hooks/useProfile";
 
 const MetricCard = ({ label, value, hint }) => (
-  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+  <div className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
     <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-    <p className="mt-2 text-3xl font-bold tabular-nums text-white">{value}</p>
-    {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+    <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{value}</p>
+    {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
   </div>
 );
 
@@ -29,22 +29,22 @@ export const PersonalMetricsPage = () => {
 
   return (
     <section aria-labelledby="personal-metrics-title">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Ringkasan pribadi</p>
+      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Ringkasan pribadi</p>
       <h1 id="personal-metrics-title" className="mt-2 text-3xl font-bold">
         Metrik Personal
       </h1>
       {data && (
-        <p className="mt-2 text-slate-300">Periode {formatPeriod(data.periode)}.</p>
+        <p className="mt-2 text-slate-600">Periode {formatPeriod(data.periode)}.</p>
       )}
 
       <div className="mt-6" aria-live="polite">
         {metrics.isPending && (
-          <p role="status" className="text-slate-300">
+          <p role="status" className="text-slate-600">
             Memuat metrik personal…
           </p>
         )}
         {metrics.isError && (
-          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100">
+          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-700">
             <p>Metrik belum dapat dimuat. {metrics.error.message}</p>
             <Button className="mt-3" variant="secondary" onClick={() => metrics.refetch()}>
               Coba lagi
@@ -61,7 +61,7 @@ export const PersonalMetricsPage = () => {
             </div>
 
             {!hasActivity && (
-              <p className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-5 text-sm text-slate-300">
+              <p className="mt-6 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5 text-sm text-slate-600">
                 Belum ada aktivitas kehadiran yang tercatat pada periode ini. Angka akan terisi
                 setelah modul Kehadiran dan Pengajuan aktif dan Anda mulai melakukan check-in.
               </p>

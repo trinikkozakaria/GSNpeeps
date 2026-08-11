@@ -57,14 +57,14 @@ export const ResetPasswordPage = () => {
       title="Pulihkan password"
       description="Verifikasi email dan password saat ini. Fitur ini tidak dapat digunakan jika password benar-benar terlupa."
       footer={
-        <Link to="/login" className="text-sm font-semibold text-cyan-300 hover:text-cyan-200">
+        <Link to="/login" className="text-sm font-semibold text-cyan-700 hover:text-cyan-900">
           Kembali ke login
         </Link>
       }
     >
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
         {formError ? (
-          <div role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-200">
+          <div role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-700">
             {formError}
           </div>
         ) : null}

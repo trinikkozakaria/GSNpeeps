@@ -397,6 +397,69 @@ Hari kerja reguler telah ditetapkan Senin-Jumat, tetapi kalender libur nasional/
 belum tersedia. Sampai ada keputusan, kontrak hanya memakai weekday dan tidak mengarang
 kalender libur. Pengecualian kerja pada akhir pekan/libur memerlukan revisi policy.
 
+### D-035 — `GET /api/v1/lembur/saya` untuk histori lembur milik sendiri
+
+Bug lapangan: halaman "Pengajuan Saya" tab Lembur memanggil `GET /api/v1/lembur`, yaitu
+operation inbox approval (`Atasan`/`HR`/`Top Management` sesuai tahap aktif). Karyawan tanpa
+peran approval selalu menerima `403` karena `approvalScope` menolak role `karyawan` secara
+sah — endpoint tersebut memang bukan untuk melihat pengajuan sendiri.
+
+`GET /api/v1/ketidakhadiran/saya` sudah membuktikan pola yang sama dibutuhkan lembur. OpenAPI
+0.5.0 menambahkan `GET /api/v1/lembur/saya` dengan bentuk request/response, parameter, dan
+pembatasan role (Top Management tidak memiliki metrik personal sehingga tetap `403`) yang
+identik dengan `listMyLeaveRequests`. Operation count kontrak aktif menjadi 47.
+
+### D-036 — Write support for BPJS/NPWP/kontak darurat/pendidikan/riwayat jabatan/gaji
+
+Bug lapangan: form Tambah/Ubah Karyawan tidak memiliki bagian untuk BPJS, NPWP, Kontak
+Darurat, Pendidikan, Riwayat Jabatan, dan Gaji bulan berjalan, meskipun `EmployeeDetail`
+sudah mengembalikan keenamnya. Investigasi menunjukkan `CreateEmployeeRequest` dan
+`UpdateEmployeeRequest` (`additionalProperties: false`) memang tidak pernah menerima field
+tersebut — bagian ini murni read-only sampai revisi ini.
+
+OpenAPI 0.6.0 menambahkan `EmployeeBPJSInput`, `EmployeeNPWPInput`,
+`EmergencyContactInput`, `EducationHistoryInput`, `PositionHistoryInput`, dan
+`CurrentSalaryInput`, lalu memasang keenamnya sebagai property opsional pada
+`CreateEmployeeRequest` dan `UpdateEmployeeRequest`. Tidak ada endpoint baru; jumlah
+operasi kontrak tetap 47.
+
+Keputusan bentuk data, dikonfirmasi terhadap Database Schema v1.1 (migration
+`00003`/`00004`) dan produk:
+
+- **BPJS** menyimpan **satu baris per employee** (`employee_bpjs.employee_id UNIQUE`),
+  bukan array. Input membawa `nomor_kesehatan`/`nomor_ketenagakerjaan` opsional dan
+  independen; server melakukan upsert `ON CONFLICT (employee_id)`. Representasi read
+  (`bpjs: []EmployeeBPJS` per jenis) tidak berubah.
+- **NPWP** tetap satu baris per employee (`employee_npwp.employee_id UNIQUE`), upsert
+  serupa.
+- **Kontak Darurat**, **Pendidikan**, dan **Riwayat Jabatan** adalah array replace-all:
+  bila field disertakan pada request (termasuk array kosong), seluruh baris lama employee
+  dihapus dan diganti set yang dikirim. Kontrak tidak membawa ID baris individual sehingga
+  patch granular per baris tidak didukung; HR selalu mengirim daftar lengkap yang berlaku.
+- **Riwayat Jabatan** menulis `department_id`/`position_id` (referensi master, memakai FK
+  yang sudah ditambahkan migration `00004`), bukan `jabatan` bebas teks. Kolom `jabatan`
+  legacy tetap diisi server sebagai snapshot nama posisi saat penulisan
+  (`COALESCE((SELECT nama FROM positions WHERE id = position_id), '')`) agar riwayat tetap
+  terbaca meski posisi berganti nama di kemudian hari. Read tidak berubah.
+- **Gaji bulan berjalan** melakukan upsert `ON CONFLICT (employee_id, periode)` pada
+  `employee_salaries`; `take_home_pay` adalah kolom generated dan tidak pernah ditulis
+  langsung.
+- **Dokumen pendukung** BPJS dan NPWP (gambar/PDF) **tidak** memakai field file baru pada
+  endpoint ini. `POST /karyawan/{id}/dokumen` sudah menyediakan upload umum
+  (validasi ukuran/MIME/signature, penyimpanan Nextcloud) dengan `jenis_dokumen` bebas;
+  frontend memakainya dengan label "BPJS"/"NPWP" pada halaman detail karyawan setelah
+  employee dibuat, karena upload dokumen selalu memerlukan `employee_id` yang sudah ada.
+  Menduplikasi jalur upload di endpoint create/update akan mengulang logika yang sama
+  tanpa manfaat tambahan.
+
+Catatan gap kontrak yang **tidak** diselesaikan revisi ini (tidak diubah agar scope tetap
+sempit pada kebutuhan write):
+
+- `EmployeeBPJS.status` dan `EducationHistory.jurusan` sudah terdaftar pada schema read
+  sejak sebelumnya tetapi belum diimplementasikan Go (`employee_bpjs`/`employee_education`
+  tidak memiliki kolom untuk keduanya). Revisi ini tidak menambah kolom baru untuk field
+  yang belum pernah diminta pengguna.
+
 ## Validation record
 
 Hasil validasi lokal setelah penerapan D-017 (enum `ExportFormatParam`):
@@ -412,3 +475,12 @@ Hasil validasi lokal setelah penerapan D-017 (enum `ExportFormatParam`):
 - Redocly: baseline 0.1.0 sebelumnya lulus tanpa warning; lint ulang 0.4.0 belum dapat
   dijalankan karena eksekusi paket pihak ketiga di luar sandbox ditolak oleh kebijakan
   keamanan lingkungan. Pemeriksaan aman lokal memakai PyYAML 6.0.3.
+
+Hasil validasi lokal setelah penerapan D-035 (`GET /api/v1/lembur/saya`):
+
+- YAML syntax: valid dengan PyYAML.
+- Path count: 39 (bertambah satu dari `/api/v1/lembur/saya`).
+- Operation count: 47 (bertambah satu sesuai D-035).
+- Operation ID: lengkap dan unik, termasuk `listMyOvertimeRequests`.
+- Response coverage: operation baru memiliki response 2xx dan 4xx yang identik dengan
+  `listMyLeaveRequests`.

@@ -4,6 +4,7 @@ import { queryClient } from "../../../lib/query/query-client";
 import {
   createOvertimeRequest,
   decideOvertimeRequest,
+  myOvertimeRequestsRequest,
   overtimeDetailRequest,
   overtimeListRequest,
   overtimeRecapRequest,
@@ -12,6 +13,7 @@ import {
 export const overtimeKeys = {
   all: ["overtime"],
   list: (scope, params) => ["overtime", "list", scope, params],
+  mine: (scope, params) => ["overtime", "mine", scope, params],
   detail: (scope, id) => ["overtime", "detail", scope, id],
   recap: (scope, params) => ["overtime", "recap", scope, params],
 };
@@ -29,6 +31,14 @@ export const useOvertimeList = (scope, params, enabled = true) =>
   useQuery({
     queryKey: overtimeKeys.list(scope, params),
     queryFn: ({ signal }) => overtimeListRequest(params, signal),
+    enabled,
+    placeholderData: keepPreviousData,
+  });
+
+export const useMyOvertimeRequests = (scope, params, enabled = true) =>
+  useQuery({
+    queryKey: overtimeKeys.mine(scope, params),
+    queryFn: ({ signal }) => myOvertimeRequestsRequest(params, signal),
     enabled,
     placeholderData: keepPreviousData,
   });

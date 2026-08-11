@@ -56,12 +56,12 @@ export const AccountSecurityPage = () => {
       <h1 id="security-title" className="text-3xl font-bold">
         Keamanan akun
       </h1>
-      <p className="mt-3 text-slate-400">
+      <p className="mt-3 text-slate-500">
         Mengganti password akan mencabut seluruh sesi dan mewajibkan login ulang.
       </p>
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-8 space-y-5 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-8 space-y-5 rounded-2xl border border-slate-900/10 bg-slate-900/[0.03] p-6">
         {formError ? (
-          <div role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-200">
+          <div role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-700">
             {formError}
           </div>
         ) : null}

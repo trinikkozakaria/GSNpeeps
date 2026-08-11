@@ -15,23 +15,23 @@ export const MyProfilePage = () => {
 
   return (
     <section aria-labelledby="my-profile-title">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Data pribadi</p>
+      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Data pribadi</p>
       <h1 id="my-profile-title" className="mt-2 text-3xl font-bold">
         Profil Saya
       </h1>
-      <p className="mt-2 max-w-2xl text-slate-300">
+      <p className="mt-2 max-w-2xl text-slate-600">
         Data ini hanya dapat dibaca. Jika ada informasi yang perlu diperbaiki, ajukan
         perubahan melalui HR agar tercatat pada Audit Log.
       </p>
 
       <div className="mt-6" aria-live="polite">
         {profile.isPending && (
-          <p role="status" className="text-slate-300">
+          <p role="status" className="text-slate-600">
             Memuat profil…
           </p>
         )}
         {profile.isError && (
-          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100">
+          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-700">
             <p>Profil belum dapat dimuat. {profile.error.message}</p>
             <Button className="mt-3" variant="secondary" onClick={() => profile.refetch()}>
               Coba lagi
@@ -44,7 +44,7 @@ export const MyProfilePage = () => {
               <h2 className="text-2xl font-bold">{profile.data.nama}</h2>
               <EmployeeStatusBadge status={profile.data.status} />
             </div>
-            <p className="mt-1 text-slate-300">
+            <p className="mt-1 text-slate-600">
               {profile.data.jabatan || "Jabatan belum ditetapkan"} ·{" "}
               {profile.data.departemen || "Departemen belum ditetapkan"}
             </p>

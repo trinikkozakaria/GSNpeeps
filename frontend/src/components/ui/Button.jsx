@@ -1,7 +1,7 @@
 const variants = {
-  primary: "bg-cyan-300 text-slate-950 hover:bg-cyan-200 focus-visible:outline-cyan-300",
+  primary: "bg-cyan-700 text-white hover:bg-cyan-800 focus-visible:outline-cyan-700",
   secondary:
-    "border border-white/15 bg-white/5 text-white hover:bg-white/10 focus-visible:outline-white",
+    "border border-slate-900/15 bg-slate-900/5 text-slate-900 hover:bg-slate-900/10 focus-visible:outline-slate-900",
 };
 
 export const Button = ({

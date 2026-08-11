@@ -23,9 +23,9 @@ const decidableStatusForRole = {
 };
 
 const Field = ({ label, children }) => (
-  <div className="border-b border-white/10 py-3">
+  <div className="border-b border-slate-900/10 py-3">
     <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</dt>
-    <dd className="mt-1 text-sm text-slate-100">{children ?? "—"}</dd>
+    <dd className="mt-1 text-sm text-slate-900">{children ?? "—"}</dd>
   </div>
 );
 
@@ -83,19 +83,19 @@ export const ApprovalDetailPage = ({ kind }) => {
 
   if (detail.isPending) {
     return (
-      <p role="status" className="text-slate-300">
+      <p role="status" className="text-slate-600">
         Memuat detail pengajuan…
       </p>
     );
   }
   if (detail.isError) {
     return (
-      <section role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-5 text-red-100">
+      <section role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-5 text-red-700">
         <h1 className="text-xl font-bold">Pengajuan tidak dapat dibuka</h1>
         <p className="mt-2">
           Pengajuan tidak ditemukan atau tidak dapat diakses dengan hak akses Anda.
         </p>
-        <Link to="/app/persetujuan" className="mt-4 inline-block font-semibold text-cyan-300">
+        <Link to="/app/persetujuan" className="mt-4 inline-block font-semibold text-cyan-700">
           Kembali ke antrean
         </Link>
       </section>
@@ -104,7 +104,7 @@ export const ApprovalDetailPage = ({ kind }) => {
 
   return (
     <section aria-labelledby="approval-detail-title">
-      <Link to="/app/persetujuan" className="text-sm font-semibold text-cyan-300">
+      <Link to="/app/persetujuan" className="text-sm font-semibold text-cyan-700">
         ← Kembali ke antrean
       </Link>
       <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
@@ -112,7 +112,7 @@ export const ApprovalDetailPage = ({ kind }) => {
           <h1 id="approval-detail-title" className="text-3xl font-bold">
             {data.nama_karyawan}
           </h1>
-          <p className="mt-2 text-slate-300">
+          <p className="mt-2 text-slate-600">
             {isLeave ? data.jenis_izin : "Pengajuan lembur"}
           </p>
         </div>
@@ -120,13 +120,13 @@ export const ApprovalDetailPage = ({ kind }) => {
       </div>
 
       {notice && (
-        <p role="status" className="mt-5 rounded-lg border border-cyan-300/30 bg-cyan-300/10 p-4 text-sm text-cyan-100">
+        <p role="status" className="mt-5 rounded-lg border border-cyan-300/30 bg-cyan-300/10 p-4 text-sm text-cyan-800">
           {notice}
         </p>
       )}
 
       <div className="mt-7 grid gap-6 lg:grid-cols-2">
-        <section aria-labelledby="request-detail-heading" className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+        <section aria-labelledby="request-detail-heading" className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
           <h2 id="request-detail-heading" className="text-lg font-bold">
             Detail pengajuan
           </h2>
@@ -157,7 +157,7 @@ export const ApprovalDetailPage = ({ kind }) => {
                   href={data.dokumen_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-cyan-300 underline hover:text-cyan-200"
+                  className="font-medium text-cyan-700 underline hover:text-cyan-900"
                 >
                   Buka dokumen
                   <span className="sr-only"> (tab baru)</span>
@@ -169,7 +169,7 @@ export const ApprovalDetailPage = ({ kind }) => {
           </dl>
         </section>
 
-        <section aria-labelledby="timeline-heading" className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+        <section aria-labelledby="timeline-heading" className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
           <h2 id="timeline-heading" className="text-lg font-bold">
             Riwayat approval
           </h2>
@@ -194,7 +194,7 @@ export const ApprovalDetailPage = ({ kind }) => {
           )}
         </div>
       ) : (
-        <p className="mt-7 text-sm text-slate-400">
+        <p className="mt-7 text-sm text-slate-500">
           {isPendingStatus(data.status)
             ? "Pengajuan sedang berada pada tahap approver lain."
             : "Pengajuan sudah final dan tidak dapat diputus lagi."}

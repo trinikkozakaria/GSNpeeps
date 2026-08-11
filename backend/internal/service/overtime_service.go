@@ -189,6 +189,29 @@ func (s *OvertimeService) List(
 	return page, nil
 }
 
+// ListMine mengembalikan pengajuan lembur milik pemohon sendiri, selaras dengan
+// LeaveService.ListMine karena approver inbox (List) tidak mencakup pengajuan sendiri.
+func (s *OvertimeService) ListMine(
+	ctx context.Context,
+	identity domain.Identity,
+	page, limit int,
+) (domain.OvertimeRequestPage, error) {
+	if identity.Role == domain.RoleTopManagement {
+		return domain.OvertimeRequestPage{}, domain.ErrForbidden
+	}
+	userID := identity.UserID
+	page, limit = normalizePaging(page, limit)
+	result, err := s.overtimes.ListRequests(ctx, domain.OvertimeRequestFilter{
+		Scope: domain.LeaveRequestScope{RequesterUserID: &userID},
+		Page:  page,
+		Limit: limit,
+	})
+	if err != nil {
+		return domain.OvertimeRequestPage{}, fmt.Errorf("list own overtime requests: %w", err)
+	}
+	return result, nil
+}
+
 // Detail mengembalikan satu pengajuan lembur bila identitas berhak membacanya.
 func (s *OvertimeService) Detail(
 	ctx context.Context,

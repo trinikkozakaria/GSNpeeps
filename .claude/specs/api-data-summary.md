@@ -143,7 +143,8 @@ Do not invent resource-specific codes; transcribe them from the PDF/OpenAPI.
 ## Operation inventory
 
 API Contract PDF v1.1 defines **42 operations in 13 modules**. Contract revision 0.4.0
-adds four approved operations, so the active OpenAPI contains **46 operations**.
+adds four approved operations, and revision 0.5.0 (D-035) adds one more to fix a field bug,
+so the active OpenAPI contains **47 operations**.
 
 Revision 0.4.0 additions:
 
@@ -153,6 +154,12 @@ Revision 0.4.0 additions:
 | PATCH | `/api/v1/auth/me/password` | Authenticated | Change own password and revoke sessions |
 | POST | `/api/v1/auth/reset-password` | Public, rate-limited | Self-reset after current-password verification |
 | GET | `/api/v1/master/lokasi-kantor` | Authenticated | Active trusted office coordinates for WFO |
+
+Revision 0.5.0 addition (see `docs/openapi-decisions.md` D-035):
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/lembur/saya` | Karyawan, Atasan, HR | Own overtime submission history, mirrors `/ketidakhadiran/saya` |
 
 Active module totals (including revision additions):
 
@@ -168,10 +175,10 @@ Active module totals (including revision additions):
 | Attendance reports | 2 |
 | Leave/absence | 6 |
 | Master leave type | 3 |
-| Overtime | 5 |
+| Overtime | 6 |
 | Access/audit | 4 |
 | Notifications | 4 |
-| **Total** | **46** |
+| **Total** | **47** |
 
 The numbered inventory below preserves the 42-operation PDF baseline for traceability; the
 four revision operations above are additional and are not renumbered into that source list.

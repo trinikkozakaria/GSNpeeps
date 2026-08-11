@@ -394,7 +394,7 @@ Base path aplikasi:
 /api/v1
 ```
 
-Total: **46 endpoint dalam 13 modul**.
+Total: **47 endpoint dalam 13 modul**.
 
 ### Sistem
 
@@ -485,6 +485,7 @@ Total: **46 endpoint dalam 13 modul**.
 |---|---|---|
 | POST | `/lembur` | Karyawan, Atasan, HR |
 | GET | `/lembur` | Approver terkait |
+| GET | `/lembur/saya` | Karyawan, Atasan, HR |
 | GET | `/lembur/{id}` | Pemohon/approver terkait |
 | PUT | `/lembur/{id}/decision` | Approver pada tahap aktif |
 | GET | `/lembur/rekap` | HR, Top Management read-only |
@@ -507,9 +508,11 @@ Total: **46 endpoint dalam 13 modul**.
 | PUT | `/notifikasi/{id}/read` | Recipient sendiri |
 | DELETE | `/notifikasi/{id}` | Recipient sendiri, soft-dismiss |
 
-Kontrak aktif 0.4.0 mempertahankan current-user dan change-password, serta menyediakan
-self-reset yang memverifikasi password saat ini. Jangan menambahkan refresh token atau
-mekanisme forgot-password berbasis email/OTP tanpa keputusan produk.
+Kontrak aktif 0.5.0 mempertahankan current-user dan change-password, serta menyediakan
+self-reset yang memverifikasi password saat ini. Revisi 0.5.0 menambahkan `GET
+/lembur/saya` (D-035) agar histori lembur milik sendiri tidak lagi memakai endpoint inbox
+approval. Jangan menambahkan refresh token atau mekanisme forgot-password berbasis
+email/OTP tanpa keputusan produk.
 
 ---
 

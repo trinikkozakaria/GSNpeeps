@@ -59,18 +59,18 @@ export const OvertimeRequestPage = () => {
 
   return (
     <section aria-labelledby="overtime-request-title" className="max-w-3xl">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Absensi</p>
+      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Absensi</p>
       <h1 id="overtime-request-title" className="mt-2 text-3xl font-bold">
         Ajukan Lembur
       </h1>
-      <p className="mt-2 text-slate-300">
+      <p className="mt-2 text-slate-600">
         Durasi lembur dihitung server dari jam mulai dan selesai yang Anda kirim.
       </p>
 
       {submitted && (
         <p
           role="status"
-          className="mt-5 rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-4 text-sm text-emerald-100"
+          className="mt-5 rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-4 text-sm text-emerald-700"
         >
           Pengajuan lembur terkirim dan sedang menunggu keputusan approver.
         </p>
@@ -79,10 +79,10 @@ export const OvertimeRequestPage = () => {
       <form
         onSubmit={handleSubmit(onSubmit)}
         noValidate
-        className="mt-7 grid gap-5 rounded-xl border border-white/10 bg-white/[0.03] p-6"
+        className="mt-7 grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6"
       >
         {formError && (
-          <p role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-200">
+          <p role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-700">
             {formError}
           </p>
         )}
@@ -115,7 +115,7 @@ export const OvertimeRequestPage = () => {
         </div>
 
         <div>
-          <label htmlFor="overtime-reason" className="mb-2 block text-sm font-medium text-slate-200">
+          <label htmlFor="overtime-reason" className="mb-2 block text-sm font-medium text-slate-700">
             Alasan
           </label>
           <textarea
@@ -124,10 +124,10 @@ export const OvertimeRequestPage = () => {
             {...register("alasan")}
             disabled={isSubmitting}
             aria-invalid={Boolean(errors.alasan)}
-            className="w-full rounded-lg border border-white/15 bg-slate-950 p-3 text-white outline-none focus:border-cyan-300"
+            className="w-full rounded-lg border border-slate-900/15 bg-white p-3 text-slate-900 outline-none focus:border-cyan-300"
           />
           {errors.alasan && (
-            <p role="alert" className="mt-2 text-sm text-rose-300">
+            <p role="alert" className="mt-2 text-sm text-rose-700">
               {errors.alasan.message}
             </p>
           )}

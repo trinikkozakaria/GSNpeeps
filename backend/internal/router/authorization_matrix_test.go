@@ -24,7 +24,7 @@ type operation struct {
 	public bool
 }
 
-// contractOperations mendaftar seluruh 46 operasi OpenAPI. Daftar ini menjadi matriks
+// contractOperations mendaftar seluruh 47 operasi OpenAPI. Daftar ini menjadi matriks
 // otorisasi: setiap operasi terproteksi wajib menolak permintaan tanpa token, dan setiap
 // operasi publik wajib tidak menolaknya. Operasi baru yang lupa didaftarkan pada router akan
 // menghasilkan 404 dan membuat matriks gagal.
@@ -77,6 +77,7 @@ func contractOperations() []operation {
 
 		{http.MethodPost, "/api/v1/lembur", false},
 		{http.MethodGet, "/api/v1/lembur", false},
+		{http.MethodGet, "/api/v1/lembur/saya", false},
 		{http.MethodGet, "/api/v1/lembur/rekap", false},
 		{http.MethodGet, "/api/v1/lembur/" + requestID, false},
 		{http.MethodPut, "/api/v1/lembur/" + requestID + "/decision", false},
@@ -138,10 +139,10 @@ func newGuardedRouter() http.Handler {
 	)
 }
 
-// Jumlah operasi harus tetap 46 sesuai keputusan D-001; endpoint baru memerlukan revisi
-// kontrak lebih dahulu.
-func TestContractExposesExactlyFortySixOperations(t *testing.T) {
-	assert.Len(t, contractOperations(), 46)
+// Jumlah operasi harus tetap 47 sesuai keputusan D-001 dan D-035; endpoint baru memerlukan
+// revisi kontrak lebih dahulu.
+func TestContractExposesExactlyFortySevenOperations(t *testing.T) {
+	assert.Len(t, contractOperations(), 47)
 }
 
 // Setiap operasi terproteksi menolak permintaan tanpa token. Karena `/api/v1` memiliki

@@ -10,10 +10,18 @@ const personalRoles = [roles.employee, roles.supervisor, roles.hr];
 const monitoringRoles = [roles.hr, roles.topManagement];
 
 export const navigationItems = [
+  { label: "Dashboard HR", path: "/app/dashboard", roles: monitoringRoles },
   { label: "Beranda", path: "/app", roles: allRoles },
   { label: "Profil Saya", path: "/app/profil", roles: personalRoles },
   { label: "Metrik Personal", path: "/app/metrik-personal", roles: personalRoles },
-  { label: "Kehadiran Saya", path: "/app/absensi", roles: personalRoles },
+  {
+    label: "Kehadiran Saya",
+    path: "/app/absensi",
+    roles: personalRoles,
+    // Ajukan Ketidakhadiran/Lembur adalah sub-alur kehadiran; item ini tetap tersorot aktif
+    // ketika salah satu sub-alur tersebut sedang dibuka. Lihat isActiveFor di AppShell.
+    activeMatchPaths: ["/app/absensi/ketidakhadiran", "/app/absensi/lembur"],
+  },
   { label: "Ajukan Ketidakhadiran", path: "/app/absensi/ketidakhadiran", roles: personalRoles },
   { label: "Ajukan Lembur", path: "/app/absensi/lembur", roles: personalRoles },
   { label: "Pengajuan Saya", path: "/app/pengajuan", roles: personalRoles },
@@ -23,7 +31,6 @@ export const navigationItems = [
     roles: [roles.supervisor, roles.hr, roles.topManagement],
   },
   { label: "Employee Database", path: "/app/karyawan", roles: monitoringRoles },
-  { label: "Dashboard HR", path: "/app/dashboard", roles: monitoringRoles },
   { label: "Live Feed Absensi", path: "/app/live-feed", roles: monitoringRoles },
   { label: "Laporan Kehadiran", path: "/app/laporan-kehadiran", roles: monitoringRoles },
   { label: "Master Jenis Izin", path: "/app/master/jenis-izin", roles: [roles.hr] },

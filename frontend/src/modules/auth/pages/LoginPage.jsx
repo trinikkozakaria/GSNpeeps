@@ -63,9 +63,9 @@ export const LoginPage = () => {
       title="Masuk ke akun"
       description="Gunakan email kerja dan password GSNpeeps Anda."
       footer={
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-slate-500">
           Akun terkunci?{" "}
-          <Link to="/reset-password" className="font-semibold text-cyan-300 hover:text-cyan-200">
+          <Link to="/reset-password" className="font-semibold text-cyan-700 hover:text-cyan-900">
             Pulihkan password
           </Link>
         </p>
@@ -73,12 +73,12 @@ export const LoginPage = () => {
     >
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
         {location.state?.message ? (
-          <div role="status" className="rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-200">
+          <div role="status" className="rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-700">
             {location.state.message}
           </div>
         ) : null}
         {formError ? (
-          <div role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-200">
+          <div role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-700">
             {formError}
           </div>
         ) : null}

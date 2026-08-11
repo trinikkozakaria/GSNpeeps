@@ -20,7 +20,7 @@ export const FormInput = ({
 
   return (
     <div>
-      <label htmlFor={id} className="mb-2 block text-sm font-medium text-slate-200">
+      <label htmlFor={id} className="mb-2 block text-sm font-medium text-slate-700">
         {label}
       </label>
       <div className={isPassword ? "flex gap-2" : undefined}>
@@ -45,12 +45,12 @@ export const FormInput = ({
         ) : null}
       </div>
       {description ? (
-        <p id={descriptionID} className="mt-2 text-xs text-slate-400">
+        <p id={descriptionID} className="mt-2 text-xs text-slate-500">
           {description}
         </p>
       ) : null}
       {error ? (
-        <p id={errorID} role="alert" className="mt-2 text-sm text-rose-300">
+        <p id={errorID} role="alert" className="mt-2 text-sm text-rose-700">
           {error}
         </p>
       ) : null}

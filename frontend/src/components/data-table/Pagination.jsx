@@ -11,7 +11,7 @@ export const Pagination = ({ meta, onPageChange, label = "Navigasi halaman" }) =
 
   return (
     <nav className="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label={label}>
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-slate-500">
         Halaman {meta.page} dari {totalPage} · {meta.total_data} data
       </p>
       <div className="flex gap-2">

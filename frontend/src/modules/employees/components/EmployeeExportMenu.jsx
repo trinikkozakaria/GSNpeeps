@@ -57,7 +57,7 @@ export const EmployeeExportMenu = ({ filters, employeeId, label = "Export data" 
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={label}>
-        <span className="text-sm text-slate-400">{label}:</span>
+        <span className="text-sm text-slate-500">{label}:</span>
         <Button variant="secondary" disabled={Boolean(busyFormat)} onClick={() => runExport("xlsx")}>
           {busyFormat === "xlsx" ? "Menyiapkan XLSX…" : "XLSX"}
         </Button>
@@ -65,11 +65,11 @@ export const EmployeeExportMenu = ({ filters, employeeId, label = "Export data" 
           {busyFormat === "pdf" ? "Menyiapkan PDF…" : "PDF"}
         </Button>
       </div>
-      <p aria-live="polite" className="mt-2 text-sm text-slate-400">
+      <p aria-live="polite" className="mt-2 text-sm text-slate-500">
         {status}
       </p>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-rose-300">
+        <p role="alert" className="mt-2 text-sm text-rose-700">
           {error}
         </p>
       )}

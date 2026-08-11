@@ -50,7 +50,7 @@ export const ApprovalInboxPage = () => {
         <h1 id="approval-title" className="text-3xl font-bold">
           Persetujuan
         </h1>
-        <p role="status" className="mt-3 text-slate-300">
+        <p role="status" className="mt-3 text-slate-600">
           Peran Anda tidak memiliki antrean persetujuan.
         </p>
       </section>
@@ -63,8 +63,8 @@ export const ApprovalInboxPage = () => {
       header: "Pemohon",
       render: (row) => (
         <>
-          <span className="block font-semibold text-white">{row.nama_karyawan}</span>
-          <span className="mt-1 block text-xs text-slate-400">{row.jenis_izin}</span>
+          <span className="block font-semibold text-slate-900">{row.nama_karyawan}</span>
+          <span className="mt-1 block text-xs text-slate-500">{row.jenis_izin}</span>
         </>
       ),
     },
@@ -82,7 +82,7 @@ export const ApprovalInboxPage = () => {
       render: (row) => (
         <Link
           to={`/app/persetujuan/ketidakhadiran/${row.id}`}
-          className="font-semibold text-cyan-300 hover:text-cyan-200"
+          className="font-semibold text-cyan-700 hover:text-cyan-900"
         >
           Tinjau
           <span className="sr-only"> pengajuan {row.nama_karyawan}</span>
@@ -95,7 +95,7 @@ export const ApprovalInboxPage = () => {
     {
       key: "karyawan",
       header: "Pemohon",
-      render: (row) => <span className="font-semibold text-white">{row.nama_karyawan}</span>,
+      render: (row) => <span className="font-semibold text-slate-900">{row.nama_karyawan}</span>,
     },
     {
       key: "waktu",
@@ -111,7 +111,7 @@ export const ApprovalInboxPage = () => {
       render: (row) => (
         <Link
           to={`/app/persetujuan/lembur/${row.id}`}
-          className="font-semibold text-cyan-300 hover:text-cyan-200"
+          className="font-semibold text-cyan-700 hover:text-cyan-900"
         >
           Tinjau
           <span className="sr-only"> lembur {row.nama_karyawan}</span>
@@ -122,11 +122,11 @@ export const ApprovalInboxPage = () => {
 
   return (
     <section aria-labelledby="approval-title">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Approval</p>
+      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Approval</p>
       <h1 id="approval-title" className="mt-2 text-3xl font-bold">
         Persetujuan
       </h1>
-      <p className="mt-2 max-w-2xl text-slate-300">{stageExplanation[auth.role]}</p>
+      <p className="mt-2 max-w-2xl text-slate-600">{stageExplanation[auth.role]}</p>
 
       <div role="tablist" aria-label="Jenis pengajuan" className="mt-6 flex flex-wrap gap-2">
         {[
@@ -141,8 +141,8 @@ export const ApprovalInboxPage = () => {
             onClick={() => setTab(item.id)}
             className={`min-h-11 rounded-lg px-4 text-sm font-semibold ${
               tab === item.id
-                ? "bg-cyan-300 text-slate-950"
-                : "border border-white/15 text-slate-200 hover:bg-white/5"
+                ? "bg-cyan-700 text-white"
+                : "border border-slate-900/15 text-slate-700 hover:bg-slate-900/5"
             }`}
           >
             {item.label}
@@ -152,12 +152,12 @@ export const ApprovalInboxPage = () => {
 
       <div className="mt-6" aria-live="polite">
         {active.isPending && (
-          <p role="status" className="text-slate-300">
+          <p role="status" className="text-slate-600">
             Memuat antrean persetujuan…
           </p>
         )}
         {active.isError && (
-          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100">
+          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-700">
             <p>Antrean belum dapat dimuat. {active.error.message}</p>
             <Button className="mt-3" variant="secondary" onClick={() => active.refetch()}>
               Coba lagi

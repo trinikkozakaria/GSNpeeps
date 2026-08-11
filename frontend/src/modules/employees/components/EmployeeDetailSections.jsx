@@ -49,15 +49,15 @@ export const EmployeeDetailSections = ({ employee }) => (
       {employee.kontrak.length === 0 ? (
         <EmptyNote>Belum ada riwayat kontrak.</EmptyNote>
       ) : (
-        <ul className="divide-y divide-white/10">
+        <ul className="divide-y divide-slate-900/10">
           {employee.kontrak.map((contract) => (
             <li key={contract.nomor_kontrak} className="grid gap-2 py-4 sm:grid-cols-4">
-              <span className="font-semibold text-slate-100">{contract.nomor_kontrak}</span>
-              <span className="text-slate-300">{contract.jenis_kontrak}</span>
-              <span className="text-slate-300">
+              <span className="font-semibold text-slate-900">{contract.nomor_kontrak}</span>
+              <span className="text-slate-600">{contract.jenis_kontrak}</span>
+              <span className="text-slate-600">
                 {formatDate(contract.tanggal_mulai)} — {formatDate(contract.tanggal_berakhir)}
               </span>
-              <span className="text-slate-300">
+              <span className="text-slate-600">
                 {contractStatusLabel[contract.status] ?? contract.status}
               </span>
             </li>
@@ -85,12 +85,12 @@ export const EmployeeDetailSections = ({ employee }) => (
       {employee.kontak_darurat.length === 0 ? (
         <EmptyNote>Kontak darurat belum diisi.</EmptyNote>
       ) : (
-        <ul className="divide-y divide-white/10">
+        <ul className="divide-y divide-slate-900/10">
           {employee.kontak_darurat.map((contact) => (
             <li key={`${contact.nama}-${contact.nomor_telepon}`} className="grid gap-2 py-4 sm:grid-cols-3">
-              <span className="font-semibold text-slate-100">{contact.nama}</span>
-              <span className="text-slate-300">{contact.hubungan || "Hubungan belum diisi"}</span>
-              <span className="text-slate-300">{contact.nomor_telepon}</span>
+              <span className="font-semibold text-slate-900">{contact.nama}</span>
+              <span className="text-slate-600">{contact.hubungan || "Hubungan belum diisi"}</span>
+              <span className="text-slate-600">{contact.nomor_telepon}</span>
             </li>
           ))}
         </ul>
@@ -101,15 +101,15 @@ export const EmployeeDetailSections = ({ employee }) => (
       {employee.pendidikan.length === 0 ? (
         <EmptyNote>Riwayat pendidikan belum diisi.</EmptyNote>
       ) : (
-        <ul className="divide-y divide-white/10">
+        <ul className="divide-y divide-slate-900/10">
           {employee.pendidikan.map((education, index) => (
             <li
               key={`${education.jenjang ?? "jenjang"}-${education.institusi ?? index}`}
               className="grid gap-2 py-4 sm:grid-cols-3"
             >
-              <span className="font-semibold text-slate-100">{education.jenjang || "Jenjang belum diisi"}</span>
-              <span className="text-slate-300">{education.institusi || "Institusi belum diisi"}</span>
-              <span className="text-slate-300">
+              <span className="font-semibold text-slate-900">{education.jenjang || "Jenjang belum diisi"}</span>
+              <span className="text-slate-600">{education.institusi || "Institusi belum diisi"}</span>
+              <span className="text-slate-600">
                 {education.tahun_lulus ? `Lulus ${education.tahun_lulus}` : "Tahun lulus belum diisi"}
               </span>
             </li>
@@ -122,16 +122,16 @@ export const EmployeeDetailSections = ({ employee }) => (
       {employee.riwayat_jabatan.length === 0 ? (
         <EmptyNote>Riwayat jabatan belum diisi.</EmptyNote>
       ) : (
-        <ul className="divide-y divide-white/10">
+        <ul className="divide-y divide-slate-900/10">
           {employee.riwayat_jabatan.map((history, index) => (
             <li key={`${history.tanggal_mulai}-${index}`} className="grid gap-2 py-4 sm:grid-cols-3">
-              <span className="font-semibold text-slate-100">
+              <span className="font-semibold text-slate-900">
                 {history.jabatan?.nama || "Jabatan belum tercatat"}
               </span>
-              <span className="text-slate-300">
+              <span className="text-slate-600">
                 {history.departemen?.nama || "Departemen belum tercatat"}
               </span>
-              <span className="text-slate-300">
+              <span className="text-slate-600">
                 {formatDate(history.tanggal_mulai)} —{" "}
                 {history.tanggal_selesai ? formatDate(history.tanggal_selesai) : "sekarang"}
               </span>

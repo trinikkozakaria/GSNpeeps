@@ -23,6 +23,11 @@ export const overtimeListRequest = async (params, signal) => {
   return overtimeListSchema.parse({ items: envelope.data, meta: envelope.meta });
 };
 
+export const myOvertimeRequestsRequest = async (params, signal) => {
+  const envelope = await apiClient.get("/lembur/saya", { params, signal });
+  return overtimeListSchema.parse({ items: envelope.data, meta: envelope.meta });
+};
+
 export const overtimeDetailRequest = async (id, signal) => {
   const envelope = await apiClient.get(`/lembur/${id}`, { signal });
   return overtimeDetailSchema.parse(envelope.data);

@@ -77,7 +77,7 @@ export const DecisionDialog = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
       <form
         ref={dialogRef}
         role="dialog"
@@ -86,14 +86,14 @@ export const DecisionDialog = ({
         onKeyDown={handleKeyDown}
         onSubmit={handleSubmit}
         noValidate
-        className="w-full max-w-md rounded-xl border border-white/10 bg-slate-900 p-6 shadow-xl"
+        className="w-full max-w-md rounded-xl border border-slate-900/10 bg-white p-6 shadow-xl"
       >
-        <h2 id="decision-dialog-title" className="text-xl font-bold text-white">
+        <h2 id="decision-dialog-title" className="text-xl font-bold text-slate-900">
           {title}
         </h2>
-        <p className="mt-2 text-sm text-slate-300">{description}</p>
+        <p className="mt-2 text-sm text-slate-600">{description}</p>
 
-        <label htmlFor="decision-note" className="mt-5 block text-sm font-medium text-slate-200">
+        <label htmlFor="decision-note" className="mt-5 block text-sm font-medium text-slate-700">
           Catatan {requiresNote ? "(wajib)" : "(opsional)"}
         </label>
         <textarea
@@ -106,15 +106,15 @@ export const DecisionDialog = ({
           aria-invalid={Boolean(noteError)}
           aria-describedby={noteError ? "decision-note-error" : undefined}
           onChange={(event) => setNote(event.target.value)}
-          className="mt-2 w-full rounded-lg border border-white/15 bg-slate-950 p-3 text-white outline-none focus:border-cyan-300 disabled:opacity-60"
+          className="mt-2 w-full rounded-lg border border-slate-900/15 bg-white p-3 text-slate-900 outline-none focus:border-cyan-300 disabled:opacity-60"
         />
         {noteError && (
-          <p id="decision-note-error" role="alert" className="mt-2 text-sm text-rose-300">
+          <p id="decision-note-error" role="alert" className="mt-2 text-sm text-rose-700">
             {noteError}
           </p>
         )}
         {error && (
-          <p role="alert" className="mt-3 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-200">
+          <p role="alert" className="mt-3 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-700">
             {error}
           </p>
         )}

@@ -6,6 +6,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { FormInput } from "../../../components/form/FormInput";
 import { Button } from "../../../components/ui/Button";
 import { useAuth } from "../../auth/hooks/useAuth";
+import {
+  BpjsNpwpFields,
+  CurrentSalaryFields,
+  EducationFields,
+  EmergencyContactsFields,
+  PositionHistoryFields,
+} from "../components/EmployeeDetailFormFields";
 import { EmployeeSelectField } from "../components/EmployeeSelectField";
 import {
   useCreateEmployee,
@@ -13,7 +20,11 @@ import {
   useEmployees,
   usePositions,
 } from "../hooks/useEmployees";
-import { createEmployeeSchema } from "../schemas/employee-schema";
+import {
+  buildEmployeeDetailPayload,
+  createEmployeeSchema,
+  emptyEmployeeDetailDefaults,
+} from "../schemas/employee-schema";
 
 const defaults = {
   nip: "",
@@ -41,6 +52,7 @@ const defaults = {
     tanggal_mulai: "",
     tanggal_berakhir: "",
   },
+  ...emptyEmployeeDetailDefaults,
 };
 
 export const EmployeeCreatePage = () => {
@@ -61,6 +73,7 @@ export const EmployeeCreatePage = () => {
     watch,
     setValue,
     setError,
+    control,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(createEmployeeSchema),
@@ -72,8 +85,9 @@ export const EmployeeCreatePage = () => {
 
   const onSubmit = async (values) => {
     setFormError("");
+    const { bpjs, npwp, kontak_darurat, pendidikan, riwayat_jabatan, gaji_berjalan, ...rest } = values;
     const payload = {
-      ...values,
+      ...rest,
       atasan_id: values.atasan_id || null,
       status_pernikahan: values.status_pernikahan || undefined,
       alamat: {
@@ -81,6 +95,7 @@ export const EmployeeCreatePage = () => {
         kelurahan: values.alamat.kelurahan || null,
         kecamatan: values.alamat.kecamatan || null,
       },
+      ...buildEmployeeDetailPayload(values),
     };
     try {
       const result = await mutation.mutateAsync(payload);
@@ -102,20 +117,20 @@ export const EmployeeCreatePage = () => {
 
   return (
     <section aria-labelledby="employee-create-title" className="max-w-4xl">
-      <Link to="/app/karyawan" className="text-sm font-semibold text-cyan-300">← Kembali ke daftar</Link>
+      <Link to="/app/karyawan" className="text-sm font-semibold text-cyan-700">← Kembali ke daftar</Link>
       <h1 id="employee-create-title" className="mt-5 text-3xl font-bold">Tambah karyawan</h1>
-      <p className="mt-2 text-slate-400">
+      <p className="mt-2 text-slate-500">
         HR mengisi data awal sesuai dokumen resmi. Akun login dibuat terkunci dan tidak memiliki password yang diketahui HR.
       </p>
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-7 space-y-6">
         {formError && (
-          <div role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-200">
+          <div role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-700">
             {formError}
           </div>
         )}
 
-        <fieldset className="grid gap-5 rounded-xl border border-white/10 bg-white/[0.03] p-6 sm:grid-cols-2">
+        <fieldset className="grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2">
           <legend className="px-2 text-lg font-bold">Identitas dan pekerjaan</legend>
           <FormInput id="create-nip" label="NIP" registration={register("nip")} error={errors.nip?.message} disabled={isSubmitting} />
           <FormInput id="create-name" label="Nama lengkap" registration={register("nama")} error={errors.nama?.message} disabled={isSubmitting} />
@@ -165,7 +180,7 @@ export const EmployeeCreatePage = () => {
           </EmployeeSelectField>
         </fieldset>
 
-        <fieldset className="grid gap-5 rounded-xl border border-white/10 bg-white/[0.03] p-6 sm:grid-cols-2">
+        <fieldset className="grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2">
           <legend className="px-2 text-lg font-bold">Alamat</legend>
           <div className="sm:col-span-2">
             <FormInput id="create-street" label="Jalan" registration={register("alamat.jalan")} error={errors.alamat?.jalan?.message} disabled={isSubmitting} />
@@ -176,7 +191,7 @@ export const EmployeeCreatePage = () => {
           <FormInput id="create-province" label="Provinsi" registration={register("alamat.provinsi")} error={errors.alamat?.provinsi?.message} disabled={isSubmitting} />
         </fieldset>
 
-        <fieldset className="grid gap-5 rounded-xl border border-white/10 bg-white/[0.03] p-6 sm:grid-cols-2">
+        <fieldset className="grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2">
           <legend className="px-2 text-lg font-bold">KTP dan kontrak</legend>
           <FormInput id="create-ktp" label="Nomor KTP" inputMode="numeric" registration={register("ktp.nomor_ktp")} error={errors.ktp?.nomor_ktp?.message} disabled={isSubmitting} />
           <FormInput id="create-contract-number" label="Nomor kontrak" registration={register("kontrak.nomor_kontrak")} error={errors.kontrak?.nomor_kontrak?.message} disabled={isSubmitting} />
@@ -189,9 +204,22 @@ export const EmployeeCreatePage = () => {
           <FormInput id="create-contract-end" label="Tanggal berakhir kontrak" type="date" registration={register("kontrak.tanggal_berakhir")} error={errors.kontrak?.tanggal_berakhir?.message} disabled={isSubmitting} />
         </fieldset>
 
+        <BpjsNpwpFields register={register} errors={errors} disabled={isSubmitting} idPrefix="create" />
+        <EmergencyContactsFields control={control} register={register} errors={errors} disabled={isSubmitting} idPrefix="create" />
+        <EducationFields control={control} register={register} errors={errors} disabled={isSubmitting} idPrefix="create" />
+        <PositionHistoryFields
+          control={control}
+          register={register}
+          errors={errors}
+          disabled={isSubmitting}
+          idPrefix="create"
+          departments={departments.data}
+        />
+        <CurrentSalaryFields register={register} errors={errors} disabled={isSubmitting} idPrefix="create" />
+
         <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Menyimpan…" : "Simpan karyawan"}</Button>
-          <Link to="/app/karyawan" className="inline-flex min-h-11 items-center px-3 font-semibold text-slate-300">Batal</Link>
+          <Link to="/app/karyawan" className="inline-flex min-h-11 items-center px-3 font-semibold text-slate-600">Batal</Link>
         </div>
       </form>
     </section>

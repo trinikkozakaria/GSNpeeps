@@ -103,11 +103,11 @@ export const LeaveRequestPage = () => {
 
   return (
     <section aria-labelledby="leave-request-title" className="max-w-3xl">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Absensi</p>
+      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Absensi</p>
       <h1 id="leave-request-title" className="mt-2 text-3xl font-bold">
         Ajukan Ketidakhadiran
       </h1>
-      <p className="mt-2 text-slate-300">
+      <p className="mt-2 text-slate-600">
         Pengajuan diteruskan ke approver sesuai struktur organisasi Anda. Status akhir
         ditentukan server.
       </p>
@@ -115,14 +115,14 @@ export const LeaveRequestPage = () => {
       {successState && (
         <p
           role="status"
-          className="mt-5 rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-4 text-sm text-emerald-100"
+          className="mt-5 rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-4 text-sm text-emerald-700"
         >
           Pengajuan terkirim dan sedang menunggu keputusan approver.
         </p>
       )}
 
       {leaveTypes.isError && (
-        <p role="alert" className="mt-5 rounded-lg border border-rose-300/30 bg-rose-300/10 p-4 text-sm text-rose-100">
+        <p role="alert" className="mt-5 rounded-lg border border-rose-300/30 bg-rose-300/10 p-4 text-sm text-rose-700">
           Daftar jenis izin gagal dimuat. Muat ulang halaman, dan hubungi HR bila masalah
           berlanjut.
         </p>
@@ -131,7 +131,7 @@ export const LeaveRequestPage = () => {
       {/* Master jenis izin diisi HR dan dapat kosong (G-011); jelaskan agar pemohon tidak
           mengira formulir rusak. */}
       {!leaveTypes.isPending && !leaveTypes.isError && (leaveTypes.data ?? []).length === 0 && (
-        <p role="status" className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-100">
+        <p role="status" className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-800">
           Belum ada jenis izin aktif yang dapat diajukan. Hubungi HR untuk mengaktifkan
           master jenis izin.
         </p>
@@ -140,16 +140,16 @@ export const LeaveRequestPage = () => {
       <form
         onSubmit={handleSubmit(onSubmit)}
         noValidate
-        className="mt-7 grid gap-5 rounded-xl border border-white/10 bg-white/[0.03] p-6"
+        className="mt-7 grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6"
       >
         {formError && (
-          <p role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-200">
+          <p role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-700">
             {formError}
           </p>
         )}
 
         <div>
-          <label htmlFor="leave-type" className="mb-2 block text-sm font-medium text-slate-200">
+          <label htmlFor="leave-type" className="mb-2 block text-sm font-medium text-slate-700">
             Jenis izin
           </label>
           <select
@@ -157,7 +157,7 @@ export const LeaveRequestPage = () => {
             {...register("jenis_izin_id")}
             disabled={isSubmitting}
             aria-invalid={Boolean(errors.jenis_izin_id)}
-            className="min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           >
             <option value="">Pilih jenis izin</option>
             {(leaveTypes.data ?? []).map((type) => (
@@ -167,7 +167,7 @@ export const LeaveRequestPage = () => {
             ))}
           </select>
           {errors.jenis_izin_id && (
-            <p role="alert" className="mt-2 text-sm text-rose-300">
+            <p role="alert" className="mt-2 text-sm text-rose-700">
               {errors.jenis_izin_id.message}
             </p>
           )}
@@ -193,7 +193,7 @@ export const LeaveRequestPage = () => {
         </div>
 
         <div>
-          <label htmlFor="leave-reason" className="mb-2 block text-sm font-medium text-slate-200">
+          <label htmlFor="leave-reason" className="mb-2 block text-sm font-medium text-slate-700">
             Alasan
           </label>
           <textarea
@@ -202,10 +202,10 @@ export const LeaveRequestPage = () => {
             {...register("alasan")}
             disabled={isSubmitting}
             aria-invalid={Boolean(errors.alasan)}
-            className="w-full rounded-lg border border-white/15 bg-slate-950 p-3 text-white outline-none focus:border-cyan-300"
+            className="w-full rounded-lg border border-slate-900/15 bg-white p-3 text-slate-900 outline-none focus:border-cyan-300"
           />
           {errors.alasan && (
-            <p role="alert" className="mt-2 text-sm text-rose-300">
+            <p role="alert" className="mt-2 text-sm text-rose-700">
               {errors.alasan.message}
             </p>
           )}

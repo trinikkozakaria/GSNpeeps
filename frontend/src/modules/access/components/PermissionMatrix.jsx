@@ -13,7 +13,7 @@ export const PermissionMatrix = ({ permissions, roleId, canEdit, pendingKey, onT
 
   if (groups.length === 0) {
     return (
-      <div className="rounded-xl border border-white/10 p-8 text-center text-slate-300">
+      <div className="rounded-xl border border-slate-900/10 p-8 text-center text-slate-600">
         Belum ada kapabilitas terdaftar untuk role ini.
       </div>
     );
@@ -22,8 +22,8 @@ export const PermissionMatrix = ({ permissions, roleId, canEdit, pendingKey, onT
   return (
     <ul className="grid gap-3">
       {groups.map((group) => (
-        <li key={group.modul} className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-cyan-200">
+        <li key={group.modul} className="rounded-xl border border-slate-900/10 bg-slate-50 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-cyan-800">
             {group.label}
           </h3>
           <ul className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -33,14 +33,14 @@ export const PermissionMatrix = ({ permissions, roleId, canEdit, pendingKey, onT
               return (
                 <li
                   key={permission.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-900/10 px-3 py-2"
                 >
-                  <span className="text-sm text-slate-200">{readableAction(permission.aksi)}</span>
+                  <span className="text-sm text-slate-700">{readableAction(permission.aksi)}</span>
                   <span className="flex items-center gap-3">
                     {/* Status ditulis sebagai teks dan ikon, tidak hanya diwakili warna. */}
                     <span
                       className={`text-sm font-semibold ${
-                        permission.is_allowed ? "text-emerald-200" : "text-slate-400"
+                        permission.is_allowed ? "text-emerald-700" : "text-slate-500"
                       }`}
                     >
                       <span aria-hidden="true">{permission.is_allowed ? "✓ " : "✕ "}</span>

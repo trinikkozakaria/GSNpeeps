@@ -328,3 +328,43 @@ func TestOvertimeListAppliesApprovalScope(t *testing.T) {
 	require.NotNil(t, store.filter.Scope.Stage)
 	assert.Equal(t, domain.StatusWaitingSupervisor, *store.filter.Scope.Stage)
 }
+
+// Karyawan bukan approver tidak boleh memakai inbox approval untuk melihat pengajuan
+// sendiri; List harus tetap menolaknya (mirip TestLeaveListForApprovalScopesByRole).
+func TestOvertimeListRejectsRequesterWithoutApprovalRole(t *testing.T) {
+	store := &overtimeStoreStub{}
+	service, _, _ := newOvertimeServiceForTest(store, supervisorStub{}, transactionStub{})
+
+	_, err := service.List(context.Background(), domain.Identity{
+		UserID: uuid.New(), EmployeeID: uuid.New(), Role: domain.RoleEmployee,
+	}, domain.OvertimeRequestFilter{Page: 1, Limit: 10})
+
+	require.ErrorIs(t, err, domain.ErrForbidden)
+}
+
+func TestOvertimeListMineScopesToRequester(t *testing.T) {
+	userID := uuid.New()
+	store := &overtimeStoreStub{}
+	service, _, _ := newOvertimeServiceForTest(store, supervisorStub{}, transactionStub{})
+
+	_, err := service.ListMine(context.Background(), domain.Identity{
+		UserID: userID, EmployeeID: uuid.New(), Role: domain.RoleEmployee,
+	}, 0, 999)
+
+	require.NoError(t, err)
+	require.NotNil(t, store.filter.Scope.RequesterUserID)
+	assert.Equal(t, userID, *store.filter.Scope.RequesterUserID)
+	// Paging dibatasi agar query selalu terikat.
+	assert.Equal(t, 1, store.filter.Page)
+	assert.Equal(t, 100, store.filter.Limit)
+}
+
+func TestOvertimeListMineRejectsTopManagement(t *testing.T) {
+	service, _, _ := newOvertimeServiceForTest(&overtimeStoreStub{}, supervisorStub{}, transactionStub{})
+
+	_, err := service.ListMine(context.Background(), domain.Identity{
+		UserID: uuid.New(), EmployeeID: uuid.New(), Role: domain.RoleTopManagement,
+	}, 1, 10)
+
+	require.ErrorIs(t, err, domain.ErrForbidden)
+}

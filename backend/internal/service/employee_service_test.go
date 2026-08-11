@@ -553,3 +553,88 @@ func TestEmployeeCreateRequiresHRAndBuildsLockedAccount(t *testing.T) {
 	assert.Equal(t, "employee@example.test", stub.createCommand.Email)
 	assert.Equal(t, "locked-hash", stub.createCommand.PasswordHash)
 }
+
+// Detail seperti BPJS/NPWP/kontak darurat bersifat opsional pada create; field yang tidak
+// disertakan pada request harus tetap nil pada command sehingga repository tidak menulis
+// baris kosong untuk bagian tersebut.
+func TestEmployeeCreateMapsOptionalDetailSections(t *testing.T) {
+	stub := &employeeReaderStub{}
+	service := newEmployeeServiceForTest(stub)
+	departmentID := uuid.New()
+	positionID := uuid.New()
+	request := dto.CreateEmployeeRequest{
+		NIP:          "EMP-002",
+		Name:         "Karyawan Uji",
+		Email:        "employee2@example.test",
+		Gender:       "L",
+		BirthDate:    "1995-04-10",
+		JoinDate:     "2026-07-29",
+		DepartmentID: uuid.New(),
+		PositionID:   uuid.New(),
+		Role:         domain.RoleEmployee,
+		Address: dto.EmployeeAddressRequest{
+			Street: "Jalan Sintetis", City: "Jakarta", Province: "DKI Jakarta",
+		},
+		KTP: dto.EmployeeKTPRequest{Number: "3174000000000002"},
+		Contract: dto.EmployeeContractRequest{
+			Number: "PKWT-TEST-002", Type: "PKWT",
+			StartDate: "2026-07-29", EndDate: "2027-07-28",
+		},
+		BPJS: &dto.EmployeeBPJSRequest{HealthNumber: strPtr(" 000111 ")},
+		NPWP: &dto.EmployeeNPWPRequest{Number: " 12.345.678.9-012.000 "},
+		EmergencyContacts: []dto.EmergencyContactRequest{
+			{Name: " Ibu Uji ", Phone: " 0812xxxx "},
+		},
+		Education: []dto.EducationRequest{
+			{Level: strPtr("S1"), Institution: strPtr("Universitas Uji")},
+		},
+		PositionHistory: []dto.PositionHistoryRequest{
+			{DepartmentID: &departmentID, PositionID: &positionID, StartDate: "2020-01-01"},
+		},
+		CurrentSalary: &dto.CurrentSalaryRequest{Period: "2026-08", BasePay: 5_000_000},
+	}
+
+	_, err := service.Create(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), Role: domain.RoleHR},
+		request,
+		RequestMeta{},
+	)
+	require.NoError(t, err)
+
+	require.NotNil(t, stub.createCommand.BPJS)
+	assert.Equal(t, "000111", *stub.createCommand.BPJS.HealthNumber)
+	assert.Nil(t, stub.createCommand.BPJS.EmploymentNumber)
+	require.NotNil(t, stub.createCommand.NPWP)
+	assert.Equal(t, "12.345.678.9-012.000", stub.createCommand.NPWP.Number)
+	require.Len(t, stub.createCommand.EmergencyContacts, 1)
+	assert.Equal(t, "Ibu Uji", stub.createCommand.EmergencyContacts[0].Name)
+	require.Len(t, stub.createCommand.Education, 1)
+	require.Len(t, stub.createCommand.PositionHistory, 1)
+	assert.Equal(t, departmentID, *stub.createCommand.PositionHistory[0].DepartmentID)
+	require.NotNil(t, stub.createCommand.CurrentSalary)
+	assert.Equal(t, "2026-08", stub.createCommand.CurrentSalary.Period)
+}
+
+// Bagian yang tidak disertakan pada UpdateEmployeeRequest tidak boleh membuat
+// EmployeeChanges menandakan "replace" (pointer harus tetap nil).
+func TestEmployeeChangesLeavesOmittedDetailSectionsNil(t *testing.T) {
+	changes := employeeChanges(dto.UpdateEmployeeRequest{Name: strPtr("Baru")})
+	assert.Nil(t, changes.BPJS)
+	assert.Nil(t, changes.NPWP)
+	assert.Nil(t, changes.EmergencyContacts)
+	assert.Nil(t, changes.Education)
+	assert.Nil(t, changes.PositionHistory)
+	assert.Nil(t, changes.CurrentSalary)
+}
+
+// Array kosong yang disertakan eksplisit berarti "hapus semua baris", bukan "tidak diubah";
+// harus tetap non-nil setelah mapping agar repository menjalankan replace-all.
+func TestEmployeeChangesTreatsEmptyArrayAsClearAll(t *testing.T) {
+	empty := []dto.EmergencyContactRequest{}
+	changes := employeeChanges(dto.UpdateEmployeeRequest{EmergencyContacts: &empty})
+	require.NotNil(t, changes.EmergencyContacts)
+	assert.Len(t, *changes.EmergencyContacts, 0)
+}
+
+func strPtr(value string) *string { return &value }

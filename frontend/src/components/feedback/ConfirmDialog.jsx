@@ -56,7 +56,7 @@ export const ConfirmDialog = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
       <div
         ref={dialogRef}
         role="alertdialog"
@@ -64,16 +64,16 @@ export const ConfirmDialog = ({
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-description"
         onKeyDown={handleKeyDown}
-        className="w-full max-w-md rounded-xl border border-white/10 bg-slate-900 p-6 shadow-xl"
+        className="w-full max-w-md rounded-xl border border-slate-900/10 bg-white p-6 shadow-xl"
       >
-        <h2 id="confirm-dialog-title" className="text-xl font-bold text-white">
+        <h2 id="confirm-dialog-title" className="text-xl font-bold text-slate-900">
           {title}
         </h2>
-        <p id="confirm-dialog-description" className="mt-3 text-sm text-slate-300">
+        <p id="confirm-dialog-description" className="mt-3 text-sm text-slate-600">
           {description}
         </p>
         {error && (
-          <p role="alert" className="mt-4 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-200">
+          <p role="alert" className="mt-4 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-700">
             {error}
           </p>
         )}
@@ -84,7 +84,7 @@ export const ConfirmDialog = ({
           <Button
             onClick={onConfirm}
             disabled={busy}
-            className={destructive ? "bg-rose-400 text-slate-950 hover:bg-rose-300" : undefined}
+            className={destructive ? "bg-rose-600 text-white hover:bg-rose-800" : undefined}
           >
             {busy ? "Memproses…" : confirmLabel}
           </Button>

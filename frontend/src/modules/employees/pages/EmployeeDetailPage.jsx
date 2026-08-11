@@ -35,17 +35,17 @@ export const EmployeeDetailPage = () => {
 
   if (employee.isPending) {
     return (
-      <p role="status" className="text-slate-300">
+      <p role="status" className="text-slate-600">
         Memuat detail karyawan…
       </p>
     );
   }
   if (employee.isError) {
     return (
-      <section role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-5 text-red-100">
+      <section role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-5 text-red-700">
         <h1 className="text-xl font-bold">Detail tidak dapat dibuka</h1>
         <p className="mt-2">{detailErrorMessage(employee.error)}</p>
-        <Link to={backTarget} className="mt-4 inline-block font-semibold text-cyan-300">
+        <Link to={backTarget} className="mt-4 inline-block font-semibold text-cyan-700">
           Kembali ke daftar
         </Link>
       </section>
@@ -67,16 +67,16 @@ export const EmployeeDetailPage = () => {
 
   return (
     <section aria-labelledby="employee-detail-title">
-      <Link to={backTarget} className="text-sm font-semibold text-cyan-300">
+      <Link to={backTarget} className="text-sm font-semibold text-cyan-700">
         ← Kembali ke daftar
       </Link>
       <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm text-slate-400">{data.nip}</p>
+          <p className="text-sm text-slate-500">{data.nip}</p>
           <h1 id="employee-detail-title" className="mt-1 text-3xl font-bold">
             {data.nama}
           </h1>
-          <p className="mt-2 text-slate-300">
+          <p className="mt-2 text-slate-600">
             {data.jabatan || "Jabatan belum ditetapkan"} ·{" "}
             {data.departemen || "Departemen belum ditetapkan"}
           </p>
@@ -87,7 +87,7 @@ export const EmployeeDetailPage = () => {
             <>
               <Link
                 to={`/app/karyawan/${id}/edit`}
-                className="inline-flex min-h-11 items-center rounded-lg border border-white/15 px-4 text-sm font-semibold"
+                className="inline-flex min-h-11 items-center rounded-lg border border-slate-900/15 px-4 text-sm font-semibold"
               >
                 Edit
               </Link>
@@ -108,7 +108,7 @@ export const EmployeeDetailPage = () => {
       )}
 
       {actionError && !isConfirmOpen && (
-        <p role="alert" className="mt-4 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-200">
+        <p role="alert" className="mt-4 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-700">
           {actionError}
         </p>
       )}

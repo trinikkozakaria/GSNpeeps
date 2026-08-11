@@ -14,19 +14,19 @@ export const EmployeeSelectField = ({
 
   return (
     <div>
-      <label htmlFor={id} className="mb-2 block text-sm font-medium text-slate-200">{label}</label>
+      <label htmlFor={id} className="mb-2 block text-sm font-medium text-slate-700">{label}</label>
       <select
         id={id}
         aria-invalid={Boolean(error)}
         aria-describedby={describedBy}
         disabled={disabled}
-        className="min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300 disabled:opacity-60"
+        className="min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300 disabled:opacity-60"
         {...registration}
       >
         {children}
       </select>
-      {description && <p id={`${id}-description`} className="mt-2 text-xs text-slate-400">{description}</p>}
-      {error && <p id={`${id}-error`} role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
+      {description && <p id={`${id}-description`} className="mt-2 text-xs text-slate-500">{description}</p>}
+      {error && <p id={`${id}-error`} role="alert" className="mt-2 text-sm text-rose-700">{error}</p>}
     </div>
   );
 };

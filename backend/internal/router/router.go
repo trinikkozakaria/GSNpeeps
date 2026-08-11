@@ -120,6 +120,7 @@ func New(
 
 	api.Handle("/lembur", protected(overtimes.Handler.Create)).Methods(http.MethodPost)
 	api.Handle("/lembur", protected(overtimes.Handler.List)).Methods(http.MethodGet)
+	api.Handle("/lembur/saya", protected(overtimes.Handler.ListMine)).Methods(http.MethodGet)
 	api.Handle("/lembur/rekap", protected(overtimes.Handler.Recap)).Methods(http.MethodGet)
 	api.Handle("/lembur/{id}", protected(overtimes.Handler.Detail)).Methods(http.MethodGet)
 	api.Handle("/lembur/{id}/decision", protected(overtimes.Handler.Decide)).Methods(http.MethodPut)

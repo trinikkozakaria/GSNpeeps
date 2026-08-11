@@ -52,47 +52,47 @@ export const AttendanceReportPage = () => {
 
   return (
     <section aria-labelledby="report-title">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Monitoring</p>
+      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Monitoring</p>
       <h1 id="report-title" className="mt-2 text-3xl font-bold">Laporan Kehadiran</h1>
-      <p className="mt-2 text-slate-300">
+      <p className="mt-2 text-slate-600">
         Rekap dihitung server pada zona waktu Asia/Jakarta.
         {auth.role === "top_management" && " Akses Anda bersifat pemantauan saja."}
       </p>
 
-      <div className="mt-7 grid gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="text-sm font-medium text-slate-200">
+      <div className="mt-7 grid gap-4 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="text-sm font-medium text-slate-700">
           Periode (YYYY-MM)
           <input
             type="month"
             value={filters.periode ?? ""}
             onChange={(event) => setFilter("periode", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
-        <label className="text-sm font-medium text-slate-200">
+        <label className="text-sm font-medium text-slate-700">
           Tanggal mulai
           <input
             type="date"
             value={filters.tanggal_mulai ?? ""}
             onChange={(event) => setFilter("tanggal_mulai", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
-        <label className="text-sm font-medium text-slate-200">
+        <label className="text-sm font-medium text-slate-700">
           Tanggal selesai
           <input
             type="date"
             value={filters.tanggal_selesai ?? ""}
             onChange={(event) => setFilter("tanggal_selesai", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
-        <label className="text-sm font-medium text-slate-200">
+        <label className="text-sm font-medium text-slate-700">
           Departemen
           <select
             value={filters.department_id ?? ""}
             onChange={(event) => setFilter("department_id", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-slate-950 px-3 text-white outline-none focus:border-cyan-300"
+            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           >
             <option value="">Semua departemen</option>
             {(departments.data ?? []).map((item) => (
@@ -110,9 +110,9 @@ export const AttendanceReportPage = () => {
       )}
 
       <div className="mt-6" aria-live="polite">
-        {report.isPending && <p role="status" className="text-slate-300">Memuat laporan…</p>}
+        {report.isPending && <p role="status" className="text-slate-600">Memuat laporan…</p>}
         {report.isError && (
-          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100">
+          <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-700">
             <p>Laporan belum dapat dimuat. {report.error.message}</p>
             <Button className="mt-3" variant="secondary" onClick={() => report.refetch()}>Coba lagi</Button>
           </div>

@@ -86,11 +86,11 @@ export const NotificationsPage = () => {
 
   return (
     <section aria-labelledby="notifications-title">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">Aktivitas</p>
+      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Aktivitas</p>
       <h1 id="notifications-title" className="mt-2 text-3xl font-bold">
         Notifikasi
       </h1>
-      <p className="mt-2 text-slate-300">
+      <p className="mt-2 text-slate-600">
         Hanya notifikasi milik akun Anda yang ditampilkan. Notifikasi yang dihapus tidak dapat
         dikembalikan.
       </p>
@@ -111,7 +111,7 @@ export const NotificationsPage = () => {
       {rowError && (
         <p
           role="alert"
-          className="mt-4 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-200"
+          className="mt-4 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-700"
         >
           {rowError}
         </p>
@@ -119,7 +119,7 @@ export const NotificationsPage = () => {
 
       <div className="mt-6" aria-live="polite">
         {notifications.isPending && (
-          <p role="status" className="text-slate-300">
+          <p role="status" className="text-slate-600">
             Memuat notifikasi…
           </p>
         )}
@@ -127,7 +127,7 @@ export const NotificationsPage = () => {
         {notifications.isError && (
           <div
             role="alert"
-            className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-100"
+            className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-700"
           >
             <p>Notifikasi belum dapat dimuat. {notifications.error?.message}</p>
             <Button className="mt-3" variant="secondary" onClick={() => notifications.refetch()}>
@@ -137,7 +137,7 @@ export const NotificationsPage = () => {
         )}
 
         {notifications.data && notifications.data.items.length === 0 && (
-          <div className="rounded-xl border border-white/10 p-8 text-center text-slate-300">
+          <div className="rounded-xl border border-slate-900/10 p-8 text-center text-slate-600">
             {filter === "belum"
               ? "Tidak ada notifikasi yang belum dibaca."
               : "Belum ada notifikasi untuk akun Anda."}

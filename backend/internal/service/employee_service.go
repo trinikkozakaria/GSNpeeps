@@ -169,6 +169,87 @@ func createEmployeeCommand(
 			StartDate: request.Contract.StartDate,
 			EndDate:   request.Contract.EndDate,
 		},
+		BPJS:              mapBPJSRequest(request.BPJS),
+		NPWP:              mapNPWPRequest(request.NPWP),
+		EmergencyContacts: mapEmergencyContacts(request.EmergencyContacts),
+		Education:         mapEducation(request.Education),
+		PositionHistory:   mapPositionHistory(request.PositionHistory),
+		CurrentSalary:     mapCurrentSalary(request.CurrentSalary),
+	}
+}
+
+func mapBPJSRequest(request *dto.EmployeeBPJSRequest) *domain.CreateEmployeeBPJS {
+	if request == nil {
+		return nil
+	}
+	return &domain.CreateEmployeeBPJS{
+		HealthNumber:     trimOptionalString(request.HealthNumber),
+		EmploymentNumber: trimOptionalString(request.EmploymentNumber),
+	}
+}
+
+func mapNPWPRequest(request *dto.EmployeeNPWPRequest) *domain.CreateEmployeeNPWP {
+	if request == nil {
+		return nil
+	}
+	return &domain.CreateEmployeeNPWP{Number: strings.TrimSpace(request.Number)}
+}
+
+func mapEmergencyContacts(requests []dto.EmergencyContactRequest) []domain.CreateEmergencyContact {
+	if requests == nil {
+		return nil
+	}
+	contacts := make([]domain.CreateEmergencyContact, 0, len(requests))
+	for _, item := range requests {
+		contacts = append(contacts, domain.CreateEmergencyContact{
+			Name:         strings.TrimSpace(item.Name),
+			Relationship: trimOptionalString(item.Relationship),
+			Phone:        strings.TrimSpace(item.Phone),
+		})
+	}
+	return contacts
+}
+
+func mapEducation(requests []dto.EducationRequest) []domain.CreateEducation {
+	if requests == nil {
+		return nil
+	}
+	entries := make([]domain.CreateEducation, 0, len(requests))
+	for _, item := range requests {
+		entries = append(entries, domain.CreateEducation{
+			Level:          trimOptionalString(item.Level),
+			Institution:    trimOptionalString(item.Institution),
+			GraduationYear: item.GraduationYear,
+		})
+	}
+	return entries
+}
+
+func mapPositionHistory(requests []dto.PositionHistoryRequest) []domain.CreatePositionHistory {
+	if requests == nil {
+		return nil
+	}
+	entries := make([]domain.CreatePositionHistory, 0, len(requests))
+	for _, item := range requests {
+		entries = append(entries, domain.CreatePositionHistory{
+			DepartmentID: item.DepartmentID,
+			PositionID:   item.PositionID,
+			StartDate:    item.StartDate,
+			EndDate:      item.EndDate,
+		})
+	}
+	return entries
+}
+
+func mapCurrentSalary(request *dto.CurrentSalaryRequest) *domain.CreateCurrentSalary {
+	if request == nil {
+		return nil
+	}
+	return &domain.CreateCurrentSalary{
+		Period:    request.Period,
+		BasePay:   request.BasePay,
+		Allowance: request.Allowance,
+		Deduction: request.Deduction,
 	}
 }
 
@@ -287,6 +368,9 @@ func employeeChanges(request dto.UpdateEmployeeRequest) domain.EmployeeChanges {
 		MaritalStatus: request.MaritalStatus,
 		Status:        request.Status,
 		Role:          request.Role,
+		BPJS:          mapBPJSRequest(request.BPJS),
+		NPWP:          mapNPWPRequest(request.NPWP),
+		CurrentSalary: mapCurrentSalary(request.CurrentSalary),
 	}
 	if changes.Name != nil {
 		normalized := strings.TrimSpace(*changes.Name)
@@ -295,6 +379,18 @@ func employeeChanges(request dto.UpdateEmployeeRequest) domain.EmployeeChanges {
 	if changes.Email != nil {
 		normalized := strings.ToLower(strings.TrimSpace(*changes.Email))
 		changes.Email = &normalized
+	}
+	if request.EmergencyContacts != nil {
+		contacts := mapEmergencyContacts(*request.EmergencyContacts)
+		changes.EmergencyContacts = &contacts
+	}
+	if request.Education != nil {
+		education := mapEducation(*request.Education)
+		changes.Education = &education
+	}
+	if request.PositionHistory != nil {
+		history := mapPositionHistory(*request.PositionHistory)
+		changes.PositionHistory = &history
 	}
 	return changes
 }
