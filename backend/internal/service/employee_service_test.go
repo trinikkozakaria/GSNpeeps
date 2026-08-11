@@ -30,6 +30,9 @@ type employeeReaderStub struct {
 	createDocumentErr error
 	exportRows        []domain.EmployeeSummary
 	exportQuery       domain.EmployeeExportQuery
+	updatedPhotoID    uuid.UUID
+	updatedPhotoURL   string
+	updatePhotoErr    error
 }
 
 func (s *employeeReaderStub) ValidateCreate(context.Context, domain.CreateEmployee) error {
@@ -65,6 +68,12 @@ func (s *employeeReaderStub) SoftDelete(
 	uuid.UUID,
 ) (domain.EmployeeMutationResult, error) {
 	return domain.EmployeeMutationResult{}, nil
+}
+
+func (s *employeeReaderStub) UpdatePhoto(_ context.Context, employeeID uuid.UUID, url string) error {
+	s.updatedPhotoID = employeeID
+	s.updatedPhotoURL = url
+	return s.updatePhotoErr
 }
 
 type transactionStub struct{}
@@ -368,6 +377,120 @@ func TestEmployeeUploadDocumentRejectsOversizeContent(t *testing.T) {
 	upload.Content = make([]byte, maxDocumentBytes+1)
 
 	_, err := service.UploadDocument(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), Role: domain.RoleHR},
+		uuid.New(),
+		upload,
+		RequestMeta{},
+	)
+
+	require.ErrorIs(t, err, domain.ErrInvalidRequest)
+	assert.Empty(t, store.uploadedPath)
+}
+
+func validPhotoUpload() PhotoUpload {
+	return PhotoUpload{
+		Extension: ".jpg",
+		MediaType: "image/jpeg",
+		Content:   []byte("\xff\xd8\xff\xe0 foto sintetis"),
+	}
+}
+
+// HR boleh memperbarui foto karyawan mana pun; karyawan/atasan hanya boleh memperbarui
+// fotonya sendiri (D-037).
+func TestEmployeeUpdatePhotoAuthorization(t *testing.T) {
+	employeeID := uuid.New()
+
+	store := &documentStoreStub{}
+	service := newEmployeeServiceWith(&employeeReaderStub{}, transactionStub{}, store)
+	_, err := service.UpdatePhoto(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), EmployeeID: uuid.New(), Role: domain.RoleHR},
+		employeeID,
+		validPhotoUpload(),
+		RequestMeta{},
+	)
+	require.NoError(t, err, "HR dapat memperbarui foto karyawan lain")
+
+	store = &documentStoreStub{}
+	service = newEmployeeServiceWith(&employeeReaderStub{}, transactionStub{}, store)
+	_, err = service.UpdatePhoto(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), EmployeeID: employeeID, Role: domain.RoleEmployee},
+		employeeID,
+		validPhotoUpload(),
+		RequestMeta{},
+	)
+	require.NoError(t, err, "karyawan dapat memperbarui foto miliknya sendiri")
+
+	store = &documentStoreStub{}
+	service = newEmployeeServiceWith(&employeeReaderStub{}, transactionStub{}, store)
+	_, err = service.UpdatePhoto(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), EmployeeID: uuid.New(), Role: domain.RoleEmployee},
+		employeeID,
+		validPhotoUpload(),
+		RequestMeta{},
+	)
+	require.ErrorIs(t, err, domain.ErrForbidden, "karyawan tidak boleh mengubah foto orang lain")
+	assert.Empty(t, store.uploadedPath, "request tertolak tidak boleh mengunggah berkas")
+}
+
+func TestEmployeeUpdatePhotoBuildsNamespacedServerSidePathAndPersistsURL(t *testing.T) {
+	stub := &employeeReaderStub{}
+	store := &documentStoreStub{}
+	service := newEmployeeServiceWith(stub, transactionStub{}, store)
+	employeeID := uuid.New()
+
+	location, err := service.UpdatePhoto(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), Role: domain.RoleHR},
+		employeeID,
+		validPhotoUpload(),
+		RequestMeta{},
+	)
+
+	require.NoError(t, err)
+	assert.True(
+		t,
+		strings.HasPrefix(store.uploadedPath, "employee-photos/"+employeeID.String()+"/"),
+		"object path harus ter-namespace per karyawan: %s", store.uploadedPath,
+	)
+	assert.True(t, strings.HasSuffix(store.uploadedPath, ".jpg"))
+	assert.Equal(t, employeeID, stub.updatedPhotoID)
+	assert.Equal(t, location, stub.updatedPhotoURL)
+	assert.Equal(t, "GSNpeeps/"+store.uploadedPath, location)
+}
+
+func TestEmployeeUpdatePhotoRemovesOrphanWhenTransactionFails(t *testing.T) {
+	store := &documentStoreStub{}
+	service := newEmployeeServiceWith(
+		&employeeReaderStub{},
+		failingTransactionStub{err: errors.New("database unavailable")},
+		store,
+	)
+
+	_, err := service.UpdatePhoto(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), Role: domain.RoleHR},
+		uuid.New(),
+		validPhotoUpload(),
+		RequestMeta{},
+	)
+
+	require.Error(t, err)
+	assert.NotEmpty(t, store.uploadedPath)
+	assert.Equal(t, store.uploadedPath, store.deletedPath,
+		"object yang sudah terunggah harus dihapus ketika transaction gagal")
+}
+
+func TestEmployeeUpdatePhotoRejectsOversizeContent(t *testing.T) {
+	store := &documentStoreStub{}
+	service := newEmployeeServiceWith(&employeeReaderStub{}, transactionStub{}, store)
+	upload := validPhotoUpload()
+	upload.Content = make([]byte, maxDocumentBytes+1)
+
+	_, err := service.UpdatePhoto(
 		context.Background(),
 		domain.Identity{UserID: uuid.New(), Role: domain.RoleHR},
 		uuid.New(),

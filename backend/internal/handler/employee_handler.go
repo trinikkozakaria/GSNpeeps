@@ -54,6 +54,13 @@ type EmployeeService interface {
 		domain.EmployeeExportQuery,
 		service.RequestMeta,
 	) (domain.ExportFile, error)
+	UpdatePhoto(
+		context.Context,
+		domain.Identity,
+		uuid.UUID,
+		service.PhotoUpload,
+		service.RequestMeta,
+	) (string, error)
 }
 
 func (h *EmployeeHandler) Create(writer http.ResponseWriter, request *http.Request) {

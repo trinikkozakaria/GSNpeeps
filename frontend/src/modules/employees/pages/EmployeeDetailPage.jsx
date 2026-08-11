@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { ConfirmDialog } from "../../../components/feedback/ConfirmDialog";
+import { PhotoUploadField } from "../../../components/form/PhotoUploadField";
 import { Button } from "../../../components/ui/Button";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { EmployeeDetailSections } from "../components/EmployeeDetailSections";
 import { EmployeeDocuments } from "../components/EmployeeDocuments";
 import { EmployeeExportMenu } from "../components/EmployeeExportMenu";
 import { EmployeeStatusBadge } from "../components/EmployeeStatusBadge";
-import { useDeactivateEmployee, useEmployeeDetail } from "../hooks/useEmployees";
+import { useDeactivateEmployee, useEmployeeDetail, useUploadEmployeePhoto } from "../hooks/useEmployees";
 
 // Pesan tidak membedakan "tidak ada" dan "tidak boleh diakses" agar keberadaan record tidak
 // bocor kepada role yang tidak berhak.
@@ -26,6 +27,7 @@ export const EmployeeDetailPage = () => {
   const auth = useAuth();
   const employee = useEmployeeDetail(auth.role, id);
   const deactivate = useDeactivateEmployee(auth.role, id);
+  const uploadPhoto = useUploadEmployeePhoto(auth.role, id);
   const [actionError, setActionError] = useState("");
   const [isConfirmOpen, setConfirmOpen] = useState(false);
   const isHR = auth.role === "hr";
@@ -104,6 +106,22 @@ export const EmployeeDetailPage = () => {
       {isHR && (
         <div className="mt-5">
           <EmployeeExportMenu employeeId={id} label="Export karyawan ini" />
+        </div>
+      )}
+
+      {isHR && (
+        <div className="mt-6 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
+          <h2 className="text-base font-semibold text-slate-900">Foto profil</h2>
+          <div className="mt-4">
+            <PhotoUploadField
+              idPrefix="employee-photo"
+              currentPhotoUrl={data.foto_profil_url}
+              onUpload={async (file) => {
+                const result = await uploadPhoto.mutateAsync(file);
+                return result.foto_profil_url;
+              }}
+            />
+          </div>
         </div>
       )}
 

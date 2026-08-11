@@ -167,6 +167,7 @@ func (s *AuthService) Login(
 			Name:       account.Name,
 			Email:      account.Email,
 			Role:       account.Role,
+			PhotoURL:   account.PhotoURL,
 		},
 	}, nil
 }

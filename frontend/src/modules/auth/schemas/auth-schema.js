@@ -82,6 +82,7 @@ export const authUserSchema = z
     nama: z.string().min(1),
     email: z.string().email(),
     role: roleSchema,
+    foto_profil_url: z.string().nullable().optional(),
   })
   .strict();
 
@@ -91,6 +92,12 @@ export const loginDataSchema = z
     token_type: z.literal("Bearer"),
     expires_in: z.literal(28800),
     user: authUserSchema,
+  })
+  .strict();
+
+export const photoUpdateDataSchema = z
+  .object({
+    foto_profil_url: z.string(),
   })
   .strict();
 

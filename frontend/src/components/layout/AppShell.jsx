@@ -1,22 +1,23 @@
 import { Suspense, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../modules/auth/hooks/useAuth";
 import { NotificationBell } from "../../modules/notifications/components/NotificationBell";
 import { navigationForRole, roleLabel } from "../../routes/navigation/navigation";
 import { Button } from "../ui/Button";
 
+const navLinkClassName = ({ isActive }) =>
+  `block rounded-lg px-3 py-2 text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700 ${
+    isActive
+      ? "bg-cyan-700 text-white"
+      : "text-slate-600 hover:bg-slate-900/5 hover:text-slate-900"
+  }`;
+
 export const AppShell = () => {
   const auth = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigation = navigationForRole(auth.role);
-
-  // "Kehadiran Saya" turut tersorot aktif ketika sub-alur Ajukan Ketidakhadiran/Lembur
-  // sedang dibuka, karena keduanya adalah bagian dari alur kehadiran yang sama.
-  const isItemActive = (item) => 
-    (!item.activeMatchPaths?.some((path) => location.pathname === path));
 
   const handleLogout = async () => {
     if (isLoggingOut) {
@@ -48,9 +49,27 @@ export const AppShell = () => {
           </div>
           <div className="flex items-center gap-3 sm:gap-4">
             <NotificationBell />
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-semibold">{auth.user.nama}</p>
-              <p className="text-xs text-slate-500">{roleLabel[auth.role]}</p>
+            <div className="flex items-center gap-2.5">
+              <span className="hidden text-right sm:block">
+                <p className="text-sm font-semibold">{auth.user.nama}</p>
+                <p className="text-xs text-slate-500">{roleLabel[auth.role]}</p>
+              </span>
+              <span className="block h-9 w-9 shrink-0 overflow-hidden rounded-full border border-slate-900/10 bg-slate-100">
+                {auth.user.foto_profil_url ? (
+                  <img
+                    src={auth.user.foto_profil_url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-slate-500"
+                  >
+                    {auth.user.nama?.[0] ?? "?"}
+                  </span>
+                )}
+              </span>
             </div>
             <Button variant="secondary" onClick={handleLogout} disabled={isLoggingOut}>
               {isLoggingOut ? "Keluar…" : "Keluar"}
@@ -64,23 +83,34 @@ export const AppShell = () => {
           className="sticky top-16 z-30 border-b border-slate-900/10 bg-white px-4 py-2 sm:px-6 lg:fixed lg:inset-y-0 lg:top-16 lg:left-0 lg:z-30 lg:w-60 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-4 lg:py-6"
         >
           <ul className="flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible lg:pb-0">
-            {navigation.map((item) => (
-              <li key={item.path} className="shrink-0">
-                <NavLink
-                  to={item.path}
-                  end={item.path === "/app"}
-                  className={({ isActive }) =>
-                    `block rounded-lg px-3 py-2 text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700 ${
-                      isActive && isItemActive(item)
-                        ? "bg-cyan-700 text-white"
-                        : "text-slate-600 hover:bg-slate-900/5 hover:text-slate-900"
-                    }`
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
+            {navigation.map((item) =>
+              item.children ? (
+                // Label pengelompokan UI-saja (mis. "Pengajuan"): tidak pernah menjadi link
+                // sendiri, hanya menyorot hierarki anaknya. Disembunyikan di strip mobile
+                // karena indentasi tidak berarti pada layout horizontal; anaknya tetap
+                // tampil sebagai item biasa di sana.
+                <li key={item.label} className="contents lg:block">
+                  <p className="hidden px-3 pt-3 text-xs font-semibold uppercase tracking-wider text-slate-500 lg:block">
+                    {item.label}
+                  </p>
+                  <ul className="contents lg:block lg:space-y-1">
+                    {item.children.map((child) => (
+                      <li key={child.path} className="shrink-0">
+                        <NavLink to={child.path} className={navLinkClassName}>
+                          <span className="lg:pl-3">{child.label}</span>
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ) : (
+                <li key={item.path} className="shrink-0">
+                  <NavLink to={item.path} end={item.path === "/app"} className={navLinkClassName}>
+                    {item.label}
+                  </NavLink>
+                </li>
+              ),
+            )}
           </ul>
         </nav>
         <main id="main-content" className="min-w-0 px-4 py-6 sm:px-6 lg:ml-60 lg:px-8 lg:py-8">

@@ -117,6 +117,12 @@ func (s *employeeServiceStub) Export(
 	return s.exportFile, s.exportErr
 }
 
+func (s *employeeServiceStub) UpdatePhoto(
+	context.Context, domain.Identity, uuid.UUID, service.PhotoUpload, service.RequestMeta,
+) (string, error) {
+	return "GSNpeeps/employee-photos/foto.jpg", nil
+}
+
 type permissiveValidator struct{}
 
 func (permissiveValidator) Struct(any) map[string]string { return nil }

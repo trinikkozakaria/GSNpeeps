@@ -34,6 +34,7 @@ type EmployeeReader interface {
 	FindDocuments(context.Context, uuid.UUID) ([]domain.EmployeeDocument, error)
 	CreateDocument(context.Context, domain.NewEmployeeDocument) (uuid.UUID, error)
 	ExportRows(context.Context, domain.EmployeeExportQuery, int) ([]domain.EmployeeSummary, error)
+	UpdatePhoto(context.Context, uuid.UUID, string) error
 }
 
 // DocumentStore adalah boundary penyimpanan berkas (Nextcloud WebDAV). Credential teknis
@@ -616,6 +617,71 @@ func (s *EmployeeService) UploadDocument(
 // pernah dipakai sebagai nama object agar path traversal dan tabrakan nama tidak mungkin.
 func documentObjectPath(employeeID uuid.UUID, extension string) string {
 	return path.Join("employee-documents", employeeID.String(), uuid.NewString()+extension)
+}
+
+// PhotoUpload adalah foto profil yang sudah divalidasi handler dan siap disimpan.
+type PhotoUpload struct {
+	Extension string
+	MediaType string
+	Content   []byte
+}
+
+// UpdatePhoto mengganti foto profil karyawan. HR boleh memperbarui foto karyawan mana pun;
+// karyawan/atasan/HR sendiri hanya boleh memperbarui foto miliknya sendiri (D-037). Foto
+// lama tidak dihapus dari Nextcloud, konsisten dengan dokumen karyawan lain yang juga tidak
+// pernah dibersihkan otomatis di luar retensi foto absensi.
+func (s *EmployeeService) UpdatePhoto(
+	ctx context.Context,
+	identity domain.Identity,
+	employeeID uuid.UUID,
+	upload PhotoUpload,
+	meta RequestMeta,
+) (string, error) {
+	if identity.Role != domain.RoleHR && identity.EmployeeID != employeeID {
+		return "", domain.ErrForbidden
+	}
+	if len(upload.Content) == 0 || len(upload.Content) > maxDocumentBytes {
+		return "", domain.ErrInvalidRequest
+	}
+	if err := s.employees.ExistsActive(ctx, employeeID); err != nil {
+		return "", mapEmployeeRepositoryError(err)
+	}
+
+	objectPath := profilePhotoObjectPath(employeeID, upload.Extension)
+	location, err := s.documents.Upload(ctx, objectPath, bytes.NewReader(upload.Content), upload.MediaType)
+	if err != nil {
+		return "", fmt.Errorf("upload profile photo: %w", err)
+	}
+
+	err = s.tx.Within(ctx, func(txContext context.Context) error {
+		if err := s.employees.UpdatePhoto(txContext, employeeID, location); err != nil {
+			return mapEmployeeRepositoryError(err)
+		}
+		return s.audit.Append(txContext, domain.AuditEntry{
+			UserID:    &identity.UserID,
+			Action:    "UPDATE",
+			Module:    "karyawan_foto",
+			DataID:    &employeeID,
+			Detail:    map[string]any{"request_id": meta.RequestID},
+			IPAddress: meta.IPAddress,
+			CreatedAt: s.now().UTC(),
+		})
+	})
+	if err != nil {
+		// Kompensasi object yang sudah terunggah agar tidak menjadi orphan.
+		if cleanupErr := s.documents.Delete(ctx, objectPath); cleanupErr != nil {
+			slog.ErrorContext(ctx, "orphan profile photo cleanup failed",
+				"object_path", objectPath, "error", cleanupErr)
+		}
+		return "", fmt.Errorf("record employee photo: %w", err)
+	}
+	return location, nil
+}
+
+// profilePhotoObjectPath membentuk path yang ter-namespace per karyawan, terpisah dari
+// dokumen umum agar retensi/kebijakan berbeda dapat diterapkan di kemudian hari.
+func profilePhotoObjectPath(employeeID uuid.UUID, extension string) string {
+	return path.Join("employee-photos", employeeID.String(), uuid.NewString()+extension)
 }
 
 // Export menghasilkan berkas XLSX atau PDF berisi dataset yang sama dengan list. Hanya HR

@@ -31,7 +31,8 @@ const accountColumns = `
     e.status,
     e.deleted_at,
     u.failed_login_count,
-    u.account_locked`
+    u.account_locked,
+    e.foto_profil_url`
 
 func (r *AuthRepository) FindForLogin(ctx context.Context, email string) (domain.LoginAccount, error) {
 	row := r.pool.QueryRow(ctx, `
@@ -58,14 +59,14 @@ func (r *AuthRepository) FindForPasswordByID(ctx context.Context, userID uuid.UU
 func (r *AuthRepository) FindIdentityByID(ctx context.Context, userID uuid.UUID) (domain.AuthUser, error) {
 	var user domain.AuthUser
 	err := r.pool.QueryRow(ctx, `
-        SELECT u.id, u.employee_id, e.nama, u.email, r.nama
+        SELECT u.id, u.employee_id, e.nama, u.email, r.nama, e.foto_profil_url
         FROM users u
         JOIN employees e ON e.id = u.employee_id
         JOIN roles r ON r.id = u.role_id
         WHERE u.id = $1
           AND e.status = 'aktif'
           AND e.deleted_at IS NULL
-    `, userID).Scan(&user.ID, &user.EmployeeID, &user.Name, &user.Email, &user.Role)
+    `, userID).Scan(&user.ID, &user.EmployeeID, &user.Name, &user.Email, &user.Role, &user.PhotoURL)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.AuthUser{}, ErrNotFound
 	}
@@ -153,6 +154,7 @@ func scanAccount(row rowScanner) (domain.LoginAccount, error) {
 		&account.EmployeeDeleted,
 		&account.FailedLoginCount,
 		&account.AccountLocked,
+		&account.PhotoURL,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.LoginAccount{}, ErrNotFound

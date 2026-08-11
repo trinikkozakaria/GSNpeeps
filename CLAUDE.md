@@ -394,7 +394,7 @@ Base path aplikasi:
 /api/v1
 ```
 
-Total: **47 endpoint dalam 13 modul**.
+Total: **49 endpoint dalam 13 modul**.
 
 ### Sistem
 
@@ -411,6 +411,7 @@ Total: **47 endpoint dalam 13 modul**.
 | POST | `/auth/logout` | Semua role terautentikasi |
 | GET | `/auth/me` | Semua role terautentikasi |
 | PATCH | `/auth/me/password` | Semua role terautentikasi |
+| PUT | `/auth/me/foto` | Semua role terautentikasi |
 
 ### Master Organisasi
 
@@ -432,6 +433,7 @@ Total: **47 endpoint dalam 13 modul**.
 | GET | `/karyawan/export` | HR |
 | POST | `/karyawan/{id}/dokumen` | HR |
 | GET | `/karyawan/{id}/dokumen` | HR, Top Management read-only bila kontrak mengizinkan |
+| PUT | `/karyawan/{id}/foto` | HR |
 
 ### Profil dan Metrik Personal
 
@@ -508,11 +510,14 @@ Total: **47 endpoint dalam 13 modul**.
 | PUT | `/notifikasi/{id}/read` | Recipient sendiri |
 | DELETE | `/notifikasi/{id}` | Recipient sendiri, soft-dismiss |
 
-Kontrak aktif 0.5.0 mempertahankan current-user dan change-password, serta menyediakan
+Kontrak aktif 0.7.0 mempertahankan current-user dan change-password, serta menyediakan
 self-reset yang memverifikasi password saat ini. Revisi 0.5.0 menambahkan `GET
 /lembur/saya` (D-035) agar histori lembur milik sendiri tidak lagi memakai endpoint inbox
-approval. Jangan menambahkan refresh token atau mekanisme forgot-password berbasis
-email/OTP tanpa keputusan produk.
+approval. Revisi 0.6.0 menambahkan write support BPJS/NPWP/kontak darurat/pendidikan/
+riwayat jabatan/gaji berjalan pada `POST`/`PUT /karyawan` (D-036). Revisi 0.7.0 menambahkan
+`PUT /auth/me/foto` dan `PUT /karyawan/{id}/foto` untuk foto profil di navbar (D-037).
+Jangan menambahkan refresh token atau mekanisme forgot-password berbasis email/OTP tanpa
+keputusan produk.
 
 ---
 

@@ -69,6 +69,14 @@ export const uploadEmployeeDocumentRequest = async (id, { jenisDokumen, file }, 
   return envelope.data;
 };
 
+/** HR memperbarui foto profil karyawan lain. Diri sendiri memakai PUT /auth/me/foto. */
+export const uploadEmployeePhotoRequest = async (id, file, signal) => {
+  const form = new FormData();
+  form.append("foto", file);
+  const envelope = await apiClient.put(`/karyawan/${id}/foto`, form, { signal });
+  return envelope.data;
+};
+
 export const exportEmployeesRequest = (query, signal) =>
   downloadFile("/karyawan/export", query, {
     signal,

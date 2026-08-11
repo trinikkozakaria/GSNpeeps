@@ -460,6 +460,39 @@ sempit pada kebutuhan write):
   tidak memiliki kolom untuk keduanya). Revisi ini tidak menambah kolom baru untuk field
   yang belum pernah diminta pengguna.
 
+### D-037 — Foto profil: satu locator per employee, ditulis lewat dua endpoint
+
+Permintaan produk: navbar menampilkan foto di samping nama user yang sedang login, dan baik
+HR maupun user itu sendiri dapat memperbaruinya. Tidak ada kolom/endpoint foto profil di
+kontrak sebelumnya (`employees` hanya punya foto absensi di tabel `attendances`, bukan foto
+profil karyawan).
+
+OpenAPI 0.7.0 menambahkan:
+
+- Kolom `employees.foto_profil_url` (migration `00008`), nullable, satu locator terkini per
+  employee (bukan histori/array), konsisten dengan `employee_ktp.file_url` dan
+  `employee_npwp.file_url`.
+- `PUT /api/v1/auth/me/foto` — seluruh role terautentikasi memperbarui foto miliknya
+  sendiri. Ditempatkan di bawah `/auth/me` (bukan `/profil/saya`) karena Top Management
+  tidak memiliki Profil Saya tetapi tetap muncul di navbar dan berhak mengatur fotonya
+  sendiri.
+- `PUT /api/v1/karyawan/{id}/foto` — HR memperbarui foto karyawan mana pun, mengikuti pola
+  akses `POST /karyawan/{id}/dokumen`.
+- `foto_profil_url` ditambahkan ke `AuthUser` (dipakai `/auth/login` dan `/auth/me`, sumber
+  navbar) dan ke `EmployeeDetail` (dipakai `/karyawan/{id}` dan `/profil/saya`) agar HR/pemilik
+  akun melihat foto saat ini sebelum menggantinya. `EmployeeSummary`/daftar karyawan sengaja
+  tidak diubah karena tabel daftar karyawan tidak diminta menampilkan foto.
+
+Upload memakai jalur yang identik dengan upload dokumen karyawan (validasi ukuran 5 MB,
+signature JPG/PNG via `filetype.ValidatePhoto`, upload ke Nextcloud lewat `DocumentStore`,
+compensating delete bila transaction database gagal setelah upload). Foto lama tidak
+otomatis dihapus dari Nextcloud saat diganti — konsisten dengan dokumen karyawan lain yang
+juga tidak dibersihkan otomatis di luar retensi foto absensi; ini adalah known limitation,
+bukan bug, dan dapat direvisi lewat keputusan produk terpisah bila penumpukan objek menjadi
+masalah nyata.
+
+Operation count kontrak aktif menjadi 49 (D-001 46, D-035 +1, D-037 +2).
+
 ## Validation record
 
 Hasil validasi lokal setelah penerapan D-017 (enum `ExportFormatParam`):
@@ -484,3 +517,14 @@ Hasil validasi lokal setelah penerapan D-035 (`GET /api/v1/lembur/saya`):
 - Operation ID: lengkap dan unik, termasuk `listMyOvertimeRequests`.
 - Response coverage: operation baru memiliki response 2xx dan 4xx yang identik dengan
   `listMyLeaveRequests`.
+
+Hasil validasi lokal setelah penerapan D-037 (foto profil):
+
+- YAML syntax: valid dengan PyYAML.
+- Path count: 41 (bertambah dua dari `/api/v1/auth/me/foto` dan `/api/v1/karyawan/{id}/foto`).
+- Operation count: 49 (bertambah dua sesuai D-037).
+- Operation ID: lengkap dan unik, termasuk `updateMyPhoto` dan `updateEmployeePhoto`.
+- Response coverage: kedua operation baru memiliki response 2xx dan 4xx yang identik dengan
+  `uploadEmployeeDocument`.
+- `AuthUser.foto_profil_url` dan `EmployeeDetail.foto_profil_url` bertipe nullable string
+  (`format: uri`), konsisten dengan `EmployeeKTP.file_url`/`EmployeeNPWP.file_url`.

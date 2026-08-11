@@ -78,6 +78,7 @@ func New(
 	api.Handle("/auth/logout", protected(auth.Handler.Logout)).Methods(http.MethodPost)
 	api.Handle("/auth/me", protected(auth.Handler.Me)).Methods(http.MethodGet)
 	api.Handle("/auth/me/password", protected(auth.Handler.ChangePassword)).Methods(http.MethodPatch)
+	api.Handle("/auth/me/foto", protected(employees.Handler.UpdateMyPhoto)).Methods(http.MethodPut)
 	api.Handle("/master/departemen", protected(employees.Handler.ListDepartments)).Methods(http.MethodGet)
 	api.Handle("/master/jabatan", protected(employees.Handler.ListPositions)).Methods(http.MethodGet)
 	api.Handle("/master/lokasi-kantor", protected(attendances.Handler.ListOfficeLocations)).
@@ -94,6 +95,7 @@ func New(
 		Methods(http.MethodGet)
 	api.Handle("/karyawan/{id}/dokumen", protected(employees.Handler.UploadDocument)).
 		Methods(http.MethodPost)
+	api.Handle("/karyawan/{id}/foto", protected(employees.Handler.UpdatePhoto)).Methods(http.MethodPut)
 	api.Handle("/profil/saya", protected(profiles.Handler.Me)).Methods(http.MethodGet)
 	api.Handle("/profil/saya/metrik", protected(profiles.Handler.Metrics)).Methods(http.MethodGet)
 	api.Handle("/dashboard/metrik", protected(dashboards.Handler.Metrics)).Methods(http.MethodGet)

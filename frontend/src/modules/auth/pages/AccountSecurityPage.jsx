@@ -4,8 +4,9 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 
 import { FormInput } from "../../../components/form/FormInput";
+import { PhotoUploadField } from "../../../components/form/PhotoUploadField";
 import { Button } from "../../../components/ui/Button";
-import { changePasswordRequest } from "../api/auth-api";
+import { changePasswordRequest, updateMyPhotoRequest } from "../api/auth-api";
 import { useAuth } from "../hooks/useAuth";
 import { changePasswordSchema } from "../schemas/auth-schema";
 
@@ -59,6 +60,27 @@ export const AccountSecurityPage = () => {
       <p className="mt-3 text-slate-500">
         Mengganti password akan mencabut seluruh sesi dan mewajibkan login ulang.
       </p>
+
+      <section aria-labelledby="security-photo-title" className="mt-8 rounded-2xl border border-slate-900/10 bg-slate-900/[0.03] p-6">
+        <h2 id="security-photo-title" className="text-lg font-bold">
+          Foto profil
+        </h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Ditampilkan di navbar di samping nama Anda.
+        </p>
+        <div className="mt-5">
+          <PhotoUploadField
+            idPrefix="security"
+            currentPhotoUrl={auth.user?.foto_profil_url}
+            onUpload={async (file) => {
+              const result = await updateMyPhotoRequest(file);
+              await auth.refreshUser();
+              return result.foto_profil_url;
+            }}
+          />
+        </div>
+      </section>
+
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-8 space-y-5 rounded-2xl border border-slate-900/10 bg-slate-900/[0.03] p-6">
         {formError ? (
           <div role="alert" className="rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-sm text-rose-700">

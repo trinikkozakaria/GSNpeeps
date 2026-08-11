@@ -118,6 +118,13 @@ func (s *employeeServiceRecorder) Export(
 	}, nil
 }
 
+func (s *employeeServiceRecorder) UpdatePhoto(
+	context.Context, domain.Identity, uuid.UUID, service.PhotoUpload, service.RequestMeta,
+) (string, error) {
+	s.called = "updatePhoto"
+	return "GSNpeeps/employee-photos/foto.jpg", nil
+}
+
 type profileServiceRecorder struct{ called string }
 
 func (s *profileServiceRecorder) Me(

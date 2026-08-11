@@ -115,6 +115,15 @@ export const AuthProvider = ({ children }) => {
     [clearSession],
   );
 
+  // Memuat ulang identitas (mis. setelah foto profil diganti) tanpa mengulang alur login.
+  const refreshUser = useCallback(async (signal) => {
+    const user = await currentUserRequest(signal);
+    setState((current) =>
+      current.status === "authenticated" ? { ...current, user } : current,
+    );
+    return user;
+  }, []);
+
   const logout = useCallback(
     async (signal) => {
       try {
@@ -134,8 +143,9 @@ export const AuthProvider = ({ children }) => {
       login,
       logout,
       clearSession,
+      refreshUser,
     }),
-    [clearSession, login, logout, state],
+    [clearSession, login, logout, refreshUser, state],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

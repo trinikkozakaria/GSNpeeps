@@ -36,6 +36,7 @@ type LoginAccount struct {
 	EmployeeDeleted  *time.Time
 	FailedLoginCount int
 	AccountLocked    bool
+	PhotoURL         *string
 }
 
 func (a LoginAccount) Active() bool {
@@ -48,6 +49,7 @@ type AuthUser struct {
 	Name       string    `json:"nama"`
 	Email      string    `json:"email"`
 	Role       RoleName  `json:"role"`
+	PhotoURL   *string   `json:"foto_profil_url"`
 }
 
 type Identity struct {

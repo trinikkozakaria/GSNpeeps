@@ -11,6 +11,7 @@ import {
   listPositionsRequest,
   updateEmployeeRequest,
   uploadEmployeeDocumentRequest,
+  uploadEmployeePhotoRequest,
 } from "../api/employee-api";
 
 export const employeeKeys = {
@@ -86,6 +87,15 @@ export const useUploadEmployeeDocument = (scope, id) =>
     retry: false,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: employeeKeys.documents(scope, id) });
+    },
+  });
+
+export const useUploadEmployeePhoto = (scope, id) =>
+  useMutation({
+    mutationFn: (file) => uploadEmployeePhotoRequest(id, file),
+    retry: false,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: employeeKeys.detail(scope, id) });
     },
   });
 

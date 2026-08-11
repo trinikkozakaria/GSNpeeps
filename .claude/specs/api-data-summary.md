@@ -143,8 +143,9 @@ Do not invent resource-specific codes; transcribe them from the PDF/OpenAPI.
 ## Operation inventory
 
 API Contract PDF v1.1 defines **42 operations in 13 modules**. Contract revision 0.4.0
-adds four approved operations, and revision 0.5.0 (D-035) adds one more to fix a field bug,
-so the active OpenAPI contains **47 operations**.
+adds four approved operations, revision 0.5.0 (D-035) adds one more to fix a field bug, and
+revision 0.7.0 (D-037) adds two profile-photo operations, so the active OpenAPI contains
+**49 operations**.
 
 Revision 0.4.0 additions:
 
@@ -161,14 +162,21 @@ Revision 0.5.0 addition (see `docs/openapi-decisions.md` D-035):
 |---|---|---|---|
 | GET | `/api/v1/lembur/saya` | Karyawan, Atasan, HR | Own overtime submission history, mirrors `/ketidakhadiran/saya` |
 
+Revision 0.7.0 additions (see `docs/openapi-decisions.md` D-037):
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| PUT | `/api/v1/auth/me/foto` | Authenticated (all roles) | Update own profile photo, shown in navbar |
+| PUT | `/api/v1/karyawan/{id}/foto` | HR | Update any employee's profile photo |
+
 Active module totals (including revision additions):
 
 | Module | Operations |
 |---|---:|
 | System | 1 |
-| Authentication | 5 |
+| Authentication | 6 |
 | Organization master | 3 |
-| Employee database | 8 |
+| Employee database | 9 |
 | Own profile/metrics | 2 |
 | Dashboard | 1 |
 | Attendance | 2 |
@@ -178,7 +186,7 @@ Active module totals (including revision additions):
 | Overtime | 6 |
 | Access/audit | 4 |
 | Notifications | 4 |
-| **Total** | **47** |
+| **Total** | **49** |
 
 The numbered inventory below preserves the 42-operation PDF baseline for traceability; the
 four revision operations above are additional and are not renumbered into that source list.

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: GSNpeeps API
-  version: 0.6.0
+  version: 0.7.0
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -206,6 +206,38 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/auth/me/foto:
+    put:
+      operationId: updateMyPhoto
+      summary: Perbarui foto profil sendiri
+      description: |
+        Tersedia untuk seluruh role terautentikasi, termasuk Top Management yang tidak
+        memiliki Profil Saya, karena navbar menampilkan foto untuk seluruh role. File
+        diteruskan backend ke Nextcloud; database hanya menyimpan locator (D-037).
+      tags: [Authentication]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PhotoUploadRequest"
+      responses:
+        "200":
+          description: Foto profil berhasil diperbarui.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoUpdateResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "413": { $ref: "#/components/responses/FileTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedFileType" }
         "422": { $ref: "#/components/responses/ValidationError" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "500": { $ref: "#/components/responses/InternalError" }
@@ -637,6 +669,42 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
+
+  /api/v1/karyawan/{id}/foto:
+    put:
+      operationId: updateEmployeePhoto
+      summary: Perbarui foto profil karyawan
+      description: |
+        Hanya HR. Karyawan/atasan memperbarui foto sendiri melalui
+        `PUT /auth/me/foto`, bukan endpoint ini (D-037). File diteruskan backend ke
+        Nextcloud; database hanya menyimpan locator.
+      tags: [Employees]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EmployeeIdPath"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PhotoUploadRequest"
+      responses:
+        "200":
+          description: Foto profil berhasil diperbarui.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoUpdateResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { $ref: "#/components/responses/FileTooLarge" }
+        "415": { $ref: "#/components/responses/UnsupportedFileType" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
 
   /api/v1/profil/saya:
     get:
@@ -1981,13 +2049,14 @@ components:
         password: { type: string, format: password, minLength: 8, maxLength: 128 }
     AuthUser:
       type: object
-      required: [id, employee_id, nama, email, role]
+      required: [id, employee_id, nama, email, role, foto_profil_url]
       properties:
         id: { $ref: "#/components/schemas/UUID" }
         employee_id: { $ref: "#/components/schemas/UUID" }
         nama: { type: string }
         email: { type: string, format: email }
         role: { $ref: "#/components/schemas/RoleName" }
+        foto_profil_url: { type: [string, "null"], format: uri }
     LoginData:
       type: object
       required: [token, token_type, expires_in, user]
@@ -2288,6 +2357,7 @@ components:
         - $ref: "#/components/schemas/EmployeeSummary"
         - type: object
           properties:
+            foto_profil_url: { type: [string, "null"], format: uri }
             jenis_kelamin:
               type: string
               enum: [L, P]
@@ -2389,6 +2459,25 @@ components:
           type: string
           format: binary
           description: Maksimal 5 MB; format sesuai deskripsi endpoint.
+    PhotoUploadRequest:
+      type: object
+      required: [foto]
+      properties:
+        foto:
+          type: string
+          format: binary
+          description: JPG atau PNG; maksimal 5 MB.
+    PhotoUpdateData:
+      type: object
+      required: [foto_profil_url]
+      properties:
+        foto_profil_url: { type: string, format: uri }
+    PhotoUpdateResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/PhotoUpdateData" }
     EmployeeListResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessResponse"

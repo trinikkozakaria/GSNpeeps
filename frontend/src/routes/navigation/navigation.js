@@ -18,12 +18,21 @@ export const navigationItems = [
     label: "Kehadiran Saya",
     path: "/app/absensi",
     roles: personalRoles,
-    // Ajukan Ketidakhadiran/Lembur adalah sub-alur kehadiran; item ini tetap tersorot aktif
-    // ketika salah satu sub-alur tersebut sedang dibuka. Lihat isActiveFor di AppShell.
-    activeMatchPaths: ["/app/absensi/ketidakhadiran", "/app/absensi/lembur"],
+    // NavLink tanpa `end` sudah mencocokkan berdasarkan prefix path, sehingga item ini
+    // otomatis tersorot aktif ketika sub-alur /app/absensi/ketidakhadiran atau
+    // /app/absensi/lembur sedang dibuka; tidak perlu logika aktif tambahan.
   },
-  { label: "Ajukan Ketidakhadiran", path: "/app/absensi/ketidakhadiran", roles: personalRoles },
-  { label: "Ajukan Lembur", path: "/app/absensi/lembur", roles: personalRoles },
+  {
+    // "Pengajuan" hanya label pengelompokan (UI saja); tidak pernah menjadi link sendiri.
+    // Ajukan Ketidakhadiran dan Ajukan Lembur tetap memakai route yang sama seperti
+    // sebelumnya, hanya ditampilkan bertingkat/indented di sidebar.
+    label: "Pengajuan",
+    roles: personalRoles,
+    children: [
+      { label: "Ajukan Ketidakhadiran", path: "/app/absensi/ketidakhadiran" },
+      { label: "Ajukan Lembur", path: "/app/absensi/lembur" },
+    ],
+  },
   { label: "Pengajuan Saya", path: "/app/pengajuan", roles: personalRoles },
   {
     label: "Persetujuan",

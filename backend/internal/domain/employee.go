@@ -107,6 +107,7 @@ type NewEmployeeDocument struct {
 
 type EmployeeDetail struct {
 	EmployeeSummary
+	PhotoURL          *string            `json:"foto_profil_url"`
 	Gender            string             `json:"jenis_kelamin"`
 	BirthDate         string             `json:"tanggal_lahir"`
 	JoinDate          string             `json:"tanggal_join"`

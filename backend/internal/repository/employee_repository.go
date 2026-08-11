@@ -297,6 +297,22 @@ func (r *EmployeeRepository) writeCurrentSalary(
 	return nil
 }
 
+// UpdatePhoto menimpa `foto_profil_url` employee aktif. Employee non-aktif/terhapus tidak
+// pernah menerima update foto.
+func (r *EmployeeRepository) UpdatePhoto(ctx context.Context, employeeID uuid.UUID, url string) error {
+	tag, err := executor(ctx, r.pool).Exec(ctx, `
+		UPDATE employees SET foto_profil_url = $2, updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+	`, employeeID, url)
+	if err != nil {
+		return mapEmployeeMutationError(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *EmployeeRepository) ValidateMutation(
 	ctx context.Context,
 	employeeID uuid.UUID,
@@ -627,7 +643,8 @@ func (r *EmployeeRepository) FindByID(
 		       COALESCE(d.nama, ''), COALESCE(p.nama, ''), e.status,
 		       e.jenis_kelamin, TO_CHAR(e.tanggal_lahir, 'YYYY-MM-DD'),
 		       TO_CHAR(e.tanggal_join, 'YYYY-MM-DD'),
-		       e.department_id, e.position_id, e.atasan_id, e.status_pernikahan
+		       e.department_id, e.position_id, e.atasan_id, e.status_pernikahan,
+		       e.foto_profil_url
 		FROM employees e
 		LEFT JOIN users u ON u.employee_id = e.id
 		LEFT JOIN departments d ON d.id = e.department_id
@@ -648,6 +665,7 @@ func (r *EmployeeRepository) FindByID(
 		&item.PositionID,
 		&item.SupervisorID,
 		&item.MaritalStatus,
+		&item.PhotoURL,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.EmployeeDetail{}, ErrNotFound

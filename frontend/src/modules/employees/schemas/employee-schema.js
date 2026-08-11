@@ -101,6 +101,7 @@ export const employeeDocumentSchema = z.object({
 export const employeeDocumentListSchema = z.array(employeeDocumentSchema);
 
 export const employeeDetailSchema = employeeSummarySchema.extend({
+  foto_profil_url: z.string().nullable().optional(),
   jenis_kelamin: z.enum(["L", "P"]),
   tanggal_lahir: dateSchema,
   tanggal_join: dateSchema,
