@@ -39,7 +39,7 @@ export const AppShell = () => {
         Lewati ke konten utama
       </a>
       <header className="fixed inset-x-0 top-0 z-40 h-16 border-b border-slate-900/10 bg-white">
-        <div className="mx-auto flex h-full max-w-[100rem] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-baseline gap-3">
             <p className="truncate text-lg font-bold tracking-tight">GSNpeeps</p>
             <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-cyan-700 sm:block">
@@ -70,7 +70,7 @@ export const AppShell = () => {
                   to={item.path}
                   end={item.path === "/app"}
                   className={({ isActive }) =>
-                    `block rounded-lg px-3 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700 ${
+                    `block rounded-lg px-3 py-2 text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700 ${
                       isActive && isItemActive(item)
                         ? "bg-cyan-700 text-white"
                         : "text-slate-600 hover:bg-slate-900/5 hover:text-slate-900"

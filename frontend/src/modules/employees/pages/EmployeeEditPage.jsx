@@ -109,12 +109,12 @@ export const EmployeeEditPage = () => {
   if (detail.isError) return <p role="alert">Data karyawan tidak dapat dimuat.</p>;
 
   return (
-    <section aria-labelledby="employee-edit-title" className="max-w-3xl">
+    <section aria-labelledby="employee-edit-title" className="max-w-6xl">
       <Link to={`/app/karyawan/${id}`} className="text-sm font-semibold text-cyan-700">← Batal dan kembali</Link>
       <h1 id="employee-edit-title" className="mt-5 text-3xl font-bold">Edit karyawan</h1>
       <p className="mt-2 text-slate-500">Perubahan akun dan status akan mencabut sesi aktif karyawan.</p>
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-7 grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2">
-        {formError && <div role="alert" className="sm:col-span-2 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-700">{formError}</div>}
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-7 grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2 lg:grid-cols-3">
+        {formError && <div role="alert" className="sm:col-span-2 lg:col-span-3 rounded-lg border border-rose-300/30 bg-rose-300/10 p-3 text-rose-700">{formError}</div>}
         <FormInput id="employee-name" label="Nama lengkap" registration={register("nama")} error={errors.nama?.message} disabled={isSubmitting} />
         <FormInput id="employee-email" label="Email login" type="email" registration={register("email")} error={errors.email?.message} disabled={isSubmitting} />
         <EmployeeSelectField id="employee-gender" label="Jenis kelamin" registration={register("jenis_kelamin")} error={errors.jenis_kelamin?.message} disabled={isSubmitting}>
@@ -142,16 +142,16 @@ export const EmployeeEditPage = () => {
           <option value="aktif">Aktif</option>
           <option value="nonaktif">Nonaktif</option>
         </EmployeeSelectField>
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-2 lg:col-span-3">
           <BpjsNpwpFields register={register} errors={errors} disabled={isSubmitting} idPrefix="edit" />
         </div>
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-2 lg:col-span-3">
           <EmergencyContactsFields control={control} register={register} errors={errors} disabled={isSubmitting} idPrefix="edit" />
         </div>
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-2 lg:col-span-3">
           <EducationFields control={control} register={register} errors={errors} disabled={isSubmitting} idPrefix="edit" />
         </div>
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-2 lg:col-span-3">
           <PositionHistoryFields
             control={control}
             register={register}
@@ -161,10 +161,10 @@ export const EmployeeEditPage = () => {
             departments={departments.data}
           />
         </div>
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-2 lg:col-span-3">
           <CurrentSalaryFields register={register} errors={errors} disabled={isSubmitting} idPrefix="edit" />
         </div>
-        <div className="flex items-end gap-3 sm:col-span-2">
+        <div className="flex items-end gap-3 sm:col-span-2 lg:col-span-3">
           <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Menyimpan…" : "Simpan perubahan"}</Button>
           <Link to={`/app/karyawan/${id}`} className="inline-flex min-h-11 items-center px-3 font-semibold text-slate-600">Batal</Link>
         </div>

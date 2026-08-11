@@ -15,7 +15,14 @@ import { EmployeeSelectField } from "./EmployeeSelectField";
  */
 
 const fieldsetClassName =
-  "grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2";
+  "grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2 lg:grid-cols-3";
+// Baris berulang (kontak darurat/pendidikan/riwayat jabatan) baru dipecah menjadi beberapa
+// kolom mulai breakpoint lg agar select/input tidak berdesakan dan melebar ke luar
+// kontainer (pernah terjadi saat pemecahan kolom dimulai dari sm/640px yang terlalu sempit
+// untuk 3-4 field sekaligus).
+const rowClassName =
+  "grid gap-4 rounded-lg border border-slate-900/10 p-4 sm:col-span-2 lg:col-span-3";
+const fullWidthClassName = "sm:col-span-2 lg:col-span-3";
 const removeButtonClassName =
   "inline-flex min-h-9 items-center rounded-lg border border-slate-900/15 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-900/5";
 
@@ -55,26 +62,30 @@ export const EmergencyContactsFields = ({ control, register, errors, disabled, i
     <fieldset className={fieldsetClassName}>
       <legend className="px-2 text-lg font-bold">Kontak darurat</legend>
       {fields.length === 0 && (
-        <p className="text-sm text-slate-500 sm:col-span-2">Belum ada kontak darurat.</p>
+        <p className={`text-sm text-slate-500 ${fullWidthClassName}`}>Belum ada kontak darurat.</p>
       )}
       {fields.map((field, index) => (
-        <div key={field.id} className="grid gap-4 rounded-lg border border-slate-900/10 p-4 sm:col-span-2 sm:grid-cols-3">
-          <FormInput
-            id={`${idPrefix}-emergency-${index}-nama`}
-            label="Nama"
-            registration={register(`kontak_darurat.${index}.nama`)}
-            error={errors.kontak_darurat?.[index]?.nama?.message}
-            disabled={disabled}
-          />
-          <FormInput
-            id={`${idPrefix}-emergency-${index}-hubungan`}
-            label="Hubungan"
-            registration={register(`kontak_darurat.${index}.hubungan`)}
-            error={errors.kontak_darurat?.[index]?.hubungan?.message}
-            disabled={disabled}
-          />
-          <div className="flex items-end gap-3">
-            <div className="flex-1">
+        <div key={field.id} className={`${rowClassName} lg:grid-cols-3`}>
+          <div className="min-w-0">
+            <FormInput
+              id={`${idPrefix}-emergency-${index}-nama`}
+              label="Nama"
+              registration={register(`kontak_darurat.${index}.nama`)}
+              error={errors.kontak_darurat?.[index]?.nama?.message}
+              disabled={disabled}
+            />
+          </div>
+          <div className="min-w-0">
+            <FormInput
+              id={`${idPrefix}-emergency-${index}-hubungan`}
+              label="Hubungan"
+              registration={register(`kontak_darurat.${index}.hubungan`)}
+              error={errors.kontak_darurat?.[index]?.hubungan?.message}
+              disabled={disabled}
+            />
+          </div>
+          <div className="flex min-w-0 items-end gap-3">
+            <div className="min-w-0 flex-1">
               <FormInput
                 id={`${idPrefix}-emergency-${index}-telepon`}
                 label="Nomor telepon"
@@ -90,14 +101,16 @@ export const EmergencyContactsFields = ({ control, register, errors, disabled, i
           </div>
         </div>
       ))}
-      <Button
-        type="button"
-        variant="secondary"
-        disabled={disabled}
-        onClick={() => append({ nama: "", hubungan: "", nomor_telepon: "" })}
-      >
-        Tambah kontak darurat
-      </Button>
+      <div className={fullWidthClassName}>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={disabled}
+          onClick={() => append({ nama: "", hubungan: "", nomor_telepon: "" })}
+        >
+          Tambah kontak darurat
+        </Button>
+      </div>
     </fieldset>
   );
 };
@@ -108,35 +121,39 @@ export const EducationFields = ({ control, register, errors, disabled, idPrefix 
     <fieldset className={fieldsetClassName}>
       <legend className="px-2 text-lg font-bold">Pendidikan</legend>
       {fields.length === 0 && (
-        <p className="text-sm text-slate-500 sm:col-span-2">Belum ada riwayat pendidikan.</p>
+        <p className={`text-sm text-slate-500 ${fullWidthClassName}`}>Belum ada riwayat pendidikan.</p>
       )}
       {fields.map((field, index) => (
-        <div key={field.id} className="grid gap-4 rounded-lg border border-slate-900/10 p-4 sm:col-span-2 sm:grid-cols-3">
-          <EmployeeSelectField
-            id={`${idPrefix}-education-${index}-jenjang`}
-            label="Jenjang"
-            registration={register(`pendidikan.${index}.jenjang`)}
-            error={errors.pendidikan?.[index]?.jenjang?.message}
-            disabled={disabled}
-          >
-            <option value="">Pilih jenjang</option>
-            <option value="SD">SD</option>
-            <option value="SMP">SMP</option>
-            <option value="SMA/SMK">SMA/SMK</option>
-            <option value="D3">D3</option>
-            <option value="S1">S1</option>
-            <option value="S2">S2</option>
-            <option value="S3">S3</option>
-          </EmployeeSelectField>
-          <FormInput
-            id={`${idPrefix}-education-${index}-institusi`}
-            label="Institusi/sekolah"
-            registration={register(`pendidikan.${index}.institusi`)}
-            error={errors.pendidikan?.[index]?.institusi?.message}
-            disabled={disabled}
-          />
-          <div className="flex items-end gap-3">
-            <div className="flex-1">
+        <div key={field.id} className={`${rowClassName} lg:grid-cols-3`}>
+          <div className="min-w-0">
+            <EmployeeSelectField
+              id={`${idPrefix}-education-${index}-jenjang`}
+              label="Jenjang"
+              registration={register(`pendidikan.${index}.jenjang`)}
+              error={errors.pendidikan?.[index]?.jenjang?.message}
+              disabled={disabled}
+            >
+              <option value="">Pilih jenjang</option>
+              <option value="SD">SD</option>
+              <option value="SMP">SMP</option>
+              <option value="SMA/SMK">SMA/SMK</option>
+              <option value="D3">D3</option>
+              <option value="S1">S1</option>
+              <option value="S2">S2</option>
+              <option value="S3">S3</option>
+            </EmployeeSelectField>
+          </div>
+          <div className="min-w-0">
+            <FormInput
+              id={`${idPrefix}-education-${index}-institusi`}
+              label="Institusi/sekolah"
+              registration={register(`pendidikan.${index}.institusi`)}
+              error={errors.pendidikan?.[index]?.institusi?.message}
+              disabled={disabled}
+            />
+          </div>
+          <div className="flex min-w-0 items-end gap-3">
+            <div className="min-w-0 flex-1">
               <FormInput
                 id={`${idPrefix}-education-${index}-tahun`}
                 label="Tahun lulus"
@@ -152,14 +169,16 @@ export const EducationFields = ({ control, register, errors, disabled, idPrefix 
           </div>
         </div>
       ))}
-      <Button
-        type="button"
-        variant="secondary"
-        disabled={disabled}
-        onClick={() => append({ jenjang: "", institusi: "", tahun_lulus: "" })}
-      >
-        Tambah pendidikan
-      </Button>
+      <div className={fullWidthClassName}>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={disabled}
+          onClick={() => append({ jenjang: "", institusi: "", tahun_lulus: "" })}
+        >
+          Tambah pendidikan
+        </Button>
+      </div>
     </fieldset>
   );
 };
@@ -170,41 +189,47 @@ const PositionHistoryRow = ({ control, register, errors, disabled, idPrefix, ind
   const positions = usePositions(watchedDepartmentId);
 
   return (
-    <div className="grid gap-4 rounded-lg border border-slate-900/10 p-4 sm:col-span-2 sm:grid-cols-4">
-      <EmployeeSelectField
-        id={`${idPrefix}-history-${index}-department`}
-        label="Departemen"
-        registration={departmentId}
-        error={errors.riwayat_jabatan?.[index]?.department_id?.message}
-        disabled={disabled}
-      >
-        <option value="">Tidak ditentukan</option>
-        {(departments ?? []).map((item) => (
-          <option key={item.id} value={item.id}>{item.nama}</option>
-        ))}
-      </EmployeeSelectField>
-      <EmployeeSelectField
-        id={`${idPrefix}-history-${index}-position`}
-        label="Jabatan"
-        registration={register(`riwayat_jabatan.${index}.position_id`)}
-        error={errors.riwayat_jabatan?.[index]?.position_id?.message}
-        disabled={disabled || !watchedDepartmentId}
-      >
-        <option value="">Tidak ditentukan</option>
-        {(positions.data ?? []).map((item) => (
-          <option key={item.id} value={item.id}>{item.nama}</option>
-        ))}
-      </EmployeeSelectField>
-      <FormInput
-        id={`${idPrefix}-history-${index}-mulai`}
-        label="Tanggal mulai"
-        type="date"
-        registration={register(`riwayat_jabatan.${index}.tanggal_mulai`)}
-        error={errors.riwayat_jabatan?.[index]?.tanggal_mulai?.message}
-        disabled={disabled}
-      />
-      <div className="flex items-end gap-3">
-        <div className="flex-1">
+    <div className={`${rowClassName} xl:grid-cols-4`}>
+      <div className="min-w-0">
+        <EmployeeSelectField
+          id={`${idPrefix}-history-${index}-department`}
+          label="Departemen"
+          registration={departmentId}
+          error={errors.riwayat_jabatan?.[index]?.department_id?.message}
+          disabled={disabled}
+        >
+          <option value="">Tidak ditentukan</option>
+          {(departments ?? []).map((item) => (
+            <option key={item.id} value={item.id}>{item.nama}</option>
+          ))}
+        </EmployeeSelectField>
+      </div>
+      <div className="min-w-0">
+        <EmployeeSelectField
+          id={`${idPrefix}-history-${index}-position`}
+          label="Jabatan"
+          registration={register(`riwayat_jabatan.${index}.position_id`)}
+          error={errors.riwayat_jabatan?.[index]?.position_id?.message}
+          disabled={disabled || !watchedDepartmentId}
+        >
+          <option value="">Tidak ditentukan</option>
+          {(positions.data ?? []).map((item) => (
+            <option key={item.id} value={item.id}>{item.nama}</option>
+          ))}
+        </EmployeeSelectField>
+      </div>
+      <div className="min-w-0">
+        <FormInput
+          id={`${idPrefix}-history-${index}-mulai`}
+          label="Tanggal mulai"
+          type="date"
+          registration={register(`riwayat_jabatan.${index}.tanggal_mulai`)}
+          error={errors.riwayat_jabatan?.[index]?.tanggal_mulai?.message}
+          disabled={disabled}
+        />
+      </div>
+      <div className="flex min-w-0 items-end gap-3">
+        <div className="min-w-0 flex-1">
           <FormInput
             id={`${idPrefix}-history-${index}-selesai`}
             label="Tanggal selesai"
@@ -227,11 +252,11 @@ export const PositionHistoryFields = ({ control, register, errors, disabled, idP
   return (
     <fieldset className={fieldsetClassName}>
       <legend className="px-2 text-lg font-bold">Riwayat jabatan</legend>
-      <p className="text-sm text-slate-500 sm:col-span-2">
+      <p className={`text-sm text-slate-500 ${fullWidthClassName}`}>
         Riwayat posisi sebelumnya di perusahaan ini, bukan posisi yang sedang berjalan saat ini.
       </p>
       {fields.length === 0 && (
-        <p className="text-sm text-slate-500 sm:col-span-2">Belum ada riwayat jabatan.</p>
+        <p className={`text-sm text-slate-500 ${fullWidthClassName}`}>Belum ada riwayat jabatan.</p>
       )}
       {fields.map((field, index) => (
         <PositionHistoryRow
@@ -246,14 +271,16 @@ export const PositionHistoryFields = ({ control, register, errors, disabled, idP
           remove={remove}
         />
       ))}
-      <Button
-        type="button"
-        variant="secondary"
-        disabled={disabled}
-        onClick={() => append({ department_id: "", position_id: "", tanggal_mulai: "", tanggal_selesai: "" })}
-      >
-        Tambah riwayat jabatan
-      </Button>
+      <div className={fullWidthClassName}>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={disabled}
+          onClick={() => append({ department_id: "", position_id: "", tanggal_mulai: "", tanggal_selesai: "" })}
+        >
+          Tambah riwayat jabatan
+        </Button>
+      </div>
     </fieldset>
   );
 };

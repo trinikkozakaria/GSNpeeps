@@ -116,7 +116,7 @@ export const EmployeeCreatePage = () => {
   };
 
   return (
-    <section aria-labelledby="employee-create-title" className="max-w-4xl">
+    <section aria-labelledby="employee-create-title" className="max-w-6xl">
       <Link to="/app/karyawan" className="text-sm font-semibold text-cyan-700">← Kembali ke daftar</Link>
       <h1 id="employee-create-title" className="mt-5 text-3xl font-bold">Tambah karyawan</h1>
       <p className="mt-2 text-slate-500">
@@ -130,7 +130,7 @@ export const EmployeeCreatePage = () => {
           </div>
         )}
 
-        <fieldset className="grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2">
+        <fieldset className="grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2 lg:grid-cols-3">
           <legend className="px-2 text-lg font-bold">Identitas dan pekerjaan</legend>
           <FormInput id="create-nip" label="NIP" registration={register("nip")} error={errors.nip?.message} disabled={isSubmitting} />
           <FormInput id="create-name" label="Nama lengkap" registration={register("nama")} error={errors.nama?.message} disabled={isSubmitting} />
@@ -180,9 +180,9 @@ export const EmployeeCreatePage = () => {
           </EmployeeSelectField>
         </fieldset>
 
-        <fieldset className="grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2">
+        <fieldset className="grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2 lg:grid-cols-3">
           <legend className="px-2 text-lg font-bold">Alamat</legend>
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-2 lg:col-span-3">
             <FormInput id="create-street" label="Jalan" registration={register("alamat.jalan")} error={errors.alamat?.jalan?.message} disabled={isSubmitting} />
           </div>
           <FormInput id="create-village" label="Kelurahan" registration={register("alamat.kelurahan")} error={errors.alamat?.kelurahan?.message} disabled={isSubmitting} />
@@ -191,7 +191,7 @@ export const EmployeeCreatePage = () => {
           <FormInput id="create-province" label="Provinsi" registration={register("alamat.provinsi")} error={errors.alamat?.provinsi?.message} disabled={isSubmitting} />
         </fieldset>
 
-        <fieldset className="grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2">
+        <fieldset className="grid gap-5 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-6 sm:grid-cols-2 lg:grid-cols-3">
           <legend className="px-2 text-lg font-bold">KTP dan kontrak</legend>
           <FormInput id="create-ktp" label="Nomor KTP" inputMode="numeric" registration={register("ktp.nomor_ktp")} error={errors.ktp?.nomor_ktp?.message} disabled={isSubmitting} />
           <FormInput id="create-contract-number" label="Nomor kontrak" registration={register("kontrak.nomor_kontrak")} error={errors.kontrak?.nomor_kontrak?.message} disabled={isSubmitting} />
@@ -199,7 +199,6 @@ export const EmployeeCreatePage = () => {
             <option value="PKWT">PKWT</option>
             <option value="PKWTT">PKWTT</option>
           </EmployeeSelectField>
-          <div />
           <FormInput id="create-contract-start" label="Tanggal mulai kontrak" type="date" registration={register("kontrak.tanggal_mulai")} error={errors.kontrak?.tanggal_mulai?.message} disabled={isSubmitting} />
           <FormInput id="create-contract-end" label="Tanggal berakhir kontrak" type="date" registration={register("kontrak.tanggal_berakhir")} error={errors.kontrak?.tanggal_berakhir?.message} disabled={isSubmitting} />
         </fieldset>
