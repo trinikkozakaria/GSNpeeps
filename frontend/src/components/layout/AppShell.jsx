@@ -1,10 +1,11 @@
 import { Suspense, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../modules/auth/hooks/useAuth";
 import { NotificationBell } from "../../modules/notifications/components/NotificationBell";
 import { navigationForRole, roleLabel } from "../../routes/navigation/navigation";
 import { Button } from "../ui/Button";
+import { ProtectedImage } from "../media/ProtectedImage";
 
 const navLinkClassName = ({ isActive }) =>
   `block rounded-lg px-3 py-2 text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700 ${
@@ -16,7 +17,11 @@ const navLinkClassName = ({ isActive }) =>
 export const AppShell = () => {
   const auth = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
+  const [openGroups, setOpenGroups] = useState(() => ({ Pengajuan: true }));
   const navigation = navigationForRole(auth.role);
 
   const handleLogout = async () => {
@@ -56,8 +61,8 @@ export const AppShell = () => {
               </span>
               <span className="block h-9 w-9 shrink-0 overflow-hidden rounded-full border border-slate-900/10 bg-slate-100">
                 {auth.user.foto_profil_url ? (
-                  <img
-                    src={auth.user.foto_profil_url}
+                  <ProtectedImage
+                    path={auth.user.foto_profil_url}
                     alt=""
                     className="h-full w-full object-cover"
                   />
@@ -80,8 +85,13 @@ export const AppShell = () => {
       <div className="pt-16">
         <nav
           aria-label="Navigasi utama"
-          className="sticky top-16 z-30 border-b border-slate-900/10 bg-white px-4 py-2 sm:px-6 lg:fixed lg:inset-y-0 lg:top-16 lg:left-0 lg:z-30 lg:w-60 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-4 lg:py-6"
+          onMouseEnter={() => setSidebarHovered(true)}
+          onMouseLeave={() => setSidebarHovered(false)}
+          className={`sticky top-16 z-30 border-b border-slate-900/10 bg-white px-4 py-2 transition-all sm:px-6 lg:fixed lg:inset-y-0 lg:top-16 lg:left-0 lg:z-30 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-4 lg:py-6 ${sidebarCollapsed && !sidebarHovered ? "lg:w-20" : "lg:w-60"}`}
         >
+          <button type="button" onClick={() => setSidebarCollapsed((value) => !value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"} className="mb-3 hidden min-h-10 w-full rounded-lg border text-sm font-bold hover:bg-slate-50 lg:block">
+            {sidebarCollapsed && !sidebarHovered ? "☰" : "Tutup sidebar"}
+          </button>
           <ul className="flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible lg:pb-0">
             {navigation.map((item) =>
               item.children ? (
@@ -90,14 +100,14 @@ export const AppShell = () => {
                 // karena indentasi tidak berarti pada layout horizontal; anaknya tetap
                 // tampil sebagai item biasa di sana.
                 <li key={item.label} className="contents lg:block">
-                  <p className="hidden px-3 pt-3 text-xs font-semibold uppercase tracking-wider text-slate-500 lg:block">
-                    {item.label}
-                  </p>
-                  <ul className="contents lg:block lg:space-y-1">
+                  <button type="button" aria-expanded={Boolean(openGroups[item.label])} onClick={() => setOpenGroups((current) => ({ ...current, [item.label]: !current[item.label] }))} className="hidden w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-900/5 lg:flex">
+                    <span className={sidebarCollapsed && !sidebarHovered ? "sr-only" : ""}>{item.label}</span><span aria-hidden="true">{openGroups[item.label] ? "▾" : "▸"}</span>
+                  </button>
+                  <ul className={`contents lg:space-y-1 ${openGroups[item.label] || item.children.some((child) => location.pathname === child.path) ? "lg:block" : "lg:hidden"}`}>
                     {item.children.map((child) => (
                       <li key={child.path} className="shrink-0">
-                        <NavLink to={child.path} className={navLinkClassName}>
-                          <span className="lg:pl-3">{child.label}</span>
+                        <NavLink to={child.path} className={navLinkClassName} title={child.label}>
+                          <span className={`lg:pl-3 ${sidebarCollapsed && !sidebarHovered ? "lg:sr-only" : ""}`}>{child.label}</span>
                         </NavLink>
                       </li>
                     ))}
@@ -105,15 +115,15 @@ export const AppShell = () => {
                 </li>
               ) : (
                 <li key={item.path} className="shrink-0">
-                  <NavLink to={item.path} end={item.path === "/app"} className={navLinkClassName}>
-                    {item.label}
+                  <NavLink to={item.path} end={item.path === "/app"} className={navLinkClassName} title={item.label}>
+                    <span className={sidebarCollapsed && !sidebarHovered ? "lg:sr-only" : ""}>{item.label}</span>
                   </NavLink>
                 </li>
               ),
             )}
           </ul>
         </nav>
-        <main id="main-content" className="min-w-0 px-4 py-6 sm:px-6 lg:ml-60 lg:px-8 lg:py-8">
+        <main id="main-content" className={`min-w-0 px-4 py-6 transition-all sm:px-6 lg:px-8 lg:py-8 ${sidebarCollapsed ? "lg:ml-20" : "lg:ml-60"}`}>
           {/* Route dengan chunk terpisah memakai fallback yang sama dengan state memuat
               halaman lain sehingga perpindahan tidak terasa berbeda. */}
           <Suspense

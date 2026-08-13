@@ -136,7 +136,7 @@ export const AuditLogPage = () => {
             type="date"
             value={filters.tanggal_mulai ?? ""}
             onChange={(event) => setFilter("tanggal_mulai", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
         <label className="text-sm font-medium text-slate-700">
@@ -145,7 +145,7 @@ export const AuditLogPage = () => {
             type="date"
             value={filters.tanggal_selesai ?? ""}
             onChange={(event) => setFilter("tanggal_selesai", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
         <label className="text-sm font-medium text-slate-700">
@@ -155,7 +155,7 @@ export const AuditLogPage = () => {
             value={filters.modul ?? ""}
             placeholder="ketidakhadiran"
             onChange={(event) => setFilter("modul", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
         <label className="text-sm font-medium text-slate-700">
@@ -165,7 +165,7 @@ export const AuditLogPage = () => {
             value={filters.aksi ?? ""}
             placeholder="APPROVE"
             onChange={(event) => setFilter("aksi", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
         <label className="text-sm font-medium text-slate-700">
@@ -177,7 +177,7 @@ export const AuditLogPage = () => {
             aria-invalid={!isUserFilterValid}
             aria-describedby={isUserFilterValid ? undefined : "audit-user-error"}
             onChange={(event) => setFilter("user_id", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
       </div>

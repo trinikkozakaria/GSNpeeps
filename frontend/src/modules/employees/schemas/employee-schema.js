@@ -72,6 +72,7 @@ const educationHistorySchema = z.object({
   jenjang: z.string().nullable().optional(),
   institusi: z.string().nullable().optional(),
   jurusan: z.string().nullable().optional(),
+  tahun_masuk: z.number().int().nullable().optional(),
   tahun_lulus: z.number().int().nullable().optional(),
 });
 
@@ -155,6 +156,7 @@ export const emergencyContactFormSchema = z.object({
 export const educationFormSchema = z.object({
   jenjang: z.string().trim().max(20),
   institusi: z.string().trim().max(150),
+  tahun_masuk: z.union([z.string().trim().regex(/^\d{4}$/, "Tahun tidak valid"), z.literal("")]),
   tahun_lulus: z.union([
     z.string().trim().regex(/^\d{4}$/, "Tahun tidak valid"),
     z.literal(""),
@@ -275,9 +277,10 @@ export const buildEmployeeDetailPayload = (values) => {
     .map((entry) => ({
       jenjang: entry.jenjang.trim() || null,
       institusi: entry.institusi.trim() || null,
+      tahun_masuk: entry.tahun_masuk ? Number(entry.tahun_masuk) : null,
       tahun_lulus: entry.tahun_lulus ? Number(entry.tahun_lulus) : null,
     }))
-    .filter((entry) => entry.jenjang || entry.institusi || entry.tahun_lulus);
+    .filter((entry) => entry.jenjang || entry.institusi || entry.tahun_masuk || entry.tahun_lulus);
 
   payload.riwayat_jabatan = values.riwayat_jabatan
     .filter((entry) => entry.tanggal_mulai)
@@ -329,6 +332,7 @@ export const mapEmployeeDetailToFormDefaults = (detail) => {
     pendidikan: (detail.pendidikan ?? []).map((entry) => ({
       jenjang: entry.jenjang ?? "",
       institusi: entry.institusi ?? "",
+      tahun_masuk: entry.tahun_masuk ? String(entry.tahun_masuk) : "",
       tahun_lulus: entry.tahun_lulus ? String(entry.tahun_lulus) : "",
     })),
     riwayat_jabatan: (detail.riwayat_jabatan ?? []).map((entry) => ({

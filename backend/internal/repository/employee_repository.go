@@ -17,6 +17,21 @@ type EmployeeRepository struct {
 	pool *pgxpool.Pool
 }
 
+func (r *EmployeeRepository) ResolveDocumentType(ctx context.Context, name string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := executor(ctx, r.pool).QueryRow(ctx, `SELECT id FROM document_types WHERE nama=$1 AND is_active=TRUE`, name).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrNotFound
+	}
+	return id, err
+}
+
+func (r *EmployeeRepository) EmailExists(ctx context.Context, email string) (bool, error) {
+	var exists bool
+	err := executor(ctx, r.pool).QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE lower(email)=lower($1))`, email).Scan(&exists)
+	return exists, err
+}
+
 func (r *EmployeeRepository) ValidateCreate(
 	ctx context.Context,
 	command domain.CreateEmployee,
@@ -136,6 +151,10 @@ func (r *EmployeeRepository) Create(
 	if err != nil {
 		return domain.EmployeeMutationResult{}, mapEmployeeMutationError(err)
 	}
+	_, err = exec.Exec(ctx, `INSERT INTO leave_balances(user_id,tahun,saldo_awal,leave_type_id) SELECT $1,EXTRACT(YEAR FROM NOW())::int,kuota_tahunan,id FROM leave_types WHERE kategori='cuti' AND is_active=TRUE AND kuota_tahunan>0 ON CONFLICT(user_id,tahun,leave_type_id) DO NOTHING`, userID)
+	if err != nil {
+		return domain.EmployeeMutationResult{}, mapEmployeeMutationError(err)
+	}
 
 	if err := r.writeBPJS(ctx, employeeID, command.BPJS); err != nil {
 		return domain.EmployeeMutationResult{}, err
@@ -238,9 +257,9 @@ func (r *EmployeeRepository) replaceEducation(
 	}
 	for _, entry := range entries {
 		if _, err := exec.Exec(ctx, `
-			INSERT INTO employee_education (employee_id, jenjang, institusi, tahun_lulus)
-			VALUES ($1, $2, $3, $4)
-		`, employeeID, entry.Level, entry.Institution, entry.GraduationYear); err != nil {
+			INSERT INTO employee_education (employee_id, jenjang, institusi, tahun_masuk, tahun_lulus)
+			VALUES ($1, $2, $3, $4, $5)
+		`, employeeID, entry.Level, entry.Institution, entry.EntryYear, entry.GraduationYear); err != nil {
 			return mapEmployeeMutationError(err)
 		}
 	}
@@ -831,7 +850,7 @@ func (r *EmployeeRepository) loadEmployeeEducation(
 	item *domain.EmployeeDetail,
 ) error {
 	rows, err := r.pool.Query(ctx, `
-		SELECT jenjang, institusi, tahun_lulus
+		SELECT jenjang, institusi, tahun_masuk, tahun_lulus
 		FROM employee_education
 		WHERE employee_id = $1
 		ORDER BY tahun_lulus DESC NULLS LAST, id
@@ -843,9 +862,13 @@ func (r *EmployeeRepository) loadEmployeeEducation(
 	item.Education = make([]domain.EducationHistory, 0)
 	for rows.Next() {
 		var education domain.EducationHistory
-		var year *int16
-		if err := rows.Scan(&education.Level, &education.Institution, &year); err != nil {
+		var entryYear, year *int16
+		if err := rows.Scan(&education.Level, &education.Institution, &entryYear, &year); err != nil {
 			return fmt.Errorf("scan employee education: %w", err)
+		}
+		if entryYear != nil {
+			value := int(*entryYear)
+			education.EntryYear = &value
 		}
 		if year != nil {
 			value := int(*year)

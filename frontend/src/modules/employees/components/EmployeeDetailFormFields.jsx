@@ -152,11 +152,19 @@ export const EducationFields = ({ control, register, errors, disabled, idPrefix 
               disabled={disabled}
             />
           </div>
-          <div className="flex min-w-0 items-end gap-3">
+          <div className="grid min-w-0 grid-cols-2 items-end gap-3">
+            <FormInput
+              id={`${idPrefix}-education-${index}-tahun-masuk`}
+              label="Tahun masuk"
+              inputMode="numeric"
+              registration={register(`pendidikan.${index}.tahun_masuk`)}
+              error={errors.pendidikan?.[index]?.tahun_masuk?.message}
+              disabled={disabled}
+            />
             <div className="min-w-0 flex-1">
               <FormInput
                 id={`${idPrefix}-education-${index}-tahun`}
-                label="Tahun lulus"
+                label="Tahun lulus (opsional)"
                 inputMode="numeric"
                 registration={register(`pendidikan.${index}.tahun_lulus`)}
                 error={errors.pendidikan?.[index]?.tahun_lulus?.message}
@@ -174,7 +182,7 @@ export const EducationFields = ({ control, register, errors, disabled, idPrefix 
           type="button"
           variant="secondary"
           disabled={disabled}
-          onClick={() => append({ jenjang: "", institusi: "", tahun_lulus: "" })}
+          onClick={() => append({ jenjang: "", institusi: "", tahun_masuk: "", tahun_lulus: "" })}
         >
           Tambah pendidikan
         </Button>

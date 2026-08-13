@@ -2,6 +2,7 @@ import { Button } from "../../../components/ui/Button";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { EmployeeDetailSections } from "../../employees/components/EmployeeDetailSections";
 import { EmployeeStatusBadge } from "../../employees/components/EmployeeStatusBadge";
+import { ProtectedImage } from "../../../components/media/ProtectedImage";
 import { useMyProfile } from "../hooks/useProfile";
 
 /**
@@ -41,6 +42,7 @@ export const MyProfilePage = () => {
         {profile.data && (
           <>
             <div className="flex flex-wrap items-center gap-3">
+              <span className="h-16 w-16 overflow-hidden rounded-full bg-slate-100">{profile.data.foto_profil_url ? <ProtectedImage path={profile.data.foto_profil_url} alt={`Foto profil ${profile.data.nama}`} className="h-full w-full object-cover" /> : null}</span>
               <h2 className="text-2xl font-bold">{profile.data.nama}</h2>
               <EmployeeStatusBadge status={profile.data.status} />
             </div>

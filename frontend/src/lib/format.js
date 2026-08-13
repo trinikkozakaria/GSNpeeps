@@ -25,6 +25,12 @@ const dateTimeFormatter = new Intl.DateTimeFormat("id-ID", {
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
+  hour12: false,
+  timeZone: "Asia/Jakarta",
+});
+
+const timeFormatter = new Intl.DateTimeFormat("id-ID", {
+  hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
   timeZone: "Asia/Jakarta",
 });
 
@@ -67,3 +73,23 @@ export const formatHours = (value) =>
   typeof value === "number"
     ? `${value.toLocaleString("id-ID", { maximumFractionDigits: 1 })} jam`
     : "";
+
+/** Menghitung usia penuh berdasarkan tanggal hari ini di zona Asia/Jakarta. */
+export const calculateAge = (birthDate, now = new Date()) => {
+  if (!birthDate) return null;
+  const [birthYear, birthMonth, birthDay] = birthDate.slice(0, 10).split("-").map(Number);
+  if (![birthYear, birthMonth, birthDay].every(Number.isInteger)) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const today = Object.fromEntries(parts.map((part) => [part.type, Number(part.value)]));
+  let age = today.year - birthYear;
+  if (today.month < birthMonth || (today.month === birthMonth && today.day < birthDay)) age -= 1;
+  return Math.max(0, age);
+};
+
+export const formatTime = (value) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : `${timeFormatter.format(parsed)} WIB`;
+};

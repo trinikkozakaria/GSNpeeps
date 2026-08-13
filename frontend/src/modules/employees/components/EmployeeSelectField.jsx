@@ -20,7 +20,7 @@ export const EmployeeSelectField = ({
         aria-invalid={Boolean(error)}
         aria-describedby={describedBy}
         disabled={disabled}
-        className="min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300 disabled:opacity-60"
+        className="min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300 disabled:opacity-60"
         {...registration}
       >
         {children}

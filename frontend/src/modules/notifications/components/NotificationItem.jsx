@@ -46,12 +46,12 @@ export const NotificationItem = ({ notification, role, onOpen, onMarkRead, onDis
           <Link
             to={target}
             onClick={() => onOpen(notification)}
-            className="inline-flex min-h-11 items-center rounded-lg bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700"
+            className="inline-flex min-h-10 items-center rounded-lg bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700"
           >
             Buka detail
           </Link>
         ) : (
-          <p className="inline-flex min-h-11 items-center text-sm text-slate-500">
+          <p className="inline-flex min-h-10 items-center text-sm text-slate-500">
             Tidak ada halaman detail untuk notifikasi ini.
           </p>
         )}

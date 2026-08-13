@@ -12,6 +12,7 @@ import {
   updateEmployeeRequest,
   uploadEmployeeDocumentRequest,
   uploadEmployeePhotoRequest,
+  bulkEmployeesRequest,
 } from "../api/employee-api";
 
 export const employeeKeys = {
@@ -73,6 +74,8 @@ export const useCreateEmployee = () =>
       await queryClient.invalidateQueries({ queryKey: employeeKeys.all });
     },
   });
+
+export const useBulkEmployees=()=>useMutation({mutationFn:(file)=>bulkEmployeesRequest(file),retry:false,onSuccess:()=>queryClient.invalidateQueries({queryKey:employeeKeys.all})});
 
 export const useEmployeeDocuments = (scope, id, enabled = true) =>
   useQuery({

@@ -5,6 +5,7 @@ import { Pagination } from "../../../components/data-table/Pagination";
 import { Button } from "../../../components/ui/Button";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { EmployeeExportMenu } from "../components/EmployeeExportMenu";
+import { EmployeeBulkUpload } from "../components/EmployeeBulkUpload";
 import { EmployeeTable } from "../components/EmployeeTable";
 import { useDepartments, useEmployees } from "../hooks/useEmployees";
 
@@ -70,14 +71,15 @@ export const EmployeeListPage = () => {
           </p>
         </div>
         {auth.role === "hr" && (
-          <div className="flex flex-col items-start gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               to="/app/karyawan/baru"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800"
             >
               Tambah karyawan
             </Link>
             <EmployeeExportMenu filters={filters} label="Export hasil filter" />
+            <EmployeeBulkUpload />
           </div>
         )}
       </div>
@@ -89,7 +91,7 @@ export const EmployeeListPage = () => {
             type="search"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
         <label className="text-sm font-medium text-slate-700">
@@ -97,7 +99,7 @@ export const EmployeeListPage = () => {
           <select
             value={filters.department_id ?? ""}
             onChange={(event) => setFilter("department_id", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           >
             <option value="">Semua departemen</option>
             {(departments.data ?? []).map((department) => (
@@ -110,7 +112,7 @@ export const EmployeeListPage = () => {
           <select
             value={filters.status ?? ""}
             onChange={(event) => setFilter("status", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           >
             <option value="">Semua status</option>
             <option value="aktif">Aktif</option>

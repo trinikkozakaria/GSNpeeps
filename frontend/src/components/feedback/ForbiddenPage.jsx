@@ -14,7 +14,7 @@ export const ForbiddenPage = () => {
         </p>
         <Link
           to="/app"
-          className="mt-7 inline-flex min-h-11 items-center rounded-lg bg-cyan-700 px-4 py-2 font-semibold text-white"
+          className="mt-7 inline-flex min-h-10 items-center rounded-lg bg-cyan-700 px-4 py-2 font-semibold text-white"
         >
           Kembali ke beranda
         </Link>

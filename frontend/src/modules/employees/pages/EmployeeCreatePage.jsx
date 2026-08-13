@@ -218,7 +218,7 @@ export const EmployeeCreatePage = () => {
 
         <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Menyimpan…" : "Simpan karyawan"}</Button>
-          <Link to="/app/karyawan" className="inline-flex min-h-11 items-center px-3 font-semibold text-slate-600">Batal</Link>
+          <Link to="/app/karyawan" className="inline-flex min-h-10 items-center px-3 font-semibold text-slate-600">Batal</Link>
         </div>
       </form>
     </section>

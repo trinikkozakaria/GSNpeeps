@@ -190,7 +190,7 @@ func (r *AttendanceRepository) Report(
 	rows, err := r.pool.Query(ctx, `
 		WITH kehadiran AS (
 			SELECT u.employee_id,
-			       COUNT(*) FILTER (WHERE a.tipe = 'check_in') AS hadir,
+			       COUNT(*) FILTER (WHERE a.tipe = 'check_in' AND keluar.id IS NOT NULL) AS hadir,
 			       COUNT(*) FILTER (WHERE a.tipe = 'check_in' AND a.status = 'terlambat') AS terlambat,
 			       COALESCE(SUM(
 			           EXTRACT(EPOCH FROM (keluar.waktu_network - a.waktu_network)) / 3600
@@ -271,7 +271,10 @@ func (r *AttendanceRepository) PersonalMetrics(
 	var metrics domain.PersonalAttendanceMetrics
 	err := r.pool.QueryRow(ctx, `
 		SELECT
-			COUNT(*) FILTER (WHERE a.tipe = 'check_in'),
+			COUNT(*) FILTER (WHERE a.tipe = 'check_in' AND EXISTS (
+				SELECT 1 FROM attendances checkout
+				WHERE checkout.user_id=a.user_id AND checkout.tanggal=a.tanggal AND checkout.tipe='check_out'
+			)),
 			COUNT(*) FILTER (WHERE a.tipe = 'check_in' AND a.status = 'terlambat')
 		FROM attendances a
 		JOIN users u ON u.id = a.user_id
@@ -357,7 +360,14 @@ func (r *AttendanceRepository) AttendanceMetrics(
 	var metrics domain.AttendanceMetrics
 	err := r.pool.QueryRow(ctx, `
 		SELECT
-			COUNT(DISTINCT (user_id, tanggal)) FILTER (WHERE tipe = 'check_in'),
+			COUNT(DISTINCT (user_id, tanggal)) FILTER (
+				WHERE tipe = 'check_in' AND EXISTS (
+					SELECT 1 FROM attendances checkout
+					WHERE checkout.user_id = attendances.user_id
+					  AND checkout.tanggal = attendances.tanggal
+					  AND checkout.tipe = 'check_out'
+				)
+			),
 			COUNT(DISTINCT (user_id, tanggal)) FILTER (WHERE tipe = 'check_in' AND status = 'terlambat')
 		FROM attendances
 		WHERE tanggal BETWEEN $1::date AND $2::date

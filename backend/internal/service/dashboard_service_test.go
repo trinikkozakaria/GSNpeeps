@@ -43,8 +43,8 @@ func newDashboardServiceForTest(reader DashboardReader) *DashboardService {
 	return service
 }
 
-func TestDashboardRestrictsToHRAndTopManagement(t *testing.T) {
-	for _, role := range []domain.RoleName{domain.RoleEmployee, domain.RoleSupervisor} {
+func TestDashboardRestrictsToHR(t *testing.T) {
+	for _, role := range []domain.RoleName{domain.RoleEmployee, domain.RoleSupervisor, domain.RoleTopManagement} {
 		service := newDashboardServiceForTest(&dashboardReaderStub{})
 
 		_, err := service.Metrics(context.Background(), domain.Identity{Role: role}, "", "")
@@ -52,7 +52,7 @@ func TestDashboardRestrictsToHRAndTopManagement(t *testing.T) {
 		require.ErrorIsf(t, err, domain.ErrForbidden, "role %s harus ditolak", role)
 	}
 
-	for _, role := range []domain.RoleName{domain.RoleHR, domain.RoleTopManagement} {
+	for _, role := range []domain.RoleName{domain.RoleHR} {
 		service := newDashboardServiceForTest(&dashboardReaderStub{})
 
 		_, err := service.Metrics(context.Background(), domain.Identity{Role: role}, "", "")

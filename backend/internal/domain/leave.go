@@ -12,6 +12,8 @@ type LeaveType struct {
 	Code             string    `json:"kode"`
 	Name             string    `json:"nama"`
 	AnnualQuota      int       `json:"kuota_tahunan"`
+	Category         string    `json:"kategori"`
+	MaximumDays      *int      `json:"maksimal_hari"`
 	RequiresDocument bool      `json:"memerlukan_dokumen"`
 	IsActive         bool      `json:"is_active"`
 }
@@ -20,18 +22,23 @@ type CreateLeaveType struct {
 	Code             string
 	Name             string
 	AnnualQuota      int
+	Category         string
+	MaximumDays      *int
 	RequiresDocument bool
 }
 
 type UpdateLeaveType struct {
 	Name             *string
 	AnnualQuota      *int
+	Category         *string
+	MaximumDays      *int
+	MaximumDaysSet   bool
 	RequiresDocument *bool
 	IsActive         *bool
 }
 
 func (u UpdateLeaveType) Empty() bool {
-	return u.Name == nil && u.AnnualQuota == nil && u.RequiresDocument == nil && u.IsActive == nil
+	return u.Name == nil && u.AnnualQuota == nil && u.Category == nil && !u.MaximumDaysSet && u.RequiresDocument == nil && u.IsActive == nil
 }
 
 // LeaveBalance adalah saldo cuti per user per tahun. `Remaining` adalah kolom generated.

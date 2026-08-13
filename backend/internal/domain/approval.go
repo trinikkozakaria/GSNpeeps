@@ -180,6 +180,7 @@ type RequestLock struct {
 	Status               RequestStatus
 	TotalDays            int
 	AnnualQuota          int
+	LeaveCategory        string
 	LeaveTypeID          uuid.UUID
 	Year                 int
 }

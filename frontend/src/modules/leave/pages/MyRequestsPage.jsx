@@ -72,7 +72,7 @@ export const MyRequestsPage = () => {
             role="tab"
             aria-selected={tab === item.id}
             onClick={() => setTab(item.id)}
-            className={`min-h-11 rounded-lg px-4 text-sm font-semibold ${
+            className={`min-h-10 rounded-lg px-4 text-sm font-semibold ${
               tab === item.id
                 ? "bg-cyan-700 text-white"
                 : "border border-slate-900/15 text-slate-700 hover:bg-slate-900/5"

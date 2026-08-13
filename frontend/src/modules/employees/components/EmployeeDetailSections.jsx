@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate, formatPeriod } from "../../../lib/format";
+import { calculateAge, formatCurrency, formatDate, formatPeriod } from "../../../lib/format";
 import { DefinitionList, DetailItem, DetailSection, EmptyNote } from "./DetailSection";
 
 const genderLabel = { L: "Laki-laki", P: "Perempuan" };
@@ -21,6 +21,7 @@ export const EmployeeDetailSections = ({ employee }) => (
         <DetailItem label="Email">{employee.email}</DetailItem>
         <DetailItem label="Jenis kelamin">{genderLabel[employee.jenis_kelamin]}</DetailItem>
         <DetailItem label="Tanggal lahir">{formatDate(employee.tanggal_lahir)}</DetailItem>
+        <DetailItem label="Usia">{calculateAge(employee.tanggal_lahir)} tahun</DetailItem>
         <DetailItem label="Tanggal bergabung">{formatDate(employee.tanggal_join)}</DetailItem>
         <DetailItem label="Status pernikahan">
           {employee.status_pernikahan ? maritalLabel[employee.status_pernikahan] : null}
@@ -110,7 +111,8 @@ export const EmployeeDetailSections = ({ employee }) => (
               <span className="font-semibold text-slate-900">{education.jenjang || "Jenjang belum diisi"}</span>
               <span className="text-slate-600">{education.institusi || "Institusi belum diisi"}</span>
               <span className="text-slate-600">
-                {education.tahun_lulus ? `Lulus ${education.tahun_lulus}` : "Tahun lulus belum diisi"}
+                {education.tahun_masuk ? `Masuk ${education.tahun_masuk} · ` : ""}
+                {education.tahun_lulus ? `Lulus ${education.tahun_lulus}` : "Sedang pendidikan"}
               </span>
             </li>
           ))}

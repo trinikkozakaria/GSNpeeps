@@ -89,7 +89,7 @@ export const EmployeeDetailPage = () => {
             <>
               <Link
                 to={`/app/karyawan/${id}/edit`}
-                className="inline-flex min-h-11 items-center rounded-lg border border-slate-900/15 px-4 text-sm font-semibold"
+                className="inline-flex min-h-10 items-center rounded-lg border border-slate-900/15 px-4 text-sm font-semibold"
               >
                 Edit
               </Link>

@@ -172,7 +172,7 @@ func run() int {
 		RequirePermission: func(module, action string) func(http.Handler) http.Handler {
 			return middleware.RequirePermission(permissionChecker, module, action)
 		},
-	})
+	}, router.WithUAT(handler.NewUATHandler(db.Pool(), documentStore)))
 
 	server := &http.Server{
 		Addr:              cfg.HTTP.Address,

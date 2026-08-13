@@ -70,6 +70,7 @@ type EmergencyContact struct {
 type EducationHistory struct {
 	Level          *string `json:"jenjang"`
 	Institution    *string `json:"institusi"`
+	EntryYear      *int    `json:"tahun_masuk"`
 	GraduationYear *int    `json:"tahun_lulus"`
 }
 
@@ -248,6 +249,7 @@ type CreateEmergencyContact struct {
 type CreateEducation struct {
 	Level          *string
 	Institution    *string
+	EntryYear      *int
 	GraduationYear *int
 }
 

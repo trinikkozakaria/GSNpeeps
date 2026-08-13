@@ -305,11 +305,11 @@ func TestLiveFeedRestrictsToMonitoringRoles(t *testing.T) {
 		&attendanceStoreStub{}, &documentStoreStub{}, transactionStub{}, workingMonday(),
 	)
 
-	for _, role := range []domain.RoleName{domain.RoleEmployee, domain.RoleSupervisor} {
+	for _, role := range []domain.RoleName{domain.RoleEmployee, domain.RoleSupervisor, domain.RoleTopManagement} {
 		_, err := service.LiveFeed(context.Background(), domain.Identity{Role: role}, "")
 		require.ErrorIsf(t, err, domain.ErrForbidden, "role %s harus ditolak", role)
 	}
-	for _, role := range []domain.RoleName{domain.RoleHR, domain.RoleTopManagement} {
+	for _, role := range []domain.RoleName{domain.RoleHR} {
 		_, err := service.LiveFeed(context.Background(), domain.Identity{Role: role}, "")
 		require.NoErrorf(t, err, "role %s harus dapat membaca live feed", role)
 	}

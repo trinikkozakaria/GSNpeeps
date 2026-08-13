@@ -55,7 +55,7 @@ func (s *DashboardService) Metrics(
 	periodType domain.DashboardPeriodType,
 	anchor string,
 ) (domain.DashboardMetrics, error) {
-	if identity.Role != domain.RoleHR && identity.Role != domain.RoleTopManagement {
+	if identity.Role != domain.RoleHR {
 		return domain.DashboardMetrics{}, domain.ErrForbidden
 	}
 	if periodType == "" {

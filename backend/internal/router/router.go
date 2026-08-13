@@ -44,6 +44,13 @@ type NotificationRoutes struct {
 	Handler *handler.NotificationHandler
 }
 
+type UATRoutes struct{ Handler *handler.UATHandler }
+type Option func(*UATRoutes)
+
+func WithUAT(handler *handler.UATHandler) Option {
+	return func(routes *UATRoutes) { routes.Handler = handler }
+}
+
 // AccessRoutes memasang modul AKSES. RequirePermission adalah gerbang kedua berbasis matriks
 // permission; service tetap memeriksa role sehingga satu lapisan yang salah konfigurasi tidak
 // membuka modul ini.
@@ -65,7 +72,12 @@ func New(
 	overtimes OvertimeRoutes,
 	notifications NotificationRoutes,
 	access AccessRoutes,
+	options ...Option,
 ) http.Handler {
+	var uat UATRoutes
+	for _, option := range options {
+		option(&uat)
+	}
 	router := mux.NewRouter()
 	router.Handle("/health", healthHandler).Methods(http.MethodGet)
 	api := router.PathPrefix("/api/v1").Subrouter()
@@ -88,6 +100,7 @@ func New(
 	// Route literal harus terdaftar sebelum pola `{id}` agar `/karyawan/export` tidak
 	// tertangkap sebagai ID karyawan.
 	api.Handle("/karyawan/export", protected(employees.Handler.Export)).Methods(http.MethodGet)
+	api.Handle("/karyawan/bulk", protected(employees.Handler.BulkCreate)).Methods(http.MethodPost)
 	api.Handle("/karyawan/{id}", protected(employees.Handler.Detail)).Methods(http.MethodGet)
 	api.Handle("/karyawan/{id}", protected(employees.Handler.Update)).Methods(http.MethodPut)
 	api.Handle("/karyawan/{id}", protected(employees.Handler.Deactivate)).Methods(http.MethodDelete)
@@ -99,6 +112,19 @@ func New(
 	api.Handle("/profil/saya", protected(profiles.Handler.Me)).Methods(http.MethodGet)
 	api.Handle("/profil/saya/metrik", protected(profiles.Handler.Metrics)).Methods(http.MethodGet)
 	api.Handle("/dashboard/metrik", protected(dashboards.Handler.Metrics)).Methods(http.MethodGet)
+	if uat.Handler != nil {
+		api.Handle("/company-feed", protected(uat.Handler.ListFeeds)).Methods(http.MethodGet)
+		api.Handle("/company-feed", protected(uat.Handler.CreateFeed)).Methods(http.MethodPost)
+		api.Handle("/kalender/libur", protected(uat.Handler.ListHolidays)).Methods(http.MethodGet)
+		api.Handle("/kalender/libur/bulk", protected(uat.Handler.UpsertHolidays)).Methods(http.MethodPut)
+		api.Handle("/master/jenis-dokumen", protected(uat.Handler.ListDocumentTypes)).Methods(http.MethodGet)
+		api.Handle("/master/jenis-dokumen", protected(uat.Handler.CreateDocumentType)).Methods(http.MethodPost)
+		api.Handle("/absensi/koreksi", protected(uat.Handler.ListCorrections)).Methods(http.MethodGet)
+		api.Handle("/absensi/koreksi", protected(uat.Handler.CreateCorrection)).Methods(http.MethodPost)
+		api.Handle("/absensi/koreksi/{id}", protected(uat.Handler.DecideCorrection)).Methods(http.MethodPut)
+		api.Handle("/media", protected(uat.Handler.Media)).Methods(http.MethodGet)
+		api.Handle("/beranda", protected(uat.Handler.HomeSummary)).Methods(http.MethodGet)
+	}
 
 	api.Handle("/absensi/checkin", protected(attendances.Handler.Record)).Methods(http.MethodPost)
 	api.Handle("/absensi/livefeed", protected(attendances.Handler.LiveFeed)).Methods(http.MethodGet)

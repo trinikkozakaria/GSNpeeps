@@ -242,7 +242,7 @@ func (s *AttendanceService) LiveFeed(
 	identity domain.Identity,
 	date string,
 ) ([]domain.AttendanceLiveFeedItem, error) {
-	if identity.Role != domain.RoleHR && identity.Role != domain.RoleTopManagement {
+	if identity.Role != domain.RoleHR {
 		return nil, domain.ErrForbidden
 	}
 	if date == "" {
@@ -273,7 +273,7 @@ func (s *AttendanceService) Report(
 	identity domain.Identity,
 	query ReportQuery,
 ) (domain.AttendanceReportPage, error) {
-	if identity.Role != domain.RoleHR && identity.Role != domain.RoleTopManagement {
+	if identity.Role != domain.RoleHR {
 		return domain.AttendanceReportPage{}, domain.ErrForbidden
 	}
 	filter, err := s.resolveReportRange(query)

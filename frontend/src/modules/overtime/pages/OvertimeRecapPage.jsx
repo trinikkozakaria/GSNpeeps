@@ -69,7 +69,7 @@ export const OvertimeRecapPage = () => {
             type="date"
             value={filters.tanggal_mulai ?? ""}
             onChange={(event) => setFilter("tanggal_mulai", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
         <label className="text-sm font-medium text-slate-700">
@@ -78,7 +78,7 @@ export const OvertimeRecapPage = () => {
             type="date"
             value={filters.tanggal_selesai ?? ""}
             onChange={(event) => setFilter("tanggal_selesai", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
         <label className="text-sm font-medium text-slate-700">
@@ -86,7 +86,7 @@ export const OvertimeRecapPage = () => {
           <select
             value={filters.department_id ?? ""}
             onChange={(event) => setFilter("department_id", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           >
             <option value="">Semua departemen</option>
             {(departments.data ?? []).map((item) => (

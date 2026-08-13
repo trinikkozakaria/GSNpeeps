@@ -31,13 +31,17 @@ export const LeaveTypesPage = () => {
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(createLeaveTypeFormSchema),
-    defaultValues: { kode: "", nama: "", kuota_tahunan: 0, memerlukan_dokumen: true },
+    defaultValues: { kode: "", nama: "", kategori: "cuti", kuota_tahunan: 0, maksimal_hari: 0, memerlukan_dokumen: true },
   });
 
   const onSubmit = async (values) => {
     setFormError("");
     try {
-      await createType.mutateAsync(values);
+      await createType.mutateAsync({
+        ...values,
+        kuota_tahunan: values.kategori === "izin" ? 0 : values.kuota_tahunan,
+        maksimal_hari: values.kategori === "izin" ? values.maksimal_hari : null,
+      });
       reset();
     } catch (error) {
       Object.entries(error?.fields ?? {}).forEach(([field, message]) => {
@@ -74,6 +78,8 @@ export const LeaveTypesPage = () => {
   const columns = [
     { key: "kode", header: "Kode", render: (row) => row.kode },
     { key: "nama", header: "Nama", render: (row) => row.nama },
+    { key: "kategori", header: "Kategori", render: (row) => row.kategori === "cuti" ? "Cuti (bersaldo)" : "Izin (tanpa saldo)" },
+    { key: "batas", header: "Batas izin", render: (row) => row.kategori === "izin" ? `${formatNumber(row.maksimal_hari)} hari` : "Mengikuti saldo" },
     { key: "kuota", header: "Kuota tahunan", render: (row) => `${formatNumber(row.kuota_tahunan)} hari` },
     {
       key: "dokumen",
@@ -121,6 +127,7 @@ export const LeaveTypesPage = () => {
       >
         <FormInput id="leave-type-code" label="Kode" registration={register("kode")} error={errors.kode?.message} disabled={isSubmitting} />
         <FormInput id="leave-type-name" label="Nama" registration={register("nama")} error={errors.nama?.message} disabled={isSubmitting} />
+        <label className="text-sm font-medium text-slate-700">Kategori<select {...register("kategori")} className="mt-2 min-h-10 w-full rounded-lg border bg-white px-3"><option value="cuti">Cuti (mengurangi saldo)</option><option value="izin">Izin (tanpa saldo)</option></select></label>
         <FormInput
           id="leave-type-quota"
           label="Kuota tahunan (hari)"
@@ -130,6 +137,7 @@ export const LeaveTypesPage = () => {
           error={errors.kuota_tahunan?.message}
           disabled={isSubmitting}
         />
+        <FormInput id="leave-type-maximum" label="Maksimal hari izin (isi untuk kategori izin)" type="number" min="0" registration={register("maksimal_hari")} error={errors.maksimal_hari?.message} disabled={isSubmitting} />
         <label className="flex items-end gap-2 text-sm text-slate-700">
           <input type="checkbox" {...register("memerlukan_dokumen")} disabled={isSubmitting} className="h-4 w-4" />
           Dokumen pendukung wajib

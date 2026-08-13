@@ -52,6 +52,7 @@ type EmergencyContactRequest struct {
 type EducationRequest struct {
 	Level          *string `json:"jenjang" validate:"omitempty,max=20"`
 	Institution    *string `json:"institusi" validate:"omitempty,max=150"`
+	EntryYear      *int    `json:"tahun_masuk" validate:"omitempty,min=1900,max=2200"`
 	GraduationYear *int    `json:"tahun_lulus" validate:"omitempty,min=1900,max=2200"`
 }
 

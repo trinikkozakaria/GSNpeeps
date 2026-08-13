@@ -14,7 +14,7 @@ export const NotFoundPage = () => {
       </p>
       <Link
         to="/"
-        className="mt-8 inline-flex min-h-11 items-center rounded-lg bg-cyan-700 px-4 py-2 font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700"
+        className="mt-8 inline-flex min-h-10 items-center rounded-lg bg-cyan-700 px-4 py-2 font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700"
       >
         Kembali ke beranda
       </Link>

@@ -7,10 +7,10 @@ export const roles = {
 
 const allRoles = Object.values(roles);
 const personalRoles = [roles.employee, roles.supervisor, roles.hr];
-const monitoringRoles = [roles.hr, roles.topManagement];
+const hrOnly = [roles.hr];
 
 export const navigationItems = [
-  { label: "Dashboard HR", path: "/app/dashboard", roles: monitoringRoles },
+  { label: "Dashboard HR", path: "/app/dashboard", roles: hrOnly },
   { label: "Beranda", path: "/app", roles: allRoles },
   { label: "Profil Saya", path: "/app/profil", roles: personalRoles },
   { label: "Metrik Personal", path: "/app/metrik-personal", roles: personalRoles },
@@ -22,6 +22,7 @@ export const navigationItems = [
     // otomatis tersorot aktif ketika sub-alur /app/absensi/ketidakhadiran atau
     // /app/absensi/lembur sedang dibuka; tidak perlu logika aktif tambahan.
   },
+  { label: "Koreksi Absensi", path: "/app/absensi/koreksi", roles: personalRoles },
   {
     // "Pengajuan" hanya label pengelompokan (UI saja); tidak pernah menjadi link sendiri.
     // Ajukan Ketidakhadiran dan Ajukan Lembur tetap memakai route yang sama seperti
@@ -39,13 +40,16 @@ export const navigationItems = [
     path: "/app/persetujuan",
     roles: [roles.supervisor, roles.hr, roles.topManagement],
   },
-  { label: "Employee Database", path: "/app/karyawan", roles: monitoringRoles },
-  { label: "Live Feed Absensi", path: "/app/live-feed", roles: monitoringRoles },
-  { label: "Laporan Kehadiran", path: "/app/laporan-kehadiran", roles: monitoringRoles },
+  { label: "Employee Database", path: "/app/karyawan", roles: hrOnly },
+  { label: "Live Feed Absensi", path: "/app/live-feed", roles: hrOnly },
+  { label: "Laporan Kehadiran", path: "/app/laporan-kehadiran", roles: hrOnly },
+  { label: "Kalender", path: "/app/kalender", roles: allRoles },
+  { label: "Company Feed", path: "/app/company-feed", roles: hrOnly },
+  { label: "Master Jenis Dokumen", path: "/app/master/jenis-dokumen", roles: hrOnly },
   { label: "Master Jenis Izin", path: "/app/master/jenis-izin", roles: [roles.hr] },
   { label: "Rekap Lembur", path: "/app/lembur/rekap", roles: [roles.hr] },
-  { label: "AKSES", path: "/app/akses", roles: monitoringRoles },
-  { label: "Audit Log", path: "/app/audit", roles: monitoringRoles },
+  { label: "AKSES", path: "/app/akses", roles: hrOnly },
+  { label: "Audit Log", path: "/app/audit", roles: hrOnly },
   { label: "Notifikasi", path: "/app/notifikasi", roles: allRoles },
   { label: "Keamanan Akun", path: "/app/keamanan", roles: allRoles },
 ];

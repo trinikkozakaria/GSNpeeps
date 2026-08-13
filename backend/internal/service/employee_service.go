@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -60,6 +61,85 @@ type EmployeeService struct {
 	passwords PasswordHasher
 	documents DocumentStore
 	now       func() time.Time
+}
+
+type BulkEmployeeItem struct {
+	Row        int       `json:"baris"`
+	EmployeeID uuid.UUID `json:"employee_id"`
+	Email      string    `json:"email"`
+}
+type BulkEmployeeFailure struct {
+	Row     int    `json:"baris"`
+	Message string `json:"message"`
+}
+type BulkEmployeeResult struct {
+	Created []BulkEmployeeItem    `json:"dibuat"`
+	Failed  []BulkEmployeeFailure `json:"gagal"`
+}
+
+var emailPartPattern = regexp.MustCompile(`[^a-z0-9]+`)
+
+func (s *EmployeeService) automaticEmployeeEmail(ctx context.Context, name string) (string, error) {
+	parts := strings.Fields(strings.ToLower(name))
+	if len(parts) == 0 {
+		return "", domain.ErrInvalidRequest
+	}
+	clean := func(value string) string { return strings.Trim(emailPartPattern.ReplaceAllString(value, ""), "-") }
+	first := clean(parts[0])
+	if first == "" {
+		return "", domain.ErrInvalidRequest
+	}
+	candidates := []string{first}
+	if len(parts) > 1 {
+		candidates = append(candidates, first+clean(parts[1]))
+	}
+	checker, ok := s.employees.(interface {
+		EmailExists(context.Context, string) (bool, error)
+	})
+	if !ok {
+		return candidates[0] + "@janjikupadamu.id", nil
+	}
+	for index := 0; index < 1000; index++ {
+		local := candidates[len(candidates)-1]
+		if index < len(candidates) {
+			local = candidates[index]
+		} else {
+			local += fmt.Sprint(index - len(candidates) + 2)
+		}
+		email := local + "@janjikupadamu.id"
+		exists, err := checker.EmailExists(ctx, email)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return email, nil
+		}
+	}
+	return "", domain.ErrConflict
+}
+
+func (s *EmployeeService) BulkCreate(ctx context.Context, identity domain.Identity, requests []dto.CreateEmployeeRequest, meta RequestMeta) (BulkEmployeeResult, error) {
+	if identity.Role != domain.RoleHR {
+		return BulkEmployeeResult{}, domain.ErrForbidden
+	}
+	result := BulkEmployeeResult{Created: make([]BulkEmployeeItem, 0), Failed: make([]BulkEmployeeFailure, 0)}
+	for index, request := range requests {
+		if strings.TrimSpace(request.Email) == "" {
+			email, err := s.automaticEmployeeEmail(ctx, request.Name)
+			if err != nil {
+				result.Failed = append(result.Failed, BulkEmployeeFailure{Row: index + 2, Message: "Email otomatis tidak dapat dibuat"})
+				continue
+			}
+			request.Email = email
+		}
+		created, err := s.Create(ctx, identity, request, meta)
+		if err != nil {
+			result.Failed = append(result.Failed, BulkEmployeeFailure{Row: index + 2, Message: "Data karyawan tidak valid atau duplikat"})
+			continue
+		}
+		result.Created = append(result.Created, BulkEmployeeItem{Row: index + 2, EmployeeID: created.EmployeeID, Email: request.Email})
+	}
+	return result, nil
 }
 
 func NewEmployeeService(
@@ -220,6 +300,7 @@ func mapEducation(requests []dto.EducationRequest) []domain.CreateEducation {
 		entries = append(entries, domain.CreateEducation{
 			Level:          trimOptionalString(item.Level),
 			Institution:    trimOptionalString(item.Institution),
+			EntryYear:      item.EntryYear,
 			GraduationYear: item.GraduationYear,
 		})
 	}
@@ -461,7 +542,7 @@ func (s *EmployeeService) List(
 	identity domain.Identity,
 	filter domain.EmployeeFilter,
 ) (domain.EmployeePage, error) {
-	if identity.Role != domain.RoleHR && identity.Role != domain.RoleTopManagement {
+	if identity.Role != domain.RoleHR {
 		return domain.EmployeePage{}, domain.ErrForbidden
 	}
 	filter.Search = strings.TrimSpace(filter.Search)
@@ -489,7 +570,7 @@ func (s *EmployeeService) Detail(
 	identity domain.Identity,
 	id uuid.UUID,
 ) (domain.EmployeeDetail, error) {
-	if identity.Role != domain.RoleHR && identity.Role != domain.RoleTopManagement {
+	if identity.Role != domain.RoleHR {
 		return domain.EmployeeDetail{}, domain.ErrForbidden
 	}
 	// Gaji dibatasi ke periode bulan berjalan sesuai PRD; histori gaji tidak pernah dibaca.
@@ -516,7 +597,7 @@ func (s *EmployeeService) ListDocuments(
 	identity domain.Identity,
 	employeeID uuid.UUID,
 ) ([]domain.EmployeeDocument, error) {
-	if identity.Role != domain.RoleHR && identity.Role != domain.RoleTopManagement {
+	if identity.Role != domain.RoleHR {
 		return nil, domain.ErrForbidden
 	}
 	if err := s.employees.ExistsActive(ctx, employeeID); err != nil {
@@ -553,6 +634,13 @@ func (s *EmployeeService) UploadDocument(
 	}
 	if len(upload.Content) == 0 || len(upload.Content) > maxDocumentBytes {
 		return domain.EmployeeDocument{}, domain.ErrInvalidRequest
+	}
+	if resolver, ok := s.employees.(interface {
+		ResolveDocumentType(context.Context, string) (uuid.UUID, error)
+	}); ok {
+		if _, err := resolver.ResolveDocumentType(ctx, upload.Type); err != nil {
+			return domain.EmployeeDocument{}, domain.ErrInvalidRequest
+		}
 	}
 	if err := s.employees.ExistsActive(ctx, employeeID); err != nil {
 		return domain.EmployeeDocument{}, mapEmployeeRepositoryError(err)

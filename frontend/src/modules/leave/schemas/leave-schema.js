@@ -10,6 +10,8 @@ export const leaveTypeSchema = z.object({
   kode: z.string(),
   nama: z.string(),
   kuota_tahunan: z.number().int().nonnegative(),
+  kategori: z.enum(["cuti", "izin"]).default("cuti"),
+  maksimal_hari: z.number().int().positive().nullable().optional(),
   memerlukan_dokumen: z.boolean().optional(),
   is_active: z.boolean(),
 });
@@ -104,5 +106,7 @@ export const createLeaveTypeFormSchema = z.object({
   kode: z.string().trim().min(1, "Kode wajib diisi").max(50),
   nama: z.string().trim().min(1, "Nama wajib diisi").max(150),
   kuota_tahunan: z.coerce.number().int().min(0, "Kuota tidak boleh negatif"),
+  kategori: z.enum(["cuti", "izin"]),
+  maksimal_hari: z.coerce.number().int().min(0).optional(),
   memerlukan_dokumen: z.boolean(),
 });

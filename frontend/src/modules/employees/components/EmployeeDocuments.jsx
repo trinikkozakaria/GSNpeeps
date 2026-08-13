@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { FileField } from "../../../components/form/FileField";
 import { Button } from "../../../components/ui/Button";
 import { formatDate } from "../../../lib/format";
 import { useEmployeeDocuments, useUploadEmployeeDocument } from "../hooks/useEmployees";
 import { DetailSection, EmptyNote } from "./DetailSection";
+import { documentTypesRequest } from "../../uat/api/uat-api";
+import { ProtectedDownloadLink } from "../../../components/media/ProtectedImage";
 
 // Format yang disetujui kontrak. Arsip ZIP dan RAR sengaja tidak termasuk; validasi client
 // hanya untuk UX karena backend tetap menjadi otoritas.
@@ -51,6 +53,8 @@ const uploadErrorMessage = (error) => {
 export const EmployeeDocuments = ({ scope, employeeId, canUpload }) => {
   const documents = useEmployeeDocuments(scope, employeeId);
   const upload = useUploadEmployeeDocument(scope, employeeId);
+  const [documentTypes,setDocumentTypes]=useState([]);
+  useEffect(()=>{if(!canUpload)return undefined;const controller=new AbortController();documentTypesRequest(controller.signal).then(setDocumentTypes).catch(()=>setDocumentTypes([]));return()=>controller.abort()},[canUpload]);
   const [documentType, setDocumentType] = useState("");
   const [file, setFile] = useState(null);
   const [fieldError, setFieldError] = useState("");
@@ -97,20 +101,20 @@ export const EmployeeDocuments = ({ scope, employeeId, canUpload }) => {
       {documents.data && documents.data.length === 0 && (
         <EmptyNote>Belum ada dokumen yang diunggah.</EmptyNote>
       )}
+      {documents.data&&documentTypes.length>0&&<div className="mb-4 rounded-lg bg-slate-50 p-3"><p className="text-sm font-semibold">Kelengkapan dokumen wajib</p>{documentTypes.filter(item=>item.wajib&&item.is_active).map(item=>{const uploaded=documents.data.some(doc=>doc.jenis_dokumen===item.nama);return <p key={item.id} className={`text-sm ${uploaded?"text-emerald-700":"text-red-700"}`}>{uploaded?"✓":"!"} {item.nama}</p>})}</div>}
       {documents.data && documents.data.length > 0 && (
         <ul className="divide-y divide-slate-900/10">
           {documents.data.map((document) => (
             <li key={document.id} className="grid gap-2 py-4 sm:grid-cols-3">
               <span className="font-semibold text-slate-900">{document.jenis_dokumen}</span>
-              <a
-                href={document.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <ProtectedDownloadLink
+                path={document.file_url}
+                fileName={document.nama_file}
                 className="font-medium text-cyan-700 underline hover:text-cyan-900"
               >
                 {document.nama_file}
-                <span className="sr-only"> (buka di tab baru)</span>
-              </a>
+                <span className="sr-only"> (unduh berkas)</span>
+              </ProtectedDownloadLink>
               <span className="text-slate-600">{formatDate(document.created_at.slice(0, 10))}</span>
             </li>
           ))}
@@ -137,13 +141,14 @@ export const EmployeeDocuments = ({ scope, employeeId, canUpload }) => {
             <input
               id="document-type"
               value={documentType}
-              maxLength={100}
               aria-invalid={Boolean(typeError)}
               aria-describedby={typeError ? "document-type-error" : undefined}
               onChange={(event) => setDocumentType(event.target.value)}
+              list="document-type-options"
               disabled={upload.isPending}
-              className="min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300 disabled:opacity-60"
+              className="min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300 disabled:opacity-60"
             />
+            <datalist id="document-type-options">{documentTypes.filter((item)=>item.is_active).map((item)=><option key={item.id} value={item.nama}/>)}</datalist>
             {typeError && (
               <p id="document-type-error" role="alert" className="mt-2 text-sm text-rose-700">
                 {typeError}

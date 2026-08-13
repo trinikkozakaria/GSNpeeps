@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { CompositionChart } from "../../../components/charts/CompositionChart";
+import { GenderIcons, PieChart } from "../../../components/charts/PieChart";
 import { Button } from "../../../components/ui/Button";
 import { formatCurrency, formatDate, formatNumber, formatPercent } from "../../../lib/format";
 import { useAuth } from "../../auth/hooks/useAuth";
@@ -85,7 +85,7 @@ export const DashboardPage = () => {
           <select
             value={filters.periode}
             onChange={(event) => setFilter("periode", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           >
             {dashboardPeriods.map((period) => (
               <option key={period} value={period}>
@@ -100,7 +100,7 @@ export const DashboardPage = () => {
             type="date"
             value={filters.tanggalAcuan}
             onChange={(event) => setFilter("tanggal_acuan", event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
           <span className="mt-2 block text-xs text-slate-500">
             Kosongkan untuk memakai tanggal hari ini.
@@ -157,32 +157,26 @@ export const DashboardPage = () => {
 
             <div className="mt-8 grid gap-6 lg:grid-cols-2">
               <Panel id="gender-panel-title" title="Rasio gender">
-                <CompositionChart
-                  title="Populasi aktif menurut gender"
-                  description="Gender yang belum diisi ditampilkan terpisah, tidak digabung ke kategori lain."
+                <GenderIcons
                   items={data.rasio_gender.map((item) => ({
                     nama: genderLabel[item.kategori],
                     jumlah: item.jumlah,
                   }))}
-                  valueLabel="Karyawan"
-                  emptyMessage="Belum ada karyawan aktif pada periode ini."
                 />
               </Panel>
 
               <Panel id="department-active-title" title="Komposisi departemen — aktif">
-                <CompositionChart
+                <PieChart
                   title="Karyawan aktif per departemen"
                   items={data.komposisi_departemen_aktif}
-                  valueLabel="Karyawan"
                   emptyMessage="Belum ada karyawan aktif pada periode ini."
                 />
               </Panel>
 
               <Panel id="department-inactive-title" title="Komposisi departemen — nonaktif">
-                <CompositionChart
+                <PieChart
                   title="Karyawan nonaktif per departemen"
                   items={data.komposisi_departemen_nonaktif}
-                  valueLabel="Karyawan"
                   emptyMessage="Belum ada karyawan nonaktif pada periode ini."
                 />
               </Panel>

@@ -13,6 +13,7 @@ import { ApprovalDetailPage } from "../modules/approvals/pages/ApprovalDetailPag
 import { ApprovalInboxPage } from "../modules/approvals/pages/ApprovalInboxPage";
 import { AuditLogPage } from "../modules/audit/pages/AuditLogPage";
 import { AttendanceReportPage } from "../modules/attendance-reports/pages/AttendanceReportPage";
+import { AttendanceCorrectionPage } from "../modules/attendance/pages/AttendanceCorrectionPage";
 import { LiveFeedPage } from "../modules/attendance-reports/pages/LiveFeedPage";
 import { LeaveRequestPage } from "../modules/leave/pages/LeaveRequestPage";
 import { LeaveTypesPage } from "../modules/leave/pages/LeaveTypesPage";
@@ -22,6 +23,9 @@ import { OvertimeRecapPage } from "../modules/overtime/pages/OvertimeRecapPage";
 import { OvertimeRequestPage } from "../modules/overtime/pages/OvertimeRequestPage";
 import { MyProfilePage } from "../modules/profile/pages/MyProfilePage";
 import { PersonalMetricsPage } from "../modules/profile/pages/PersonalMetricsPage";
+import { CompanyFeedPage } from "../modules/uat/pages/CompanyFeedPage";
+import { DocumentTypesPage } from "../modules/uat/pages/DocumentTypesPage";
+import { HolidayCalendarPage } from "../modules/uat/pages/HolidayCalendarPage";
 import { EmployeeDetailPage } from "../modules/employees/pages/EmployeeDetailPage";
 import { EmployeeListPage } from "../modules/employees/pages/EmployeeListPage";
 import { AuthenticatedRoute } from "./guards/AuthenticatedRoute";
@@ -61,7 +65,7 @@ const EmployeeEditPage = lazy(() =>
 );
 
 const personalRoles = [roles.employee, roles.supervisor, roles.hr];
-const monitoringRoles = [roles.hr, roles.topManagement];
+const monitoringRoles = [roles.hr];
 const approvalRoles = [roles.supervisor, roles.hr, roles.topManagement];
 
 export const router = createBrowserRouter([
@@ -81,12 +85,14 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <RoleLandingPage /> },
+          { path: "kalender", element: <HolidayCalendarPage /> },
           {
             element: <RoleRoute allowedRoles={personalRoles} />,
             children: [
               { path: "profil", element: <MyProfilePage /> },
               { path: "metrik-personal", element: <PersonalMetricsPage /> },
               { path: "absensi", element: <CheckInPage /> },
+              { path: "absensi/koreksi", element: <AttendanceCorrectionPage /> },
               { path: "absensi/ketidakhadiran", element: <LeaveRequestPage /> },
               { path: "absensi/lembur", element: <OvertimeRequestPage /> },
               { path: "pengajuan", element: <MyRequestsPage /> },
@@ -122,6 +128,8 @@ export const router = createBrowserRouter([
                 element: <RoleRoute allowedRoles={[roles.hr]} />,
                 children: [
                   { path: "master/jenis-izin", element: <LeaveTypesPage /> },
+                  { path: "master/jenis-dokumen", element: <DocumentTypesPage /> },
+                  { path: "company-feed", element: <CompanyFeedPage /> },
                   { path: "lembur/rekap", element: <OvertimeRecapPage /> },
                 ],
               },

@@ -127,10 +127,10 @@ func identityFor(role domain.RoleName) domain.Identity {
 	return domain.Identity{UserID: uuid.New(), EmployeeID: uuid.New(), Role: role}
 }
 
-func TestAccessReadsAreLimitedToHumanResourcesAndTopManagement(t *testing.T) {
+func TestAccessReadsAreLimitedToHumanResources(t *testing.T) {
 	fixture := newAccessFixture()
 
-	for _, role := range []domain.RoleName{domain.RoleHR, domain.RoleTopManagement} {
+	for _, role := range []domain.RoleName{domain.RoleHR} {
 		_, err := fixture.service.ListRoles(context.Background(), identityFor(role))
 		assert.NoErrorf(t, err, "role %s harus dapat membaca daftar role", role)
 		_, err = fixture.service.PermissionMatrix(context.Background(), identityFor(role))
@@ -141,7 +141,7 @@ func TestAccessReadsAreLimitedToHumanResourcesAndTopManagement(t *testing.T) {
 		assert.NoErrorf(t, err, "role %s harus dapat membaca audit log", role)
 	}
 
-	for _, role := range []domain.RoleName{domain.RoleEmployee, domain.RoleSupervisor} {
+	for _, role := range []domain.RoleName{domain.RoleEmployee, domain.RoleSupervisor, domain.RoleTopManagement} {
 		_, err := fixture.service.ListRoles(context.Background(), identityFor(role))
 		assert.ErrorIsf(t, err, domain.ErrForbidden, "role %s tidak boleh membaca role", role)
 		_, err = fixture.service.PermissionMatrix(context.Background(), identityFor(role))
@@ -290,7 +290,7 @@ func TestListAuditLogsRedactsSensitiveDetail(t *testing.T) {
 	}
 
 	page, err := fixture.service.ListAuditLogs(
-		context.Background(), identityFor(domain.RoleTopManagement), domain.AuditLogFilter{},
+		context.Background(), identityFor(domain.RoleHR), domain.AuditLogFilter{},
 	)
 
 	require.NoError(t, err)

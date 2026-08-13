@@ -4,11 +4,12 @@ import { useSearchParams } from "react-router-dom";
 import { DataTable } from "../../../components/data-table/DataTable";
 import { Button } from "../../../components/ui/Button";
 import { attendanceStatusLabel, workModeLabel } from "../../../lib/request-status";
+import { formatTime } from "../../../lib/format";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { useLiveFeed } from "../../attendance/hooks/useAttendance";
 import { PhotoPreviewModal } from "../components/PhotoPreviewModal";
 
-const monitoringRoles = ["hr", "top_management"];
+const monitoringRoles = ["hr"];
 
 // Live feed API mengembalikan satu baris per event (check-in dan check-out terpisah).
 // Satu hari kehadiran karyawan tetap dihitung satu baris di tabel; check-in dan check-out
@@ -64,21 +65,22 @@ export const LiveFeedPage = () => {
       key: "check_in",
       header: "Check-in",
       render: (row) =>
-        row.checkIn ? new Date(row.checkIn.waktu).toLocaleTimeString("id-ID") : "—",
+        row.checkIn ? formatTime(row.checkIn.waktu) : "—",
     },
     {
       key: "check_out",
       header: "Check-out",
       render: (row) =>
-        row.checkOut ? new Date(row.checkOut.waktu).toLocaleTimeString("id-ID") : "—",
+        row.checkOut ? formatTime(row.checkOut.waktu) : "—",
     },
     { key: "mode", header: "Mode", render: (row) => workModeLabel[row.modeKerja] },
     {
       key: "status",
       header: "Status",
       render: (row) => {
-        const status = row.checkIn?.status ?? row.checkOut?.status;
-        return status ? (attendanceStatusLabel[status] ?? status) : "—";
+        const statuses = [row.checkIn && ["Masuk", row.checkIn.status], row.checkOut && ["Pulang", row.checkOut.status]].filter(Boolean);
+        if (statuses.length === 0) return "—";
+        return <div className="flex flex-wrap gap-1">{statuses.map(([label,status]) => { const danger=status==="terlambat"||status==="pulang_cepat"; return <span key={label} className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${danger?"bg-red-100 text-red-800":"bg-emerald-100 text-emerald-800"}`}>{label}: {attendanceStatusLabel[status]??status}</span>; })}</div>;
       },
     },
     {
@@ -123,7 +125,7 @@ export const LiveFeedPage = () => {
             else next.delete("tanggal");
             setParams(next);
           }}
-          className="mt-2 min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+          className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
         />
         <span className="mt-2 block text-xs text-slate-500">
           Kosongkan untuk memakai tanggal hari ini menurut server.

@@ -243,7 +243,7 @@ func TestEmployeeDetailMapsRepositoryNotFound(t *testing.T) {
 
 	_, err := service.Detail(
 		context.Background(),
-		domain.Identity{Role: domain.RoleTopManagement},
+		domain.Identity{Role: domain.RoleHR},
 		uuid.New(),
 	)
 
@@ -265,7 +265,7 @@ func TestEmployeeDetailRequestsCurrentMonthSalaryOnly(t *testing.T) {
 }
 
 func TestEmployeeDocumentAccessMatrix(t *testing.T) {
-	forbidden := []domain.RoleName{domain.RoleEmployee, domain.RoleSupervisor}
+	forbidden := []domain.RoleName{domain.RoleEmployee, domain.RoleSupervisor, domain.RoleTopManagement}
 	for _, role := range forbidden {
 		service := newEmployeeServiceForTest(&employeeReaderStub{})
 
@@ -286,23 +286,6 @@ func TestEmployeeDocumentAccessMatrix(t *testing.T) {
 		require.ErrorIs(t, uploadErr, domain.ErrForbidden)
 	}
 
-	// Top Management membaca dokumen tetapi tidak boleh mengunggah.
-	service := newEmployeeServiceForTest(&employeeReaderStub{})
-	_, err := service.ListDocuments(
-		context.Background(),
-		domain.Identity{Role: domain.RoleTopManagement},
-		uuid.New(),
-	)
-	require.NoError(t, err)
-
-	_, err = service.UploadDocument(
-		context.Background(),
-		domain.Identity{Role: domain.RoleTopManagement},
-		uuid.New(),
-		validDocumentUpload(),
-		RequestMeta{},
-	)
-	require.ErrorIs(t, err, domain.ErrForbidden)
 }
 
 func TestEmployeeUploadDocumentDoesNotTouchStorageForForbiddenRole(t *testing.T) {

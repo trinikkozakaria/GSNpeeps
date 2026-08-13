@@ -157,7 +157,7 @@ export const LeaveRequestPage = () => {
             {...register("jenis_izin_id")}
             disabled={isSubmitting}
             aria-invalid={Boolean(errors.jenis_izin_id)}
-            className="min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+            className="min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           >
             <option value="">Pilih jenis izin</option>
             {(leaveTypes.data ?? []).map((type) => (

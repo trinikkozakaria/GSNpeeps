@@ -100,7 +100,12 @@ func (s *LeaveService) CreateLeaveType(
 	}
 	command.Code = strings.TrimSpace(command.Code)
 	command.Name = strings.TrimSpace(command.Name)
-	if command.Code == "" || command.Name == "" || command.AnnualQuota < 0 {
+	if command.Category == "" {
+		command.Category = "cuti"
+	}
+	if command.Code == "" || command.Name == "" || command.AnnualQuota < 0 ||
+		(command.Category != "cuti" && command.Category != "izin") ||
+		(command.Category == "izin" && (command.MaximumDays == nil || *command.MaximumDays < 1)) {
 		return uuid.Nil, domain.ErrInvalidRequest
 	}
 
@@ -145,6 +150,12 @@ func (s *LeaveService) UpdateLeaveType(
 		return domain.ErrInvalidRequest
 	}
 	if changes.AnnualQuota != nil && *changes.AnnualQuota < 0 {
+		return domain.ErrInvalidRequest
+	}
+	if changes.Category != nil && *changes.Category != "cuti" && *changes.Category != "izin" {
+		return domain.ErrInvalidRequest
+	}
+	if changes.MaximumDaysSet && changes.MaximumDays != nil && *changes.MaximumDays < 1 {
 		return domain.ErrInvalidRequest
 	}
 
@@ -204,6 +215,9 @@ func (s *LeaveService) Create(
 		return domain.RequestStateData{}, fmt.Errorf("resolve leave type: %w", err)
 	}
 	if !leaveType.IsActive {
+		return domain.RequestStateData{}, domain.ErrInvalidRequest
+	}
+	if leaveType.Category == "izin" && leaveType.MaximumDays != nil && totalDays > *leaveType.MaximumDays {
 		return domain.RequestStateData{}, domain.ErrInvalidRequest
 	}
 	// Kewajiban dokumen ditentukan master jenis izin (D-024).
@@ -490,10 +504,16 @@ func (s *LeaveService) Decide(
 		}
 		// Saldo hanya berkurang sekali, tepat pada final approval. Penolakan tidak
 		// mengurangi saldo.
-		if next == domain.StatusApproved && lock.AnnualQuota > 0 {
-			if err := s.leaves.DeductLeaveBalance(
-				txContext, lock.RequesterUserID, lock.Year, lock.TotalDays,
-			); err != nil {
+		if next == domain.StatusApproved && lock.LeaveCategory != "izin" && lock.AnnualQuota > 0 {
+			var err error
+			if typed, ok := s.leaves.(interface {
+				DeductLeaveTypeBalance(context.Context, uuid.UUID, uuid.UUID, int, int) error
+			}); ok {
+				err = typed.DeductLeaveTypeBalance(txContext, lock.RequesterUserID, lock.LeaveTypeID, lock.Year, lock.TotalDays)
+			} else {
+				err = s.leaves.DeductLeaveBalance(txContext, lock.RequesterUserID, lock.Year, lock.TotalDays)
+			}
+			if err != nil {
 				if errors.Is(err, repository.ErrConflict) {
 					return domain.ErrInsufficientLeaveBalance
 				}

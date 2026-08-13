@@ -82,3 +82,5 @@ export const exportEmployeesRequest = (query, signal) =>
     signal,
     fallbackFileName: `karyawan.${query.format ?? "xlsx"}`,
   });
+
+export const bulkEmployeesRequest=async(file,signal)=>{const form=new FormData();form.append("file",file);return (await apiClient.post("/karyawan/bulk",form,{signal})).data;};

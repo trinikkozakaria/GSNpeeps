@@ -26,7 +26,7 @@ func (r *LeaveRepository) ListLeaveTypes(
 	activeOnly *bool,
 ) ([]domain.LeaveType, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, kode, nama, kuota_tahunan, memerlukan_dokumen, is_active
+		SELECT id, kode, nama, kuota_tahunan, kategori, maksimal_hari, memerlukan_dokumen, is_active
 		FROM leave_types
 		WHERE $1::boolean IS NULL OR is_active = $1
 		ORDER BY nama, id
@@ -40,7 +40,7 @@ func (r *LeaveRepository) ListLeaveTypes(
 	for rows.Next() {
 		var item domain.LeaveType
 		if err := rows.Scan(
-			&item.ID, &item.Code, &item.Name, &item.AnnualQuota,
+			&item.ID, &item.Code, &item.Name, &item.AnnualQuota, &item.Category, &item.MaximumDays,
 			&item.RequiresDocument, &item.IsActive,
 		); err != nil {
 			return nil, fmt.Errorf("scan leave type: %w", err)
@@ -56,10 +56,10 @@ func (r *LeaveRepository) FindLeaveType(
 ) (domain.LeaveType, error) {
 	var item domain.LeaveType
 	err := executor(ctx, r.pool).QueryRow(ctx, `
-		SELECT id, kode, nama, kuota_tahunan, memerlukan_dokumen, is_active
+		SELECT id, kode, nama, kuota_tahunan, kategori, maksimal_hari, memerlukan_dokumen, is_active
 		FROM leave_types WHERE id = $1
 	`, id).Scan(
-		&item.ID, &item.Code, &item.Name, &item.AnnualQuota,
+		&item.ID, &item.Code, &item.Name, &item.AnnualQuota, &item.Category, &item.MaximumDays,
 		&item.RequiresDocument, &item.IsActive,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -77,14 +77,31 @@ func (r *LeaveRepository) CreateLeaveType(
 ) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := executor(ctx, r.pool).QueryRow(ctx, `
-		INSERT INTO leave_types (kode, nama, kuota_tahunan, memerlukan_dokumen)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO leave_types (kode, nama, kuota_tahunan, kategori, maksimal_hari, memerlukan_dokumen)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
-	`, command.Code, command.Name, command.AnnualQuota, command.RequiresDocument).Scan(&id)
+	`, command.Code, command.Name, command.AnnualQuota, command.Category, command.MaximumDays, command.RequiresDocument).Scan(&id)
 	if err != nil {
 		return uuid.Nil, mapEmployeeMutationError(err)
 	}
+	if command.Category == "cuti" && command.AnnualQuota > 0 {
+		_, err = executor(ctx, r.pool).Exec(ctx, `INSERT INTO leave_balances(user_id,tahun,saldo_awal,leave_type_id) SELECT u.id,EXTRACT(YEAR FROM NOW())::int,$2,$1 FROM users u JOIN employees e ON e.id=u.employee_id WHERE e.deleted_at IS NULL AND e.status='aktif' ON CONFLICT(user_id,tahun,leave_type_id) DO NOTHING`, id, command.AnnualQuota)
+		if err != nil {
+			return uuid.Nil, mapEmployeeMutationError(err)
+		}
+	}
 	return id, nil
+}
+
+func (r *LeaveRepository) DeductLeaveTypeBalance(ctx context.Context, userID, leaveTypeID uuid.UUID, year, days int) error {
+	tag, err := executor(ctx, r.pool).Exec(ctx, `UPDATE leave_balances SET saldo_terpakai=saldo_terpakai+$4,updated_at=NOW() WHERE user_id=$1 AND leave_type_id=$2 AND tahun=$3 AND saldo_sisa >= $4`, userID, leaveTypeID, year, days)
+	if err != nil {
+		return fmt.Errorf("deduct typed leave balance: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrConflict
+	}
+	return nil
 }
 
 func (r *LeaveRepository) UpdateLeaveType(
@@ -103,6 +120,12 @@ func (r *LeaveRepository) UpdateLeaveType(
 	}
 	if changes.AnnualQuota != nil {
 		add("kuota_tahunan", *changes.AnnualQuota)
+	}
+	if changes.Category != nil {
+		add("kategori", *changes.Category)
+	}
+	if changes.MaximumDaysSet {
+		add("maksimal_hari", changes.MaximumDays)
 	}
 	if changes.RequiresDocument != nil {
 		add("memerlukan_dokumen", *changes.RequiresDocument)
@@ -322,7 +345,7 @@ func (r *LeaveRepository) LockRequestForDecision(
 	var lock domain.RequestLock
 	err := executor(ctx, r.pool).QueryRow(ctx, `
 		SELECT lr.id, lr.user_id, e.id, e.atasan_id, lr.status, lr.jumlah_hari,
-		       lt.kuota_tahunan, lt.id, EXTRACT(YEAR FROM lr.tanggal_mulai)::int
+		       lt.kuota_tahunan, lt.kategori, lt.id, EXTRACT(YEAR FROM lr.tanggal_mulai)::int
 		FROM leave_requests lr
 		JOIN users u ON u.id = lr.user_id
 		JOIN employees e ON e.id = u.employee_id
@@ -332,7 +355,7 @@ func (r *LeaveRepository) LockRequestForDecision(
 	`, id).Scan(
 		&lock.RequestID, &lock.RequesterUserID, &lock.RequesterEmployeeID,
 		&lock.SupervisorEmployeeID, &lock.Status, &lock.TotalDays,
-		&lock.AnnualQuota, &lock.LeaveTypeID, &lock.Year,
+		&lock.AnnualQuota, &lock.LeaveCategory, &lock.LeaveTypeID, &lock.Year,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.RequestLock{}, ErrNotFound

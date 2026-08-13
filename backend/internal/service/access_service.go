@@ -61,7 +61,7 @@ func NewAccessService(
 // canReadAccess membatasi seluruh pembacaan modul AKSES ke HR dan Top Management. Karyawan
 // dan Atasan tetap menerima 403 pada akses langsung meskipun menunya disembunyikan frontend.
 func canReadAccess(identity domain.Identity) error {
-	if identity.Role != domain.RoleHR && identity.Role != domain.RoleTopManagement {
+	if identity.Role != domain.RoleHR {
 		return domain.ErrForbidden
 	}
 	return nil

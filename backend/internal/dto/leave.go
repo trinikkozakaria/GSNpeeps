@@ -5,6 +5,8 @@ type CreateLeaveTypeRequest struct {
 	Code             string `json:"kode" validate:"required,min=1,max=50"`
 	Name             string `json:"nama" validate:"required,min=1,max=150"`
 	AnnualQuota      int    `json:"kuota_tahunan" validate:"gte=0"`
+	Category         string `json:"kategori" validate:"required,oneof=cuti izin"`
+	MaximumDays      *int   `json:"maksimal_hari" validate:"omitempty,gte=1,lte=365"`
 	RequiresDocument bool   `json:"memerlukan_dokumen"`
 }
 
@@ -12,6 +14,8 @@ type CreateLeaveTypeRequest struct {
 type UpdateLeaveTypeRequest struct {
 	Name             *string `json:"nama" validate:"omitempty,min=1,max=150"`
 	AnnualQuota      *int    `json:"kuota_tahunan" validate:"omitempty,gte=0"`
+	Category         *string `json:"kategori" validate:"omitempty,oneof=cuti izin"`
+	MaximumDays      *int    `json:"maksimal_hari" validate:"omitempty,gte=1,lte=365"`
 	RequiresDocument *bool   `json:"memerlukan_dokumen"`
 	IsActive         *bool   `json:"is_active"`
 }

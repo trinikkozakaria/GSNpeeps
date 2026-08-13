@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { FileField } from "../../../components/form/FileField";
 import { Button } from "../../../components/ui/Button";
 import { attendanceStatusLabel, workModeLabel } from "../../../lib/request-status";
+import { formatDateTime } from "../../../lib/format";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { cameraStates, useCameraCapture } from "../hooks/useCameraCapture";
 import { geolocationStates, useGeolocation } from "../hooks/useGeolocation";
@@ -193,7 +194,7 @@ export const CheckInPage = () => {
                 value={officeLocationID}
                 onChange={(event) => setOfficeLocationID(event.target.value)}
                 disabled={isSubmitting}
-                className="min-h-11 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+                className="min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
               >
                 <option value="">Pilih kantor</option>
                 {(offices.data ?? []).map((office) => (
@@ -315,13 +316,13 @@ export const CheckInPage = () => {
       {result && (
         <section
           aria-labelledby="checkin-result-title"
-          className="mt-7 rounded-xl border border-emerald-300/30 bg-emerald-300/10 p-5"
+          className={`mt-7 rounded-xl border p-5 ${result.status === "terlambat" || result.status === "pulang_cepat" ? "border-red-300/40 bg-red-100" : "border-emerald-300/30 bg-emerald-300/10"}`}
         >
-          <h2 id="checkin-result-title" className="text-lg font-bold text-emerald-700">
+          <h2 id="checkin-result-title" className={`text-lg font-bold ${result.status === "terlambat" || result.status === "pulang_cepat" ? "text-red-800" : "text-emerald-700"}`}>
             Absensi tercatat
           </h2>
           <dl className="mt-4">
-            <StatusLine label="Waktu server">{new Date(result.waktu).toLocaleString("id-ID")}</StatusLine>
+            <StatusLine label="Waktu server">{formatDateTime(result.waktu)}</StatusLine>
             <StatusLine label="Jenis">
               {result.tipe === "check_in" ? "Check-in" : "Check-out"}
             </StatusLine>
@@ -335,7 +336,7 @@ export const CheckInPage = () => {
               </StatusLine>
             )}
           </dl>
-          <p className="mt-3 text-xs text-emerald-700/80">
+          <p className={`mt-3 text-xs ${result.status === "terlambat" || result.status === "pulang_cepat" ? "text-red-800" : "text-emerald-700/80"}`}>
             Dicatat untuk {auth.user?.nama ?? "akun Anda"} menggunakan waktu server.
           </p>
         </section>

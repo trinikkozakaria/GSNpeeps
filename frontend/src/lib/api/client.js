@@ -22,6 +22,15 @@ export const apiClient = axios.create({
   },
 });
 
+export const protectedMediaRequest = async (path, signal) => {
+  const token = readAccessToken();
+  const response = await axios.get(`${config.apiBaseUrl}/media`, {
+    params: { path }, signal, responseType: "blob",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  return response.data;
+};
+
 apiClient.interceptors.request.use((request) => {
   const token = readAccessToken();
   if (token) {

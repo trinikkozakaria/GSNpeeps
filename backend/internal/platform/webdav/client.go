@@ -88,6 +88,30 @@ func (c *Client) Delete(ctx context.Context, objectPath string) error {
 	return nil
 }
 
+// Download reads a stored locator returned by Upload through the authenticated WebDAV client.
+func (c *Client) Download(ctx context.Context, storedPath string) (io.ReadCloser, string, error) {
+	cleaned, err := safePath(storedPath)
+	if err != nil {
+		return nil, "", err
+	}
+	target := *c.baseURL
+	target.Path = path.Join(target.Path, cleaned)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
+	if err != nil {
+		return nil, "", err
+	}
+	request.SetBasicAuth(c.username, c.password)
+	result, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, "", fmt.Errorf("download WebDAV object: %w", err)
+	}
+	if result.StatusCode < 200 || result.StatusCode >= 300 {
+		result.Body.Close()
+		return nil, "", fmt.Errorf("download WebDAV object: status %d", result.StatusCode)
+	}
+	return result.Body, result.Header.Get("Content-Type"), nil
+}
+
 func (c *Client) Health(ctx context.Context) error {
 	request, err := http.NewRequestWithContext(ctx, "PROPFIND", c.baseURL.String(), nil)
 	if err != nil {

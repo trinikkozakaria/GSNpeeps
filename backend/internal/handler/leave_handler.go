@@ -101,6 +101,8 @@ func (h *LeaveHandler) CreateType(writer http.ResponseWriter, request *http.Requ
 		Code:             input.Code,
 		Name:             input.Name,
 		AnnualQuota:      input.AnnualQuota,
+		Category:         input.Category,
+		MaximumDays:      input.MaximumDays,
 		RequiresDocument: input.RequiresDocument,
 	}, h.requestMeta(request))
 	if err != nil {
@@ -135,6 +137,9 @@ func (h *LeaveHandler) UpdateType(writer http.ResponseWriter, request *http.Requ
 	err = h.service.UpdateLeaveType(request.Context(), identity, id, domain.UpdateLeaveType{
 		Name:             input.Name,
 		AnnualQuota:      input.AnnualQuota,
+		Category:         input.Category,
+		MaximumDays:      input.MaximumDays,
+		MaximumDaysSet:   input.MaximumDays != nil,
 		RequiresDocument: input.RequiresDocument,
 		IsActive:         input.IsActive,
 	}, h.requestMeta(request))
