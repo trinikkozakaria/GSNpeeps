@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { ProtectedImage } from "../../../components/media/ProtectedImage";
+import { Button } from "../../../components/ui/Button";
 
 /**
  * Modal pratinjau foto absensi. Dipakai live feed agar tabel tidak memuat gambar penuh di
@@ -55,15 +56,15 @@ export const PhotoPreviewModal = ({ open, photoUrl, title, onClose }) => {
           <h2 id="photo-preview-title" className="text-lg font-bold text-slate-900">
             {title}
           </h2>
-          <button
+          <Button
             ref={closeButtonRef}
-            type="button"
             onClick={onClose}
             aria-label="Tutup pratinjau foto"
-            className="min-h-10 min-w-10 rounded-lg text-slate-600 hover:bg-slate-900/5 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700"
+            variant="secondary"
+            className="min-w-10"
           >
             ✕
-          </button>
+          </Button>
         </div>
         <div className="mt-4">
           {photoUrl ? (

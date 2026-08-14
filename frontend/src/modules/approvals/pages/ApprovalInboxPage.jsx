@@ -133,20 +133,15 @@ export const ApprovalInboxPage = () => {
           { id: "ketidakhadiran", label: "Ketidakhadiran" },
           { id: "lembur", label: "Lembur" },
         ].map((item) => (
-          <button
+          <Button
             key={item.id}
-            type="button"
             role="tab"
             aria-selected={tab === item.id}
             onClick={() => setTab(item.id)}
-            className={`min-h-10 rounded-lg px-4 text-sm font-semibold ${
-              tab === item.id
-                ? "bg-cyan-700 text-white"
-                : "border border-slate-900/15 text-slate-700 hover:bg-slate-900/5"
-            }`}
+            variant={tab === item.id ? "primary" : "secondary"}
           >
             {item.label}
-          </button>
+          </Button>
         ))}
       </div>
 

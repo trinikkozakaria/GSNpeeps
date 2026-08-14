@@ -147,7 +147,8 @@ describe("LiveFeedPage", () => {
     }
   });
 
-  it("lazy loads attendance photos with a descriptive alt text", () => {
+  it("lazy loads an attendance photo only after opening the preview modal", async () => {
+    const user = userEvent.setup();
     authState.current = { role: "hr", user: { id: "user-1" } };
     feedState.current = {
       data: [
@@ -169,7 +170,12 @@ describe("LiveFeedPage", () => {
     };
     renderFeed();
 
-    const photo = screen.getAllByAltText("Foto absensi Karyawan Uji")[0];
-    expect(photo).toHaveAttribute("loading", "lazy");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("Foto masuk Karyawan Uji")).not.toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: "Foto masuk" })[0]);
+
+    expect(screen.getByRole("dialog", { name: "Foto masuk Karyawan Uji" })).toBeInTheDocument();
+    expect(screen.getByAltText("Foto masuk Karyawan Uji")).toBeInTheDocument();
   });
 });

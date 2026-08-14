@@ -1,0 +1,65 @@
+-- +goose Up
+-- Kolom timestamp lama menyimpan instant UTC tanpa metadata zona. waktu_local adalah
+-- pengecualian historis: nilainya ditulis sebagai wall-clock Asia/Jakarta.
+ALTER TABLE departments ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE departments ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE positions ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE positions ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE employees ALTER COLUMN deleted_at TYPE TIMESTAMPTZ USING deleted_at AT TIME ZONE 'UTC';
+ALTER TABLE employees ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE employees ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE users ALTER COLUMN last_login_at TYPE TIMESTAMPTZ USING last_login_at AT TIME ZONE 'UTC';
+ALTER TABLE users ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE users ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE audit_logs ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE employee_documents ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE office_locations ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE office_locations ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE attendances ALTER COLUMN waktu_network TYPE TIMESTAMPTZ USING waktu_network AT TIME ZONE 'UTC';
+ALTER TABLE attendances ALTER COLUMN waktu_local TYPE TIMESTAMPTZ USING waktu_local AT TIME ZONE 'Asia/Jakarta';
+ALTER TABLE attendances ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_types ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_types ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_balances ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_balances ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_requests ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_requests ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_approvals ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE overtime_requests ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE overtime_requests ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE overtime_approvals ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE notifications ALTER COLUMN read_at TYPE TIMESTAMPTZ USING read_at AT TIME ZONE 'UTC';
+ALTER TABLE notifications ALTER COLUMN dismissed_at TYPE TIMESTAMPTZ USING dismissed_at AT TIME ZONE 'UTC';
+ALTER TABLE notifications ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+
+-- +goose Down
+ALTER TABLE notifications ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE notifications ALTER COLUMN dismissed_at TYPE TIMESTAMP USING dismissed_at AT TIME ZONE 'UTC';
+ALTER TABLE notifications ALTER COLUMN read_at TYPE TIMESTAMP USING read_at AT TIME ZONE 'UTC';
+ALTER TABLE overtime_approvals ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE overtime_requests ALTER COLUMN updated_at TYPE TIMESTAMP USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE overtime_requests ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_approvals ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_requests ALTER COLUMN updated_at TYPE TIMESTAMP USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_requests ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_balances ALTER COLUMN updated_at TYPE TIMESTAMP USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_balances ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_types ALTER COLUMN updated_at TYPE TIMESTAMP USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE leave_types ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE attendances ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE attendances ALTER COLUMN waktu_local TYPE TIMESTAMP USING waktu_local AT TIME ZONE 'Asia/Jakarta';
+ALTER TABLE attendances ALTER COLUMN waktu_network TYPE TIMESTAMP USING waktu_network AT TIME ZONE 'UTC';
+ALTER TABLE office_locations ALTER COLUMN updated_at TYPE TIMESTAMP USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE office_locations ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE employee_documents ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE audit_logs ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE users ALTER COLUMN updated_at TYPE TIMESTAMP USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE users ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE users ALTER COLUMN last_login_at TYPE TIMESTAMP USING last_login_at AT TIME ZONE 'UTC';
+ALTER TABLE employees ALTER COLUMN updated_at TYPE TIMESTAMP USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE employees ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE employees ALTER COLUMN deleted_at TYPE TIMESTAMP USING deleted_at AT TIME ZONE 'UTC';
+ALTER TABLE positions ALTER COLUMN updated_at TYPE TIMESTAMP USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE positions ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';
+ALTER TABLE departments ALTER COLUMN updated_at TYPE TIMESTAMP USING updated_at AT TIME ZONE 'UTC';
+ALTER TABLE departments ALTER COLUMN created_at TYPE TIMESTAMP USING created_at AT TIME ZONE 'UTC';

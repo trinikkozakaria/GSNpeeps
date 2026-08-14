@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/middleware"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/pkg/response"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -54,10 +56,14 @@ func (h *UATHandler) Media(w http.ResponseWriter, r *http.Request) {
 	allowed := identity.Role == domain.RoleHR
 	if strings.Contains(stored, "/employee-photos/"+identity.EmployeeID.String()+"/") ||
 		strings.Contains(stored, "/attendance-photos/"+identity.UserID.String()+"/") ||
-		strings.Contains(stored, "/leave-documents/"+identity.UserID.String()+"/") {
+		strings.Contains(stored, "/leave-documents/"+identity.UserID.String()+"/") ||
+		strings.Contains(stored, "/overtime-documents/"+identity.UserID.String()+"/") {
 		allowed = true
 	}
 	if strings.Contains(stored, "/leave-documents/") && (identity.Role == domain.RoleSupervisor || identity.Role == domain.RoleTopManagement) {
+		allowed = true
+	}
+	if strings.Contains(stored, "/overtime-documents/") && (identity.Role == domain.RoleSupervisor || identity.Role == domain.RoleHR || identity.Role == domain.RoleTopManagement) {
 		allowed = true
 	}
 	if !allowed {
@@ -415,20 +421,52 @@ func (h *UATHandler) DecideCorrection(w http.ResponseWriter, r *http.Request) {
 	if _, err = tx.Exec(r.Context(), `INSERT INTO attendance_correction_approvals(correction_id,approver_id,tahap,keputusan,catatan) VALUES($1,$2,$3,$4,$5)`, id, identity.UserID, stage, map[bool]string{true: "approve", false: "reject"}[input.Decision == "setujui"], input.Note); err != nil {
 		return
 	}
-	// Pada approval final, jam yang sudah ada diperbarui. Koreksi tidak membuat absensi fiktif tanpa foto/lokasi.
+	// Pada approval final, jam yang sudah ada diperbarui. Koreksi tidak membuat absensi
+	// fiktif tanpa foto/lokasi. Input adalah jam Jakarta, lalu diubah menjadi instant UTC
+	// sebelum disimpan ke kolom TIMESTAMPTZ.
 	if next == "disetujui" {
 		if checkIn != nil {
-			_, err = tx.Exec(r.Context(), `UPDATE attendances SET waktu_network=($2::date+$3::time),waktu_local=($2::date+$3::time) WHERE user_id=$1 AND tanggal=$2 AND tipe='check_in'`, requester, date, *checkIn)
+			var corrected time.Time
+			corrected, err = correctedAttendanceTime(date, *checkIn)
+			if err == nil {
+				var tag pgconn.CommandTag
+				tag, err = tx.Exec(r.Context(), `UPDATE attendances SET waktu_network=$3,waktu_local=$3,status=$4 WHERE user_id=$1 AND tanggal=$2 AND tipe='check_in'`, requester, date, corrected, domain.CheckInStatus(corrected))
+				if err == nil && tag.RowsAffected() == 0 {
+					err = errCorrectionAttendanceMissing
+				}
+			}
 		}
 		if err == nil && checkOut != nil {
-			_, err = tx.Exec(r.Context(), `UPDATE attendances SET waktu_network=($2::date+$3::time),waktu_local=($2::date+$3::time) WHERE user_id=$1 AND tanggal=$2 AND tipe='check_out'`, requester, date, *checkOut)
+			var corrected time.Time
+			corrected, err = correctedAttendanceTime(date, *checkOut)
+			if err == nil {
+				var tag pgconn.CommandTag
+				tag, err = tx.Exec(r.Context(), `UPDATE attendances SET waktu_network=$3,waktu_local=$3,status=$4 WHERE user_id=$1 AND tanggal=$2 AND tipe='check_out'`, requester, date, corrected, domain.CheckOutStatus(corrected))
+				if err == nil && tag.RowsAffected() == 0 {
+					err = errCorrectionAttendanceMissing
+				}
+			}
 		}
+	}
+	if errors.Is(err, errCorrectionAttendanceMissing) {
+		response.Error(w, 409, "ATTENDANCE_NOT_FOUND", "Absensi asal tidak ditemukan; koreksi tidak disetujui")
+		return
 	}
 	if err != nil || tx.Commit(r.Context()) != nil {
 		response.Error(w, 500, "INTERNAL_ERROR", "Keputusan belum tersimpan")
 		return
 	}
 	response.Success(w, 200, map[string]any{"id": id, "status": next}, "Keputusan koreksi tersimpan")
+}
+
+var errCorrectionAttendanceMissing = errors.New("attendance row for correction not found")
+
+func correctedAttendanceTime(date, clock string) (time.Time, error) {
+	local, err := time.ParseInLocation("2006-01-02 15:04", date+" "+clock, domain.Jakarta())
+	if err != nil {
+		return time.Time{}, err
+	}
+	return local.UTC(), nil
 }
 
 // ParseBulkCSV validates a portable template; creation itself is handled by the employee service endpoint.

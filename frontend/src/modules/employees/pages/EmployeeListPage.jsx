@@ -120,9 +120,9 @@ export const EmployeeListPage = () => {
           </select>
         </label>
         {isFiltered && (
-          <button type="button" onClick={clearFilters} className="justify-self-start text-sm font-semibold text-cyan-700">
+          <Button type="button" variant="secondary" onClick={clearFilters} className="justify-self-start">
             Hapus semua filter
-          </button>
+          </Button>
         )}
       </div>
 

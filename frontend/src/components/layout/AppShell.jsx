@@ -89,9 +89,9 @@ export const AppShell = () => {
           onMouseLeave={() => setSidebarHovered(false)}
           className={`sticky top-16 z-30 border-b border-slate-900/10 bg-white px-4 py-2 transition-all sm:px-6 lg:fixed lg:inset-y-0 lg:top-16 lg:left-0 lg:z-30 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-4 lg:py-6 ${sidebarCollapsed && !sidebarHovered ? "lg:w-20" : "lg:w-60"}`}
         >
-          <button type="button" onClick={() => setSidebarCollapsed((value) => !value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"} className="mb-3 hidden min-h-10 w-full rounded-lg border text-sm font-bold hover:bg-slate-50 lg:block">
+          <Button type="button" variant="secondary" onClick={() => setSidebarCollapsed((value) => !value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"} className="mb-3 hidden w-full lg:inline-flex">
             {sidebarCollapsed && !sidebarHovered ? "☰" : "Tutup sidebar"}
-          </button>
+          </Button>
           <ul className="flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible lg:pb-0">
             {navigation.map((item) =>
               item.children ? (
@@ -100,9 +100,9 @@ export const AppShell = () => {
                 // karena indentasi tidak berarti pada layout horizontal; anaknya tetap
                 // tampil sebagai item biasa di sana.
                 <li key={item.label} className="contents lg:block">
-                  <button type="button" aria-expanded={Boolean(openGroups[item.label])} onClick={() => setOpenGroups((current) => ({ ...current, [item.label]: !current[item.label] }))} className="hidden w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-900/5 lg:flex">
+                  <Button type="button" variant="secondary" aria-expanded={Boolean(openGroups[item.label])} onClick={() => setOpenGroups((current) => ({ ...current, [item.label]: !current[item.label] }))} className="hidden w-full justify-between lg:inline-flex">
                     <span className={sidebarCollapsed && !sidebarHovered ? "sr-only" : ""}>{item.label}</span><span aria-hidden="true">{openGroups[item.label] ? "▾" : "▸"}</span>
-                  </button>
+                  </Button>
                   <ul className={`contents lg:space-y-1 ${openGroups[item.label] || item.children.some((child) => location.pathname === child.path) ? "lg:block" : "lg:hidden"}`}>
                     {item.children.map((child) => (
                       <li key={child.path} className="shrink-0">
