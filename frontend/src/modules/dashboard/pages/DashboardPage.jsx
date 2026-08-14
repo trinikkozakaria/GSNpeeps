@@ -64,10 +64,6 @@ export const DashboardPage = () => {
     setParams(next);
   };
 
-  // Top Management memiliki akses monitoring read-only yang sama; tidak ada kontrol mutasi
-  // pada halaman ini untuk role mana pun.
-  const isReadOnlyMonitor = auth.role === "top_management";
-
   return (
     <section aria-labelledby="dashboard-title">
       <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Monitoring</p>
@@ -76,7 +72,6 @@ export const DashboardPage = () => {
       </h1>
       <p className="mt-2 max-w-3xl text-slate-600">
         Seluruh angka dihitung server pada zona waktu Asia/Jakarta.
-        {isReadOnlyMonitor && " Akses Anda bersifat pemantauan saja."}
       </p>
 
       <div className="mt-7 grid gap-4 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -150,7 +145,11 @@ export const DashboardPage = () => {
             </div>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <MetricCard label="Kehadiran valid" value={formatNumber(data.hadir_valid)} hint="Dari check-in valid" />
+              <MetricCard
+                label="Kehadiran valid"
+                value={formatNumber(data.hadir_valid)}
+                hint="Memiliki clock-in dan clock-out"
+              />
               <MetricCard label="Terlambat" value={formatNumber(data.terlambat)} hint="Check-in setelah 09.00 WIB" />
               <MetricCard label="Hari izin disetujui" value={formatNumber(data.hari_izin_disetujui)} />
             </div>

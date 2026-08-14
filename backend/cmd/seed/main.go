@@ -183,6 +183,18 @@ func run() error {
 		}
 	}
 
+	if _, err := transaction.Exec(ctx, `
+        INSERT INTO document_types (kode, nama, wajib, is_active)
+        VALUES ('DOC-SYN-E2E', 'Dokumen E2E', TRUE, TRUE)
+        ON CONFLICT (kode) DO UPDATE
+        SET nama = EXCLUDED.nama,
+            wajib = EXCLUDED.wajib,
+            is_active = TRUE,
+            updated_at = NOW()
+    `); err != nil {
+		return fmt.Errorf("seed document type: %w", err)
+	}
+
 	if err := transaction.Commit(ctx); err != nil {
 		return fmt.Errorf("commit seed: %w", err)
 	}

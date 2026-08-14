@@ -47,8 +47,8 @@ func NewDashboardService(
 	}
 }
 
-// Metrics menghitung agregasi dashboard untuk satu periode kalender. HR mendapat akses penuh
-// dan Top Management read-only; role lain ditolak.
+// Metrics menghitung agregasi dashboard untuk satu periode kalender. Hanya HR yang dapat
+// membaca Dashboard HR; role lain ditolak sesuai aturan produk terbaru.
 func (s *DashboardService) Metrics(
 	ctx context.Context,
 	identity domain.Identity,

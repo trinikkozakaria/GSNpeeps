@@ -23,6 +23,7 @@ vi.mock("../hooks/useEmployees", () => ({
   useDeactivateEmployee: () => ({ mutateAsync: deactivateMock, isPending: false }),
   useEmployeeDocuments: () => documentsState.current,
   useUploadEmployeeDocument: () => ({ mutateAsync: uploadMock, isPending: false }),
+  useUploadEmployeePhoto: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 const renderPage = () =>

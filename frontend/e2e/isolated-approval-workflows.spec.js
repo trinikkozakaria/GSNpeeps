@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { assertDisposableMutationTarget } from "./helpers/mutation-target";
 
 const liveMode = process.env.E2E_LIVE === "1";
 const mutationMode = process.env.E2E_MUTATION === "1";
@@ -49,7 +50,7 @@ test.describe("isolated approval workflows", () => {
     test.skip(!mutationMode, "Set E2E_MUTATION=1 only for a disposable stack.");
     test.skip(testInfo.project.name !== "chromium", "The isolated workflow needs one project.");
     expect(seedPassword, "E2E_SEED_PASSWORD must be provided").toBeTruthy();
-    expect(new URL(testInfo.project.use.baseURL).port).not.toBe("8080");
+    assertDisposableMutationTarget(testInfo.project.use.baseURL);
   });
 
   test("all leave routing rows, rejection, delegation, concurrency, and overtime pass", async ({ request }) => {

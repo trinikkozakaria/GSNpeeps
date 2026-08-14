@@ -4,15 +4,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EmployeeDocuments, validateDocumentFile } from "../components/EmployeeDocuments";
 
-const { documentsState, uploadMock, uploadPending } = vi.hoisted(() => ({
+const { documentTypesMock, documentsState, uploadMock, uploadPending } = vi.hoisted(() => ({
+  documentTypesMock: vi.fn(),
   documentsState: { current: {} },
   uploadMock: vi.fn(),
   uploadPending: { current: false },
 }));
 
+vi.mock("../../uat/api/uat-api", () => ({
+  documentTypesRequest: documentTypesMock,
+}));
+
 vi.mock("../hooks/useEmployees", () => ({
   useEmployeeDocuments: () => documentsState.current,
   useUploadEmployeeDocument: () => ({ mutateAsync: uploadMock, isPending: uploadPending.current }),
+}));
+
+vi.mock("../../../components/media/ProtectedImage", () => ({
+  ProtectedDocumentPreview: ({ fileName }) => (
+    <a href="blob:test-document" download={fileName} target="_blank" rel="noopener noreferrer">
+      Unduh {fileName}
+    </a>
+  ),
 }));
 
 const file = (name, sizeBytes, type = "application/pdf") => {
@@ -23,6 +36,11 @@ const file = (name, sizeBytes, type = "application/pdf") => {
 
 const renderDocuments = (canUpload = true) =>
   render(<EmployeeDocuments scope="hr" employeeId="employee-1" canUpload={canUpload} />);
+
+const chooseDocumentType = async (user) => {
+  await screen.findByRole("option", { name: "Ijazah" });
+  await user.selectOptions(screen.getByLabelText("Jenis dokumen"), "Ijazah");
+};
 
 describe("validateDocumentFile", () => {
   it("accepts every approved document format", () => {
@@ -52,6 +70,11 @@ describe("EmployeeDocuments", () => {
   beforeEach(() => {
     uploadMock.mockReset();
     uploadMock.mockResolvedValue({});
+    documentTypesMock.mockReset();
+    documentTypesMock.mockResolvedValue([
+      { id: "type-1", nama: "Ijazah", wajib: true, is_active: true },
+      { id: "type-2", nama: "Arsip Lama", wajib: false, is_active: false },
+    ]);
     uploadPending.current = false;
     documentsState.current = { data: [], isPending: false, isError: false };
   });
@@ -66,10 +89,11 @@ describe("EmployeeDocuments", () => {
     const user = userEvent.setup();
     renderDocuments();
 
+    await screen.findByRole("option", { name: "Ijazah" });
     await user.upload(screen.getByLabelText("Berkas dokumen"), file("ijazah.pdf", 2048));
     await user.click(screen.getByRole("button", { name: "Unggah dokumen" }));
 
-    expect(await screen.findByText("Jenis dokumen wajib diisi.")).toBeInTheDocument();
+    expect(await screen.findByText("Pilih jenis dokumen aktif dari master data.")).toBeInTheDocument();
     expect(uploadMock).not.toHaveBeenCalled();
   });
 
@@ -77,7 +101,7 @@ describe("EmployeeDocuments", () => {
     const user = userEvent.setup();
     renderDocuments();
 
-    await user.type(screen.getByLabelText("Jenis dokumen"), "Ijazah");
+    await chooseDocumentType(user);
     // Atribut accept hanya penyaring dialog; pengguna dapat memilih "All files" dan tetap
     // mengirim arsip. fireEvent dipakai agar penyaring tersebut terlewati sehingga yang
     // benar-benar diuji adalah validasi JavaScript sebagai penjaga terakhir di client.
@@ -95,7 +119,7 @@ describe("EmployeeDocuments", () => {
     renderDocuments();
     const selected = file("ijazah.pdf", 2048);
 
-    await user.type(screen.getByLabelText("Jenis dokumen"), "Ijazah");
+    await chooseDocumentType(user);
     await user.upload(screen.getByLabelText("Berkas dokumen"), selected);
     await user.click(screen.getByRole("button", { name: "Unggah dokumen" }));
 
@@ -109,7 +133,7 @@ describe("EmployeeDocuments", () => {
     const user = userEvent.setup();
     renderDocuments();
 
-    await user.type(screen.getByLabelText("Jenis dokumen"), "Ijazah");
+    await chooseDocumentType(user);
     await user.upload(screen.getByLabelText("Berkas dokumen"), file("ijazah.pdf", 2048));
     await user.click(screen.getByRole("button", { name: "Unggah dokumen" }));
 
@@ -121,7 +145,7 @@ describe("EmployeeDocuments", () => {
     const user = userEvent.setup();
     renderDocuments();
 
-    await user.type(screen.getByLabelText("Jenis dokumen"), "Ijazah");
+    await chooseDocumentType(user);
     await user.upload(screen.getByLabelText("Berkas dokumen"), file("ijazah.pdf", 2048));
     await user.click(screen.getByRole("button", { name: "Unggah dokumen" }));
 

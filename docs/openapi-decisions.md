@@ -40,11 +40,12 @@ field multipart `tipe` dengan enum `check_in` atau `check_out`. Tidak dibuat rou
 `PUT /api/v1/karyawan/{id}` mengikuti API Contract: seluruh field
 `UpdateEmployeeRequest` opsional.
 
-### D-004 — Top Management access uses the latest contract
+### D-004 — Top Management access follows the latest product rule
 
-Top Management mendapat akses read-only ke daftar/detail/dokumen karyawan, dashboard,
-live feed, laporan, role, permission, dan audit log. Pernyataan lama US-23 dianggap
-digantikan oleh sumber versi lebih baru.
+Keputusan produk terbaru membatasi Top Management ke beranda ringkas, notifikasi, dan tahap
+final approval untuk pengajuan milik HR. Employee Database, Dashboard HR, live feed absensi,
+laporan kehadiran, matriks akses, dan audit log tidak tersedia; menu disembunyikan dan API
+tetap mengembalikan `403`.
 
 ### D-005 — Status values at the HTTP boundary
 
@@ -131,8 +132,9 @@ Dashboard menerima `periode=harian|mingguan|bulanan|tahunan` dan `tanggal_acuan`
 periode dihitung dalam timezone Asia/Jakarta: harian satu tanggal, mingguan Senin-Minggu,
 bulanan bulan kalender, dan tahunan 1 Januari-31 Desember.
 
-- Kehadiran dihitung hanya dari check-in valid dalam rentang periode.
-- `hadir_valid` adalah pasangan unik employee/tanggal dengan check-in valid.
+- Kehadiran dihitung hanya ketika employee memiliki clock-in dan clock-out pada tanggal yang
+  sama dalam rentang periode.
+- `hadir_valid` adalah pasangan unik employee/tanggal yang memiliki clock-in dan clock-out.
 - Hari kerja Senin-Jumat, jam kerja 09:00-18:00 WIB.
 - Check-in tepat 09:00:00 belum terlambat; setelahnya `terlambat`.
 - Checkout sebelum 18:00 boleh dicatat sebagai `pulang_cepat`, bukan ditolak.
@@ -366,18 +368,21 @@ Jumlah baris terbatas dan diketahui, sehingga tidak diperlukan pagination.
 
 ## Open contract gaps
 
-### G-007 — Employee document delivery
+### G-007 — Employee document delivery (resolved 2026-08-14)
 
-Kontrak mengembalikan URL tetapi belum menetapkan expiry, signed URL, proxy download, atau
-authorization ketika URL dibuka. Keputusan ini ditunda sesuai arahan produk. Implementasi
-file delivery belum boleh membuat dokumen public permanen.
+File dikirim melalui `GET /api/v1/media` yang memerlukan session aktif dan memvalidasi bahwa
+locator termasuk media yang boleh diakses pengguna. Frontend mengambil blob terproteksi,
+membuat object URL sementara, lalu mencabutnya saat komponen dilepas. Gambar ditampilkan
+sebagai thumbnail, PDF ditampilkan inline, dan format lain hanya ditawarkan sebagai download.
+Tidak ada URL Nextcloud public permanen atau credential storage yang diberikan ke browser.
 
-### G-011 — Daftar resmi 15 jenis izin
+### G-011 — Daftar resmi jenis izin (resolved 2026-08-14)
 
-Database Schema menyebut seed 15 jenis izin sesuai SOP dengan rujukan User Story US-33,
-tetapi nama dan kuota lengkap tidak tersedia pada sumber yang ada. Master `leave_types`
-dibuat kosong dan HR mengisinya melalui `POST /api/v1/master/jenis-izin`. Jangan menebak
-nama maupun kuota jenis izin pada seed atau test.
+Dokumen SOP yang diberikan produk menetapkan nama dan batas resmi. Migrasi
+`00012_seed_sop_leave_types.sql` menambahkan cuti/izin khusus beserta batas maksimalnya dan
+`00013_add_extended_and_unpaid_leave.sql` menambahkan Extended Maternity serta Unpaid Leave.
+HR dapat mengubah nama, kuota/batas, kewajiban dokumen, dan status aktif melalui Master Jenis
+Izin; kode dan kategori tetap dikunci agar histori pengajuan dan saldo konsisten.
 
 ### G-012 — Jenis izin tidak terbaca oleh pemohon (resolved 2026-08-11)
 

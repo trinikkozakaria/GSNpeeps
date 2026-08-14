@@ -19,6 +19,15 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5173,
+    // Bind mount Docker Desktop di Windows kadang tidak meneruskan event perubahan
+    // file. Polling memastikan localhost selalu memakai source terbaru tanpa restart.
+    watch: {
+      usePolling: true,
+      interval: 250,
+    },
+    // Nginx memakai nama service Docker sebagai Host saat browser E2E mengakses stack
+    // secara internal. Host publik localhost tetap diizinkan oleh default Vite.
+    allowedHosts: ["nginx"],
     proxy: {
       "/api": {
         target: "http://localhost:8080",

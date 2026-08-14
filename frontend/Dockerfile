@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Stage bersama: install dependency sekali untuk dev dan build produksi.
-FROM node:24-alpine AS base
+FROM node:24-bookworm-slim AS base
 RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -11,6 +11,9 @@ RUN pnpm install --frozen-lockfile
 # jadi perubahan langsung terlihat di browser tanpa build ulang image.
 FROM base AS dev
 ENV NODE_ENV=development
+# Browser E2E menjadi bagian dari image development agar `pnpm test:e2e` dapat
+# dijalankan langsung tanpa instalasi manual setiap container dibuat ulang.
+RUN pnpm exec playwright install --with-deps chromium
 EXPOSE 5173
 CMD ["pnpm", "exec", "vite", "--host", "0.0.0.0"]
 

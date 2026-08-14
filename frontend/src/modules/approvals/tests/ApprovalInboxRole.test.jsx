@@ -4,10 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApprovalInboxPage } from "../pages/ApprovalInboxPage";
 
-const { authState, leaveEnabled, overtimeEnabled } = vi.hoisted(() => ({
+const { authState, correctionEnabled, leaveEnabled, overtimeEnabled } = vi.hoisted(() => ({
   authState: { current: { role: "atasan", user: { id: "user-1" } } },
+  correctionEnabled: { current: null },
   leaveEnabled: { current: null },
   overtimeEnabled: { current: null },
+}));
+
+vi.mock("../../attendance/hooks/useAttendanceCorrections", () => ({
+  useAttendanceCorrections: (_scope, enabled) => {
+    correctionEnabled.current = enabled;
+    return { data: [], isPending: false, isError: false };
+  },
 }));
 
 vi.mock("../../auth/hooks/useAuth", () => ({ useAuth: () => authState.current }));
@@ -43,6 +51,7 @@ describe("ApprovalInboxPage", () => {
   beforeEach(() => {
     leaveEnabled.current = null;
     overtimeEnabled.current = null;
+    correctionEnabled.current = null;
   });
 
   it("explains the scope for each approver role", () => {
@@ -66,6 +75,7 @@ describe("ApprovalInboxPage", () => {
 
     expect(leaveEnabled.current).toBeFalsy();
     expect(overtimeEnabled.current).toBeFalsy();
+    expect(correctionEnabled.current).toBeFalsy();
     expect(screen.getByRole("status")).toHaveTextContent(/tidak memiliki antrean/i);
   });
 
@@ -83,5 +93,24 @@ describe("ApprovalInboxPage", () => {
     expect(overtimeEnabled.current).toBe(true);
     expect(leaveEnabled.current).toBe(false);
     expect(screen.getByRole("tab", { name: "Lembur" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("integrates attendance corrections for supervisors and HR only", () => {
+    authState.current = { role: "atasan", user: { id: "user-1" } };
+    renderInbox("/app/persetujuan?tab=koreksi");
+
+    expect(correctionEnabled.current).toBe(true);
+    expect(leaveEnabled.current).toBe(false);
+    expect(screen.getByRole("tab", { name: "Koreksi Absensi" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Tidak ada koreksi absensi yang menunggu keputusan Anda.")).toBeInTheDocument();
+  });
+
+  it("does not expose attendance corrections to Top Management", () => {
+    authState.current = { role: "top_management", user: { id: "user-1" } };
+    renderInbox("/app/persetujuan?tab=koreksi");
+
+    expect(correctionEnabled.current).toBe(false);
+    expect(screen.queryByRole("tab", { name: "Koreksi Absensi" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Ketidakhadiran" })).toHaveAttribute("aria-selected", "true");
   });
 });

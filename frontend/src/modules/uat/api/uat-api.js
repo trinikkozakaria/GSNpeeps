@@ -7,3 +7,4 @@ export const holidaysRequest = async (year, signal) => data(await apiClient.get(
 export const upsertHolidaysRequest = async (items) => data(await apiClient.put("/kalender/libur/bulk", { items }));
 export const documentTypesRequest = async (signal) => data(await apiClient.get("/master/jenis-dokumen", { signal }));
 export const createDocumentTypeRequest = async (payload) => data(await apiClient.post("/master/jenis-dokumen", payload));
+export const homeSummaryRequest = async (signal) => data(await apiClient.get("/beranda", { signal }));

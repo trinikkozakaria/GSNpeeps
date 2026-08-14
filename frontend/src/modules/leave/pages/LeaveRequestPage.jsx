@@ -1,11 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { FileField } from "../../../components/form/FileField";
 import { FormInput } from "../../../components/form/FormInput";
 import { Button } from "../../../components/ui/Button";
 import { useCreateLeaveRequest, useLeaveTypes } from "../hooks/useLeave";
+import {
+  formatLeaveAllowance,
+  getLeavePolicy,
+  getMaximumEndDate,
+} from "../data/sop-leave-policy";
 import {
   createLeaveFormSchema,
   isTravelLeaveType,
@@ -40,6 +45,7 @@ export const LeaveRequestPage = () => {
     watch,
     reset,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(createLeaveFormSchema),
@@ -54,10 +60,21 @@ export const LeaveRequestPage = () => {
   });
 
   const selectedTypeID = watch("jenis_izin_id");
+  const selectedStartDate = watch("tanggal_mulai");
   const selectedType = (leaveTypes.data ?? []).find((item) => item.id === selectedTypeID);
   const isTravel = isTravelLeaveType(selectedType?.nama);
   // Kewajiban dokumen berasal dari master jenis izin (D-024).
   const documentRequired = selectedType?.memerlukan_dokumen ?? false;
+  const maximumEndDate = selectedType?.kategori === "izin"
+    ? getMaximumEndDate(selectedStartDate, selectedType.maksimal_hari)
+    : "";
+
+  useEffect(() => {
+    if (!maximumEndDate) return;
+    // Isi tanggal maksimal sebagai nilai awal. Pemohon tetap dapat memajukan
+    // tanggal selesai, sementara atribut min/max mengunci rentang yang sah.
+    setValue("tanggal_selesai", maximumEndDate, { shouldValidate: true });
+  }, [maximumEndDate, setValue]);
 
   const onSubmit = async (values) => {
     setFormError("");
@@ -66,6 +83,14 @@ export const LeaveRequestPage = () => {
     const documentProblem = validateSupportingDocument(supportingDocument, documentRequired);
     setDocumentError(documentProblem);
     if (documentProblem) return;
+
+    if (maximumEndDate && values.tanggal_selesai > maximumEndDate) {
+      setError("tanggal_selesai", {
+        type: "manual",
+        message: `Tanggal selesai melebihi batas maksimal ${selectedType.maksimal_hari} hari.`,
+      });
+      return;
+    }
 
     if (isTravel && !values.lokasi_tujuan?.trim()) {
       setError("lokasi_tujuan", {
@@ -171,6 +196,15 @@ export const LeaveRequestPage = () => {
               {errors.jenis_izin_id.message}
             </p>
           )}
+          {selectedType && (
+            <div role="status" className="mt-2 text-xs leading-5 text-slate-600">
+              <p className="font-semibold text-cyan-800">{formatLeaveAllowance(selectedType)}</p>
+              <p>{getLeavePolicy(selectedType)}</p>
+              <p className="font-medium">
+                Dokumen pendukung: {documentRequired ? "wajib" : "opsional"}.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
@@ -186,8 +220,13 @@ export const LeaveRequestPage = () => {
             id="leave-end"
             label="Tanggal selesai"
             type="date"
+            min={selectedStartDate || undefined}
+            max={maximumEndDate || undefined}
             registration={register("tanggal_selesai")}
             error={errors.tanggal_selesai?.message}
+            description={maximumEndDate
+              ? `Otomatis dibatasi sampai ${maximumEndDate} (${selectedType.maksimal_hari} hari kalender). Anda boleh memilih tanggal lebih awal.`
+              : undefined}
             disabled={isSubmitting}
           />
         </div>

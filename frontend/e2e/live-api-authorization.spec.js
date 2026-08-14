@@ -46,11 +46,11 @@ test.describe("live API authorization", () => {
     await expect((await request.get("/api/v1/akses/permission", { headers })).status()).toBe(200);
   });
 
-  test("Top Management can read employees but cannot mutate permissions", async ({ request }) => {
+  test("Top Management cannot read employees or mutate permissions", async ({ request }) => {
     const token = await login(request, "top.management@example.test");
     const headers = bearer(token);
 
-    await expect((await request.get("/api/v1/karyawan", { headers })).status()).toBe(200);
+    await expect((await request.get("/api/v1/karyawan", { headers })).status()).toBe(403);
     const mutation = await request.put("/api/v1/akses/permission", {
       headers,
       data: {

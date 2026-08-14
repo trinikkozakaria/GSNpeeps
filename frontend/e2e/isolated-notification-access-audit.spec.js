@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { assertDisposableMutationTarget } from "./helpers/mutation-target";
 
 const liveMode = process.env.E2E_LIVE === "1";
 const mutationMode = process.env.E2E_MUTATION === "1";
@@ -19,10 +20,10 @@ test.describe("isolated notification, access, and audit workflows", () => {
     test.skip(!mutationMode, "Set E2E_MUTATION=1 only for a disposable stack.");
     test.skip(testInfo.project.name !== "chromium", "The isolated workflow needs one project.");
     expect(seedPassword, "E2E_SEED_PASSWORD must be provided").toBeTruthy();
-    expect(new URL(testInfo.project.use.baseURL).port).not.toBe("8080");
+    assertDisposableMutationTarget(testInfo.project.use.baseURL);
   });
 
-  test("notifications stay recipient-scoped and permission changes invalidate capability cache", async ({ request }) => {
+  test("notifications stay recipient-scoped and HR permission changes are audited", async ({ request }) => {
     const employee = await login(request, "karyawan@example.test");
     const supervisor = await login(request, "atasan@example.test");
     const hr = await login(request, "hr@example.test");
@@ -116,7 +117,8 @@ test.describe("isolated notification, access, and audit workflows", () => {
     const topMatrix = await request.get("/api/v1/akses/permission", {
       headers: bearer(top.token),
     });
-    expect(topMatrix.status()).toBe(200);
+    // Top Management hanya menerima dashboard ringkas; matriks akses tetap khusus HR.
+    expect(topMatrix.status()).toBe(403);
     const forbiddenTopMutation = await request.put("/api/v1/akses/permission", {
       headers: bearer(top.token),
       data: {
@@ -138,13 +140,13 @@ test.describe("isolated notification, access, and audit workflows", () => {
       },
     });
     expect(disable.status()).toBe(200);
+    const disabledMatrix = await request.get("/api/v1/akses/permission", {
+      headers: bearer(hr.token),
+    });
+    expect(disabledMatrix.status()).toBe(200);
     expect(
-      (
-        await request.get("/api/v1/akses/permission", {
-          headers: bearer(top.token),
-        })
-      ).status(),
-    ).toBe(403);
+      (await disabledMatrix.json()).data.find((permission) => permission.id === topAccessRead.id),
+    ).toMatchObject({ is_allowed: false });
 
     const restore = await request.put("/api/v1/akses/permission", {
       headers: bearer(hr.token),
@@ -156,13 +158,13 @@ test.describe("isolated notification, access, and audit workflows", () => {
       },
     });
     expect(restore.status()).toBe(200);
+    const restoredMatrix = await request.get("/api/v1/akses/permission", {
+      headers: bearer(hr.token),
+    });
+    expect(restoredMatrix.status()).toBe(200);
     expect(
-      (
-        await request.get("/api/v1/akses/permission", {
-          headers: bearer(top.token),
-        })
-      ).status(),
-    ).toBe(200);
+      (await restoredMatrix.json()).data.find((permission) => permission.id === topAccessRead.id),
+    ).toMatchObject({ is_allowed: true });
 
     const auditResponse = await request.get("/api/v1/akses/audit-log?modul=akses&limit=100", {
       headers: bearer(hr.token),
@@ -174,5 +176,9 @@ test.describe("isolated notification, access, and audit workflows", () => {
     expect(accessAudits.length).toBeGreaterThanOrEqual(2);
     expect(accessAudits.some((item) => item.detail?.sesudah === false)).toBe(true);
     expect(accessAudits.some((item) => item.detail?.sesudah === true)).toBe(true);
+
+    for (const account of [employee, supervisor, hr, top]) {
+      await request.post("/api/v1/auth/logout", { headers: bearer(account.token) });
+    }
   });
 });

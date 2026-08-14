@@ -5,6 +5,7 @@ import { DataTable } from "../../../components/data-table/DataTable";
 import { Pagination } from "../../../components/data-table/Pagination";
 import { Button } from "../../../components/ui/Button";
 import { formatDate } from "../../../lib/format";
+import { useAttendanceCorrections } from "../../attendance/hooks/useAttendanceCorrections";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { useLeaveApprovalInbox } from "../../leave/hooks/useLeave";
 import { useOvertimeList } from "../../overtime/hooks/useOvertime";
@@ -25,7 +26,11 @@ export const ApprovalInboxPage = () => {
   const [params, setParams] = useSearchParams();
   const isApprover = approverRoles.includes(auth.role);
 
-  const tab = params.get("tab") === "lembur" ? "lembur" : "ketidakhadiran";
+  const canApproveCorrections = auth.role === "atasan" || auth.role === "hr";
+  const requestedTab = params.get("tab");
+  const tab = requestedTab === "lembur" || (requestedTab === "koreksi" && canApproveCorrections)
+    ? requestedTab
+    : "ketidakhadiran";
   const page = Number.parseInt(params.get("page") ?? "1", 10) || 1;
   const filters = useMemo(() => ({ page, limit: 10 }), [page]);
 
@@ -35,7 +40,11 @@ export const ApprovalInboxPage = () => {
     isApprover && tab === "ketidakhadiran",
   );
   const overtimeInbox = useOvertimeList(auth.role, filters, isApprover && tab === "lembur");
-  const active = tab === "lembur" ? overtimeInbox : leaveInbox;
+  const correctionInbox = useAttendanceCorrections(
+    auth.role,
+    isApprover && canApproveCorrections && tab === "koreksi",
+  );
+  const active = tab === "lembur" ? overtimeInbox : tab === "koreksi" ? correctionInbox : leaveInbox;
 
   const setTab = (nextTab) => {
     const next = new URLSearchParams(params);
@@ -120,6 +129,42 @@ export const ApprovalInboxPage = () => {
     },
   ];
 
+  const correctionColumns = [
+    {
+      key: "karyawan",
+      header: "Pemohon",
+      render: (row) => <span className="font-semibold text-slate-900">{row.nama_karyawan}</span>,
+    },
+    {
+      key: "waktu",
+      header: "Waktu koreksi",
+      render: (row) => (
+        <>
+          <span className="block">{formatDate(row.tanggal)}</span>
+          <span className="mt-1 block text-xs text-slate-500">
+            Masuk {row.waktu_check_in || "—"} · Pulang {row.waktu_check_out || "—"}
+          </span>
+        </>
+      ),
+    },
+    {
+      key: "alasan",
+      header: "Alasan",
+      render: (row) => <span className="text-sm text-slate-600">{row.alasan}</span>,
+    },
+    {
+      key: "aksi",
+      srHeader: "Aksi",
+      cellClassName: "text-right",
+      render: () => (
+        <Link to="/app/absensi/koreksi" className="font-semibold text-cyan-700 hover:text-cyan-900">
+          Tinjau
+          <span className="sr-only"> koreksi absensi</span>
+        </Link>
+      ),
+    },
+  ];
+
   return (
     <section aria-labelledby="approval-title">
       <p className="text-sm font-semibold uppercase tracking-widest text-cyan-700">Approval</p>
@@ -132,6 +177,7 @@ export const ApprovalInboxPage = () => {
         {[
           { id: "ketidakhadiran", label: "Ketidakhadiran" },
           { id: "lembur", label: "Lembur" },
+          ...(canApproveCorrections ? [{ id: "koreksi", label: "Koreksi Absensi" }] : []),
         ].map((item) => (
           <Button
             key={item.id}
@@ -159,7 +205,16 @@ export const ApprovalInboxPage = () => {
             </Button>
           </div>
         )}
-        {active.data && (
+        {active.data && tab === "koreksi" && (
+          <DataTable
+            caption="Antrean koreksi absensi"
+            columns={correctionColumns}
+            rows={active.data}
+            rowKey={(row) => row.id}
+            emptyMessage="Tidak ada koreksi absensi yang menunggu keputusan Anda."
+          />
+        )}
+        {active.data && tab !== "koreksi" && (
           <>
             <DataTable
               caption={tab === "lembur" ? "Antrean lembur" : "Antrean ketidakhadiran"}

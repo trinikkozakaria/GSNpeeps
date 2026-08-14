@@ -61,6 +61,7 @@ type JWT struct {
 
 type Auth struct {
 	LoginFailureLimit int
+	LoginRateLimit    int
 	RequestLimit      int
 	RequestWindow     time.Duration
 	ArgonMemoryKiB    uint32
@@ -116,6 +117,7 @@ func Load() (Config, error) {
 		},
 		Auth: Auth{
 			LoginFailureLimit: intValue("AUTH_LOGIN_FAILURE_LIMIT", 5),
+			LoginRateLimit:    intValue("AUTH_LOGIN_RATE_LIMIT", 10),
 			RequestLimit:      intValue("AUTH_REQUEST_LIMIT", 120),
 			RequestWindow:     duration("AUTH_REQUEST_WINDOW", time.Minute),
 			ArgonMemoryKiB:    uint32(intValue("AUTH_ARGON_MEMORY_KIB", 64*1024)),

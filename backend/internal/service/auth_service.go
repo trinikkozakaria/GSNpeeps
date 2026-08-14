@@ -25,6 +25,8 @@ type AuthUserRepository interface {
 	UpdatePassword(context.Context, uuid.UUID, string) error
 }
 
+const logoutFinalizationTimeout = 5 * time.Second
+
 type PasswordHasher interface {
 	Hash(string) (string, error)
 	Verify(string, string) (bool, error)
@@ -87,7 +89,7 @@ func NewAuthService(
 		limiter:        limiter,
 		audit:          audit,
 		failureLimit:   cfg.LoginFailureLimit,
-		loginRateLimit: max(cfg.LoginFailureLimit*2, 10),
+		loginRateLimit: max(cfg.LoginRateLimit, max(cfg.LoginFailureLimit*2, 10)),
 		rateWindow:     cfg.RequestWindow,
 		dummyHash:      dummyHash,
 		now:            time.Now,
@@ -187,10 +189,15 @@ func (s *AuthService) Me(ctx context.Context, identity domain.Identity) (domain.
 }
 
 func (s *AuthService) Logout(ctx context.Context, identity domain.Identity, meta RequestMeta) error {
-	if err := s.sessions.Revoke(ctx, identity.UserID); err != nil {
+	// Begitu logout diterima, pencabutan sesi dan audit harus tetap selesai walaupun browser
+	// menutup koneksi saat berpindah ke halaman login. Nilai context (request ID dan metadata)
+	// tetap dipertahankan, tetapi cancellation dari client dilepas dan diberi batas waktu sendiri.
+	finalizeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), logoutFinalizationTimeout)
+	defer cancel()
+	if err := s.sessions.Revoke(finalizeCtx, identity.UserID); err != nil {
 		return err
 	}
-	return s.appendAudit(ctx, identity.UserID, "LOGOUT", meta, nil)
+	return s.appendAudit(finalizeCtx, identity.UserID, "LOGOUT", meta, nil)
 }
 
 func (s *AuthService) ChangePassword(

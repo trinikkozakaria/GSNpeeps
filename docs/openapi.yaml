@@ -763,8 +763,8 @@ paths:
       operationId: getDashboardMetrics
       summary: Ambil dashboard metrik HR
       description: |
-        HR dan Top Management dapat membaca; Top Management read-only. Kehadiran dihitung
-        dari check-in valid. Check-in setelah pukul 09:00:00 Asia/Jakarta dihitung terlambat;
+        Hanya HR yang dapat membaca. Kehadiran valid membutuhkan clock-in dan clock-out pada
+        tanggal yang sama. Check-in setelah pukul 09:00:00 Asia/Jakarta dihitung terlambat;
         tepat pukul 09:00:00 belum terlambat. Karyawan nonaktif dipisahkan dari komposisi
         aktif dan gender kosong masuk kategori `belum_diisi`.
       tags: [Dashboard]
@@ -2594,7 +2594,7 @@ components:
         hadir_valid:
           type: integer
           minimum: 0
-          description: Jumlah pasangan unik employee/tanggal dengan check-in valid dalam rentang periode.
+          description: Jumlah pasangan unik employee/tanggal yang memiliki clock-in dan clock-out dalam rentang periode.
         terlambat:
           type: integer
           minimum: 0

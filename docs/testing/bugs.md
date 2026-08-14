@@ -1,21 +1,59 @@
-# Already implemented
-bugs
-- create forms for BPJS (image or pdf) & NPWP (image or pdf), Kontak Darurat (emergency contact name and number), Pendidikan (education, school, year), Riwayat Jabatan (employee position history), Gaji bulan berjalan (current salary) on create / edit "Karyawan"
-- /app/pengajuan?tab=lembur on API /api/v1/lembur?page=1&limit=10 got forbidden error
-- "Foto" column on table in the page /app/live-feed, prefer to use button which shows picture in modal
+# Bug status
 
-# Already implemented
-UI feedback
-- navbar position fixed on top
-- sidebar menu items position fixed on the left side
-- responsive page for web browser
-- if "Ajukan Lembur" / "Ajukan Ketidakhadiran" nav item is active, "Kehadiran Saya" will be active
-- move "Dashboard HR" nav item before "Beranda"
-- attendance will be counted as 1 if a user's check_in and check_out rows are exist
-- UI color change to, Color Code: Primary: White (FFFCFB), Secondary: Blue (093FB4), Additional: Red (ED3500); Soft Pink (FFD8D8)
-- font change to eloquia (attached in \home\linux\isbm\GSNpeeps\docs\source\font)
+Last verified: **14 August 2026**.
 
-# To implement
-UI feedback
-- "Ajukan Ketidakhadiran" and "Ajukan Lembur" is submenu for "Pengajuan". Make dropdown or indent the label to emphasize the hierarchy. "Pengajuan" doesn't go to any page only label for parent hierarchy. This is UI only changes, use existing route page but only change the sidebar UI.
-- Add form input for profile picture. Add picture on navbar next to current logged in user's name. HR and current user can update the picture
+All items in this file have been implemented. Full frontend and backend tests pass, and the
+live Chromium verification for role navigation, authorization, accessibility, leave limits,
+logout, and user switching passes **18/18**.
+
+## Ringkasan status
+
+### Sudah selesai
+
+- Seluruh bug dan UI feedback yang tercantum di dokumen ini sudah diimplementasikan.
+- Bug foto profil/Nextcloud dan respons media HTML sudah diperbaiki.
+- Referensi foto HR yang yatim sudah dibersihkan; pengguna dapat mengunggah foto baru.
+- Race condition logout yang sesekali menghasilkan HTTP `500` sudah diperbaiki.
+- Seluruh backend test dan **208/208** frontend unit test lulus.
+- Browser test live lulus **18/18** dan pengujian ulang login/logout lulus **10/10**.
+- `http://localhost:8080/health` merespons HTTP `200`.
+
+### Belum selesai / masih perlu tindakan
+
+- Sign-off UAT manual oleh pengguna belum lengkap. Item yang belum dicentang di
+  [`browser-verification-checklist.md`](./browser-verification-checklist.md) tetap harus
+  diperiksa langsung di browser dan tidak otomatis dianggap lulus.
+- Foto profil lama tidak dapat dipulihkan karena sebelumnya tidak pernah tersimpan di
+  Nextcloud; akun terkait perlu mengunggah ulang foto satu kali.
+- Hiring Progress, Recruitment Cost, dan Benefit masih berstatus **Coming Soon** karena
+  requirement dan sumber datanya belum diberikan. Ketiganya bukan bug aktif.
+
+Tidak ada bug implementasi terbuka yang masih dapat direproduksi oleh pengujian otomatis
+terakhir. Bug baru yang ditemukan saat UAT manual harus ditambahkan sebagai item baru di
+dokumen ini.
+
+## Resolved bugs
+
+- Create/edit Karyawan includes BPJS and NPWP documents, emergency contacts, education,
+  position history, and current-month salary.
+- `/app/pengajuan?tab=lembur` can load `/api/v1/lembur?page=1&limit=10` for an authorized
+  user without an incorrect forbidden response.
+- The Foto column on `/app/live-feed` uses a button and opens the protected image in a modal.
+- A stale HR profile-photo reference that produced `404 /api/v1/media` was removed after the
+  previous incomplete Nextcloud setup. No user file was deleted; a new profile photo can be
+  uploaded normally.
+- Logout finalization now detaches its short-lived session-revocation and audit work from
+  browser cancellation, preventing an intermittent `500` while navigating back to login.
+
+## Resolved UI feedback
+
+- Navbar stays fixed at the top.
+- Sidebar navigation stays fixed on the left and remains usable in compact mode.
+- Pages reflow for desktop and narrow browser viewports.
+- Ajukan Ketidakhadiran and Ajukan Lembur are children of the non-link Pengajuan group.
+- Dashboard HR appears before Beranda for roles that may access it.
+- Attendance counts as present only when check-in and check-out both exist for the same day.
+- The approved white, blue, red, and soft-pink palette is applied.
+- Eloquia is used from the bundled font assets.
+- Profile photos can be updated by HR or the current user and appear beside the signed-in
+  user's name in the navbar.

@@ -34,10 +34,21 @@ services:
       target: dev
       args:
         TARGET: api
+    environment:
+      # Browser E2E melakukan banyak login role berbeda dari satu alamat container.
+      # Lockout akun tetap 5 kegagalan; hanya batas agregat per IP test yang dilonggarkan.
+      AUTH_LOGIN_RATE_LIMIT: "100"
     volumes: &backend-dev-volumes
       - ./backend:/src
       - go-build-cache:/root/.cache/go-build
       - go-module-cache:/go/pkg/mod
+    # The base stack keeps application services on an isolated network. In
+    # development Air may need to download modules after go.mod changes, so
+    # attach an additional network with outbound access without weakening the
+    # production configuration.
+    networks: &backend-dev-networks
+      - internal
+      - dev-egress
     healthcheck:
       # Kompilasi pertama berjalan saat container start, jadi beri waktu lebih panjang.
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
@@ -52,6 +63,7 @@ services:
     environment:
       TARGET: worker
     volumes: *backend-dev-volumes
+    networks: *backend-dev-networks
 
   migrate:
     image: *backend-dev-image
@@ -68,6 +80,10 @@ services:
     entrypoint: []
     command: ["go", "run", "./cmd/seed"]
     volumes: *backend-dev-volumes
+    networks: *backend-dev-networks
+
+networks:
+  dev-egress:
 
 volumes:
   frontend-node-modules:

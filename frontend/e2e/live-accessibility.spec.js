@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { openNavigationGroups } from "./helpers/navigation";
 
 const liveMode = process.env.E2E_LIVE === "1";
 const seedPassword = process.env.E2E_SEED_PASSWORD;
@@ -68,6 +69,7 @@ test.describe("live accessibility smoke", () => {
     await page.getByLabel(/^Password$/).fill(seedPassword);
     await page.getByRole("button", { name: "Masuk" }).click();
     await expect(page).toHaveURL(/\/app$/);
+    await openNavigationGroups(page);
 
     await page.getByRole("link", { name: "AKSES" }).click();
     await expect(page.getByRole("heading", { name: "AKSES", level: 1 })).toBeVisible();

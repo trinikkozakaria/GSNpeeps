@@ -41,7 +41,14 @@ func New(cfg config.Nextcloud) (*Client, error) {
 		username:   cfg.Username,
 		password:   cfg.AppPassword,
 		rootFolder: root,
-		httpClient: &http.Client{Timeout: cfg.Timeout},
+		httpClient: &http.Client{
+			Timeout: cfg.Timeout,
+			// Redirect WebDAV ke halaman setup/login harus dianggap gagal. Jika diikuti,
+			// halaman HTML dapat salah dianggap sebagai unggahan atau unduhan berhasil.
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 	}, nil
 }
 

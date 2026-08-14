@@ -101,16 +101,18 @@ func (fakeTokens) Issue(domain.Identity) (string, string, time.Duration, error) 
 }
 
 type fakeSessions struct {
-	revoked int
-	saved   int
+	revoked          int
+	saved            int
+	revokeContextErr error
 }
 
 func (f *fakeSessions) Save(context.Context, uuid.UUID, string, time.Duration) error {
 	f.saved++
 	return nil
 }
-func (f *fakeSessions) Revoke(context.Context, uuid.UUID) error {
+func (f *fakeSessions) Revoke(ctx context.Context, _ uuid.UUID) error {
 	f.revoked++
+	f.revokeContextErr = ctx.Err()
 	return nil
 }
 
@@ -120,10 +122,14 @@ func (f fakeLimiter) Allow(context.Context, string, int, time.Duration) (bool, e
 	return f.allowed, nil
 }
 
-type fakeAudit struct{ entries []domain.AuditEntry }
+type fakeAudit struct {
+	entries          []domain.AuditEntry
+	appendContextErr error
+}
 
-func (f *fakeAudit) Append(_ context.Context, entry domain.AuditEntry) error {
+func (f *fakeAudit) Append(ctx context.Context, entry domain.AuditEntry) error {
 	f.entries = append(f.entries, entry)
+	f.appendContextErr = ctx.Err()
 	return nil
 }
 
@@ -154,6 +160,28 @@ func newAuthFixture(t *testing.T) (*AuthService, *fakeAuthUsers, *fakeSessions) 
 	)
 	require.NoError(t, err)
 	return service, users, sessions
+}
+
+func TestLogoutFinalizesSessionAndAuditAfterClientCancellation(t *testing.T) {
+	users := &fakeAuthUsers{account: domain.LoginAccount{ID: uuid.New(), EmployeeID: uuid.New()}}
+	sessions := &fakeSessions{}
+	audit := &fakeAudit{}
+	auth, err := NewAuthService(
+		users, fakePasswords{}, fakeTokens{}, sessions, fakeLimiter{allowed: true}, audit,
+		config.Auth{LoginFailureLimit: 5, RequestWindow: time.Minute},
+	)
+	require.NoError(t, err)
+
+	requestCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err = auth.Logout(requestCtx, domain.Identity{UserID: users.account.ID}, RequestMeta{IPAddress: "127.0.0.1"})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, sessions.revoked)
+	require.NoError(t, sessions.revokeContextErr)
+	require.Len(t, audit.entries, 1)
+	require.Equal(t, "LOGOUT", audit.entries[0].Action)
+	require.NoError(t, audit.appendContextErr)
 }
 
 func TestLoginSuccess(t *testing.T) {

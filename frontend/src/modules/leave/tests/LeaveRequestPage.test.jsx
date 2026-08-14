@@ -22,7 +22,9 @@ const annualLeave = {
   id: "11111111-1111-4111-8111-111111111111",
   kode: "CT",
   nama: "Cuti Tahunan",
+  kategori: "cuti",
   kuota_tahunan: 12,
+  maksimal_hari: null,
   memerlukan_dokumen: false,
   is_active: true,
 };
@@ -31,7 +33,31 @@ const travelLeave = {
   id: "22222222-2222-4222-8222-222222222222",
   kode: "PD",
   nama: "Perjalanan Dinas",
+  kategori: "izin",
   kuota_tahunan: 0,
+  maksimal_hari: 30,
+  memerlukan_dokumen: true,
+  is_active: true,
+};
+
+const sickLeave = {
+  id: "33333333-3333-4333-8333-333333333333",
+  kode: "IZIN-SAKIT",
+  nama: "Izin Sakit",
+  kategori: "izin",
+  kuota_tahunan: 0,
+  maksimal_hari: 365,
+  memerlukan_dokumen: true,
+  is_active: true,
+};
+
+const hajjLeave = {
+  id: "44444444-4444-4444-8444-444444444444",
+  kode: "IZIN-HAJI",
+  nama: "Ibadah Haji",
+  kategori: "izin",
+  kuota_tahunan: 0,
+  maksimal_hari: 30,
   memerlukan_dokumen: true,
   is_active: true,
 };
@@ -44,6 +70,7 @@ const documentFile = (name = "surat.pdf", size = 2048) => {
 
 const fillBasics = async (user) => {
   await user.type(screen.getByLabelText("Tanggal mulai"), "2026-08-10");
+  await user.clear(screen.getByLabelText("Tanggal selesai"));
   await user.type(screen.getByLabelText("Tanggal selesai"), "2026-08-12");
   await user.type(screen.getByLabelText("Alasan"), "Keperluan keluarga sintetis");
 };
@@ -84,7 +111,7 @@ describe("LeaveRequestPage", () => {
   beforeEach(() => {
     createMock.mockReset();
     createMock.mockResolvedValue({ id: "req-1", status: "menunggu_atasan" });
-    typesState.current = { data: [annualLeave, travelLeave], isError: false };
+    typesState.current = { data: [annualLeave, travelLeave, sickLeave, hajjLeave], isError: false };
   });
 
   it("hides travel fields until a travel leave type is selected", async () => {
@@ -97,6 +124,36 @@ describe("LeaveRequestPage", () => {
 
     expect(await screen.findByLabelText("Lokasi tujuan")).toBeInTheDocument();
     expect(screen.getByLabelText("Keperluan tugas")).toBeInTheDocument();
+  });
+
+  it("shows the SOP rule, duration, and document requirement for the selected type", async () => {
+    const user = userEvent.setup();
+    render(<LeaveRequestPage />);
+
+    await user.selectOptions(screen.getByLabelText("Jenis izin"), sickLeave.id);
+
+    const policy = screen.getByRole("status");
+    expect(policy).toHaveTextContent(/sesuai durasi sakit/i);
+    expect(policy).toHaveTextContent(/paling lambat pukul 08.00/i);
+    expect(policy).toHaveTextContent(/dokumen pendukung: wajib/i);
+  });
+
+  it("auto-fills and locks the maximum inclusive end date while allowing an earlier date", async () => {
+    const user = userEvent.setup();
+    render(<LeaveRequestPage />);
+
+    await user.selectOptions(screen.getByLabelText("Jenis izin"), hajjLeave.id);
+    await user.type(screen.getByLabelText("Tanggal mulai"), "2026-08-10");
+
+    const endDate = screen.getByLabelText("Tanggal selesai");
+    await waitFor(() => expect(endDate).toHaveValue("2026-09-08"));
+    expect(endDate).toHaveAttribute("min", "2026-08-10");
+    expect(endDate).toHaveAttribute("max", "2026-09-08");
+    expect(screen.getByText(/30 hari kalender.*boleh memilih tanggal lebih awal/i)).toBeInTheDocument();
+
+    await user.clear(endDate);
+    await user.type(endDate, "2026-08-25");
+    expect(endDate).toHaveValue("2026-08-25");
   });
 
   it("requires travel fields for Perjalanan Dinas", async () => {

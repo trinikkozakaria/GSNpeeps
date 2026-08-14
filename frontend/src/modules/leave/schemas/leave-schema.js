@@ -102,11 +102,37 @@ export const createLeaveFormSchema = z
     message: "Tanggal selesai tidak boleh sebelum tanggal mulai",
   });
 
+const leaveTypeMutableFieldsSchema = z.object({
+  nama: z.string().trim().min(1, "Nama wajib diisi").max(150),
+  kuota_tahunan: z.coerce.number().int().min(0, "Kuota tidak boleh negatif"),
+  kategori: z.enum(["cuti", "izin"]),
+  maksimal_hari: z.coerce.number().int().min(0).max(365).optional(),
+  memerlukan_dokumen: z.boolean(),
+}).superRefine((value, context) => {
+  if (value.kategori === "izin" && (!value.maksimal_hari || value.maksimal_hari < 1)) {
+    context.addIssue({
+      code: "custom",
+      path: ["maksimal_hari"],
+      message: "Maksimal hari wajib diisi untuk kategori izin",
+    });
+  }
+});
+
 export const createLeaveTypeFormSchema = z.object({
   kode: z.string().trim().min(1, "Kode wajib diisi").max(50),
   nama: z.string().trim().min(1, "Nama wajib diisi").max(150),
   kuota_tahunan: z.coerce.number().int().min(0, "Kuota tidak boleh negatif"),
   kategori: z.enum(["cuti", "izin"]),
-  maksimal_hari: z.coerce.number().int().min(0).optional(),
+  maksimal_hari: z.coerce.number().int().min(0).max(365).optional(),
   memerlukan_dokumen: z.boolean(),
+}).superRefine((value, context) => {
+  if (value.kategori === "izin" && (!value.maksimal_hari || value.maksimal_hari < 1)) {
+    context.addIssue({
+      code: "custom",
+      path: ["maksimal_hari"],
+      message: "Maksimal hari wajib diisi untuk kategori izin",
+    });
+  }
 });
+
+export const updateLeaveTypeFormSchema = leaveTypeMutableFieldsSchema;

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openNavigationGroups } from "./helpers/navigation";
 
 const liveMode = process.env.E2E_LIVE === "1";
 const seedPassword = process.env.E2E_SEED_PASSWORD;
@@ -17,7 +18,7 @@ test("protected employee cache does not cross an HR-to-Karyawan user switch", as
   expect(seedPassword, "E2E_SEED_PASSWORD must be provided").toBeTruthy();
 
   await login(page, "hr@example.test");
-  await page.getByRole("navigation", { name: "Navigasi utama" })
+  await (await openNavigationGroups(page))
     .getByRole("link", { name: "Employee Database", exact: true })
     .click();
   await expect(page.getByRole("heading", { level: 1, name: "Employee Database" })).toBeVisible();

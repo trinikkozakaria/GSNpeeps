@@ -63,7 +63,7 @@ export const LoginPage = () => {
       title="Masuk ke akun"
       description="Gunakan email kerja dan password GSNpeeps Anda."
       footer={
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-600">
           Akun terkunci?{" "}
           <Link to="/reset-password" className="font-semibold text-cyan-700 hover:text-cyan-900">
             Pulihkan password

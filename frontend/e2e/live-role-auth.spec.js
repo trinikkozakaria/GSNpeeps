@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openNavigationGroups } from "./helpers/navigation";
 
 const liveMode = process.env.E2E_LIVE === "1";
 const seedPassword = process.env.E2E_SEED_PASSWORD;
@@ -36,14 +37,20 @@ const accounts = [
   {
     email: "top.management@example.test",
     role: "Top Management",
-    allowed: ["Employee Database", "Dashboard HR", "Persetujuan", "AKSES", "Audit Log"],
-    forbidden: ["Profil Saya", "Metrik Personal", "Kehadiran Saya", "Master Jenis Izin"],
-    destinations: [
-      ["Employee Database", "Employee Database"],
-      ["Dashboard HR", "Dashboard HR"],
-      ["AKSES", "AKSES"],
-      ["Audit Log", "Audit Log"],
+    allowed: ["Persetujuan"],
+    forbidden: [
+      "Employee Database",
+      "Dashboard HR",
+      "Live Feed Absensi",
+      "Laporan Kehadiran",
+      "AKSES",
+      "Audit Log",
+      "Profil Saya",
+      "Metrik Personal",
+      "Kehadiran Saya",
+      "Master Jenis Izin",
     ],
+    destinations: [["Persetujuan", "Persetujuan"]],
   },
 ];
 
@@ -74,7 +81,7 @@ test.describe("live Docker role authentication", () => {
       await expect(page.getByRole("heading", { name: /Selamat datang/ })).toBeVisible();
       await expect(page.getByText(`Anda masuk sebagai ${account.role}.`)).toBeVisible();
 
-      const navigation = page.getByRole("navigation", { name: "Navigasi utama" });
+      const navigation = await openNavigationGroups(page);
       for (const label of account.allowed) {
         await expect(navigation.getByRole("link", { name: label, exact: true })).toBeVisible();
       }

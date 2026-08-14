@@ -13,7 +13,7 @@ export const AuthCard = ({ title, description, children, footer }) => (
         <h1 id="auth-title" className="text-2xl font-bold">
           {title}
         </h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
         <div className="mt-7">{children}</div>
         {footer ? <div className="mt-6 border-t border-slate-900/10 pt-5">{footer}</div> : null}
       </div>

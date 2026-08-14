@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { assertDisposableMutationTarget } from "./helpers/mutation-target";
 
 const liveMode = process.env.E2E_LIVE === "1";
 const mutationMode = process.env.E2E_MUTATION === "1";
@@ -8,7 +9,7 @@ const seedPassword = process.env.E2E_SEED_PASSWORD;
 test("Nextcloud outage fails document upload without leaking internal details", async ({ request }, testInfo) => {
   test.skip(!liveMode || !mutationMode || !outageMode, "Run only while isolated Nextcloud is down.");
   test.skip(testInfo.project.name !== "chromium", "The isolated workflow needs one project.");
-  expect(new URL(testInfo.project.use.baseURL).port).not.toBe("8080");
+  assertDisposableMutationTarget(testInfo.project.use.baseURL);
   expect(seedPassword, "E2E_SEED_PASSWORD must be provided").toBeTruthy();
 
   const login = await request.post("/api/v1/auth/login", {

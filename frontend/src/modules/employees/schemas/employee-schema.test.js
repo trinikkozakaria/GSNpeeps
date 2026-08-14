@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createEmployeeSchema,
+  emptyEmployeeDetailDefaults,
   employeeDetailSchema,
   employeeListSchema,
 } from "./employee-schema";
@@ -66,6 +67,13 @@ describe("employee schemas", () => {
         jenis_kontrak: "PKWT",
         tanggal_mulai: "2026-07-29",
         tanggal_berakhir: "2027-07-28",
+      },
+      ...emptyEmployeeDetailDefaults,
+      gaji_berjalan: {
+        periode: "2026-08",
+        gaji_pokok: "10000000",
+        tunjangan: "1000000",
+        potongan: "500000",
       },
     };
 

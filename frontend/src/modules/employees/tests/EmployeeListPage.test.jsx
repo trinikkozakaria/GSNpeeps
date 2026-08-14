@@ -21,6 +21,7 @@ vi.mock("../hooks/useEmployees", () => ({
     receivedFilters.current = filters;
     return employeesState.current;
   },
+  useBulkEmployees: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock("../api/employee-api", () => ({ exportEmployeesRequest: vi.fn() }));

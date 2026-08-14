@@ -96,16 +96,17 @@ describe("DashboardPage", () => {
   it("shows the belum_diisi gender category explicitly", () => {
     renderPage();
 
-    expect(screen.getByRole("rowheader", { name: "Belum diisi" })).toBeInTheDocument();
-    expect(screen.getByRole("rowheader", { name: "Laki-laki" })).toBeInTheDocument();
-    expect(screen.getByRole("rowheader", { name: "Perempuan" })).toBeInTheDocument();
+    const genderList = screen.getByRole("list", { name: /populasi aktif menurut gender/i });
+    expect(within(genderList).getByText("Belum diisi")).toBeInTheDocument();
+    expect(within(genderList).getByText("Laki-laki")).toBeInTheDocument();
+    expect(within(genderList).getByText("Perempuan")).toBeInTheDocument();
   });
 
-  it("renders charts as accessible tables rather than image-only graphics", () => {
+  it("renders gender icons with an accessible text alternative", () => {
     renderPage();
 
-    const genderTable = screen.getByRole("table", { name: /populasi aktif menurut gender/i });
-    expect(within(genderTable).getByRole("row", { name: /Belum diisi/ })).toHaveTextContent("1");
+    const genderList = screen.getByRole("list", { name: /populasi aktif menurut gender/i });
+    expect(within(genderList).getByRole("listitem", { name: /Belum diisi: 1/ })).toBeInTheDocument();
   });
 
   it("renders the org chart hierarchy", () => {
@@ -133,16 +134,10 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("heading", { name: "Benefit" })).toBeInTheDocument();
   });
 
-  it("gives Top Management the same read-only view without mutation controls", () => {
-    authState.current = { role: "top_management", user: { id: "user-2" } };
+  it("explains that valid attendance requires both clock-in and clock-out", () => {
     renderPage();
 
-    expect(screen.getByText(/akses Anda bersifat pemantauan saja/i)).toBeInTheDocument();
-    expect(screen.getByText("Anita Sintetis")).toBeInTheDocument();
-    const buttons = screen.queryAllByRole("button");
-    buttons.forEach((button) => {
-      expect(button).not.toHaveAccessibleName(/simpan|hapus|nonaktifkan|tambah|unggah/i);
-    });
+    expect(screen.getByText("Memiliki clock-in dan clock-out")).toBeInTheDocument();
   });
 
   it("shows loading and retryable error states", () => {

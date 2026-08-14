@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { assertDisposableMutationTarget } from "./helpers/mutation-target";
 
 const liveMode = process.env.E2E_LIVE === "1";
 const mutationMode = process.env.E2E_MUTATION === "1";
@@ -39,7 +40,7 @@ test.describe("isolated attendance workflows", () => {
     test.skip(!mutationMode, "Set E2E_MUTATION=1 only for a disposable stack.");
     test.skip(testInfo.project.name !== "chromium", "The isolated workflow needs one browser project.");
     expect(seedPassword, "E2E_SEED_PASSWORD must be provided").toBeTruthy();
-    expect(new URL(testInfo.project.use.baseURL).port).not.toBe("8080");
+    assertDisposableMutationTarget(testInfo.project.use.baseURL);
   });
 
   test("WFO radius, duplicate/sequence errors, WFH/WFA, and camera fallback are enforced", async ({
@@ -117,6 +118,13 @@ test.describe("isolated attendance workflows", () => {
     await context.grantPermissions(["geolocation"], { origin: topOrigin });
     await context.setGeolocation({ latitude: -8.65, longitude: 115.21 });
     await page.addInitScript(() => {
+      Object.defineProperty(navigator, "geolocation", {
+        configurable: true,
+        value: {
+          getCurrentPosition: (success) =>
+            success({ coords: { latitude: -8.65, longitude: 115.21, accuracy: 1 } }),
+        },
+      });
       Object.defineProperty(navigator, "mediaDevices", {
         configurable: true,
         value: {
@@ -130,9 +138,9 @@ test.describe("isolated attendance workflows", () => {
     await page.getByLabel("Email kerja").fill("atasan@example.test");
     await page.getByLabel(/^Password$/).fill(seedPassword);
     await page.getByRole("button", { name: "Masuk" }).click();
-    await page.getByRole("navigation", { name: "Navigasi utama" })
-      .getByRole("link", { name: "Kehadiran Saya", exact: true })
-      .click();
+    await expect(page).toHaveURL(/\/app$/);
+    // Navigasi sidebar sudah diuji terpisah; alur ini fokus pada fallback kamera.
+    await page.goto("/app/absensi");
     await page.getByLabel("WFH", { exact: true }).check();
     await page.getByRole("button", { name: "Nyalakan kamera" }).click();
     await expect(page.getByText(/kamera ditolak/i)).toBeVisible();
