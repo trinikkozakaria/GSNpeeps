@@ -29,6 +29,9 @@ importers:
       react-router-dom:
         specifier: ^7.8.2
         version: 7.18.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react-simple-wysiwyg:
+        specifier: ^3.4.1
+        version: 3.4.1(react@19.2.8)
       zod:
         specifier: ^4.1.5
         version: 4.4.3
@@ -1277,6 +1280,11 @@ packages:
       react-dom:
         optional: true
 
+  react-simple-wysiwyg@3.4.1:
+    resolution: {integrity: sha512-amppNS/WiUSURSFXg9evcRjRBwK6pf5LRWDACVZT/q4k2TginjNxegxM0T2s2LYulbRFS4eGwO7nv57OskckHw==}
+    peerDependencies:
+      react: '>=16.8'
+
   react@19.2.8:
     resolution: {integrity: sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==}
     engines: {node: '>=0.10.0'}
@@ -2476,6 +2484,10 @@ snapshots:
       set-cookie-parser: 2.7.2
     optionalDependencies:
       react-dom: 19.2.8(react@19.2.8)
+
+  react-simple-wysiwyg@3.4.1(react@19.2.8):
+    dependencies:
+      react: 19.2.8
 
   react@19.2.8: {}
 

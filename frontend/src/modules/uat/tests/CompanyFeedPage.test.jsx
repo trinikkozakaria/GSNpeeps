@@ -54,4 +54,24 @@ describe("CompanyFeedPage", () => {
     }));
     expect(await screen.findByText("Company feed berhasil diterbitkan.")).toBeInTheDocument();
   });
+
+  // jsdom tidak mengimplementasikan document.execCommand (rich-text editing perlu layout
+  // engine browser sungguhan), jadi efek format Tebal/Miring/dst pada DOM tidak dapat
+  // diverifikasi lewat unit test di sini; perilaku itu diverifikasi manual lewat Playwright
+  // terhadap Chromium nyata. Test ini hanya memastikan toolbar berasal dari komponen library
+  // react-simple-wysiwyg (createButton) dengan label Bahasa Indonesia dan tidak crash saat
+  // diklik tanpa seleksi teks.
+  it("renders the library's own toolbar buttons with Indonesian labels", async () => {
+    const user = userEvent.setup();
+    render(<CompanyFeedPage />);
+
+    const toolbar = screen.getByRole("toolbar", { name: "Format konten" });
+    for (const label of ["Tebal", "Miring", "Garis bawah", "Daftar", "Nomor"]) {
+      const button = screen.getByRole("button", { name: label });
+      expect(toolbar).toContainElement(button);
+      expect(button).toHaveClass("rounded-lg");
+      // eslint-disable-next-line no-await-in-loop
+      await user.click(button);
+    }
+  });
 });
