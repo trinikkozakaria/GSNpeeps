@@ -55,21 +55,21 @@ describe("CompanyFeedPage", () => {
     expect(await screen.findByText("Company feed berhasil diterbitkan.")).toBeInTheDocument();
   });
 
-  // jsdom tidak mengimplementasikan document.execCommand (rich-text editing perlu layout
-  // engine browser sungguhan), jadi efek format Tebal/Miring/dst pada DOM tidak dapat
-  // diverifikasi lewat unit test di sini; perilaku itu diverifikasi manual lewat Playwright
-  // terhadap Chromium nyata. Test ini hanya memastikan toolbar berasal dari komponen library
-  // react-simple-wysiwyg (createButton) dengan label Bahasa Indonesia dan tidak crash saat
-  // diklik tanpa seleksi teks.
-  it("renders the library's own toolbar buttons with Indonesian labels", async () => {
+  // Toolbar dipakai apa adanya dari react-simple-wysiwyg (DefaultEditor, tidak di-wrap
+  // children), bukan tombol kustom, setelah versi kustom sebelumnya terbukti tidak dapat
+  // diandalkan. Tombol library tidak punya aria-label/teks (accessible name-nya jatuh ke
+  // konten glyph seperti "𝐁", bukan atribut title), jadi dicari lewat getByTitle. jsdom
+  // tidak mengimplementasikan document.execCommand (rich-text editing perlu layout engine
+  // browser sungguhan), jadi efek format pada DOM diverifikasi manual lewat Playwright
+  // terhadap Chromium nyata, bukan di sini.
+  it("renders react-simple-wysiwyg's own unmodified toolbar buttons", async () => {
     const user = userEvent.setup();
     render(<CompanyFeedPage />);
 
-    const toolbar = screen.getByRole("toolbar", { name: "Format konten" });
-    for (const label of ["Tebal", "Miring", "Garis bawah", "Daftar", "Nomor"]) {
-      const button = screen.getByRole("button", { name: label });
-      expect(toolbar).toContainElement(button);
-      expect(button).toHaveClass("rounded-lg");
+    for (const title of ["Bold", "Italic", "Underline", "Bullet list", "Numbered list"]) {
+      const button = screen.getByTitle(title);
+      expect(button.tagName).toBe("BUTTON");
+      expect(button).toHaveClass("rsw-btn");
       // eslint-disable-next-line no-await-in-loop
       await user.click(button);
     }

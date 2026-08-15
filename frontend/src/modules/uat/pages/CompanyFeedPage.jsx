@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { createButton, Editor, EditorProvider, Toolbar } from "react-simple-wysiwyg";
+import Editor from "react-simple-wysiwyg";
 
 import { Button } from "../../../components/ui/Button";
 import { formatDateTime } from "../../../lib/format";
@@ -39,22 +39,6 @@ export const CompanyFeedList = () => {
   );
 };
 
-// Tombol toolbar dibuat lewat createButton bawaan react-simple-wysiwyg — persis fungsi yang
-// dipakai BtnBold/BtnItalic/dst di dalam library (fokus editor lewat EditorContext lalu
-// document.execCommand pada mousedown), hanya label dan style yang diganti ke Bahasa
-// Indonesia dan Tailwind. Interaksi format sepenuhnya ditangani library, bukan kode kustom.
-// Varian data-[active=true] diberi `!` (important) karena mouse pengguna biasanya masih
-// berada di atas tombol tepat setelah diklik; tanpa ini, urutan sumber Tailwind membuat
-// hover:bg-slate-900/10 menutupi warna aktif cyan meski data-active sudah true.
-const toolbarButtonClassName =
-  "inline-flex min-h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 border border-slate-900/15 bg-slate-900/5 text-slate-900 hover:bg-slate-900/10 focus-visible:outline-slate-900 data-[active=true]:border-cyan-700! data-[active=true]:bg-cyan-700! data-[active=true]:text-white! disabled:cursor-not-allowed disabled:opacity-50";
-
-const BtnTebal = createButton("Tebal", "Tebal", "bold");
-const BtnMiring = createButton("Miring", "Miring", "italic");
-const BtnGarisBawah = createButton("Garis bawah", "Garis bawah", "underline");
-const BtnDaftar = createButton("Daftar", "Daftar", "insertUnorderedList");
-const BtnNomor = createButton("Nomor", "Nomor", "insertOrderedList");
-
 export const CompanyFeedPage = () => {
   const editorRef = useRef(null);
   const [title, setTitle] = useState("");
@@ -91,35 +75,26 @@ export const CompanyFeedPage = () => {
           <input className="mt-2 min-h-10 w-full rounded-lg border px-3" value={title} onChange={(event) => setTitle(event.target.value)} required disabled={create.isPending} />
         </label>
         <span id="feed-content-label" className="text-sm font-medium">Konten</span>
-        {/* EditorProvider menyediakan EditorContext yang dipakai tombol toolbar (lewat
-            useEditorState) untuk menemukan elemen contentEditable aktif; Toolbar dan Editor
-            boleh menjadi sibling selama sama-sama berada di dalam provider ini. */}
-        <EditorProvider>
-          <Toolbar role="toolbar" aria-label="Format konten" className="flex flex-wrap gap-2 bg-transparent p-0">
-            <BtnTebal className={toolbarButtonClassName} disabled={create.isPending} />
-            <BtnMiring className={toolbarButtonClassName} disabled={create.isPending} />
-            <BtnGarisBawah className={toolbarButtonClassName} disabled={create.isPending} />
-            <BtnDaftar className={toolbarButtonClassName} disabled={create.isPending} />
-            <BtnNomor className={toolbarButtonClassName} disabled={create.isPending} />
-          </Toolbar>
-          <Editor
-            ref={editorRef}
-            value={html}
-            onChange={(event) => {
-              setHTML(event.target.value);
-              setContentText(editorRef.current?.textContent ?? "");
-            }}
-            disabled={create.isPending}
-            role="textbox"
-            aria-labelledby="feed-content-label"
-            aria-multiline="true"
-            containerProps={{
-              className:
-                "min-h-40 rounded-lg border focus-within:outline focus-within:outline-2 focus-within:outline-cyan-700",
-            }}
-            className="min-h-40 p-3 focus:outline-none"
-          />
-        </EditorProvider>
+        {/* Toolbar bawaan react-simple-wysiwyg dipakai apa adanya (tidak di-wrap children,
+            sehingga DefaultEditor merender Toolbar internal library-nya sendiri) setelah
+            toolbar kustom sebelumnya terbukti tidak dapat diandalkan. */}
+        <Editor
+          ref={editorRef}
+          value={html}
+          onChange={(event) => {
+            setHTML(event.target.value);
+            setContentText(editorRef.current?.textContent ?? "");
+          }}
+          disabled={create.isPending}
+          role="textbox"
+          aria-labelledby="feed-content-label"
+          aria-multiline="true"
+          containerProps={{
+            className:
+              "min-h-40 rounded-lg border focus-within:outline focus-within:outline-2 focus-within:outline-cyan-700",
+          }}
+          className="min-h-40 p-3 focus:outline-none"
+        />
         <Button type="submit" disabled={!canPublish}>{create.isPending ? "Menerbitkan…" : "Terbitkan"}</Button>
         {create.isError && <p role="alert" className="text-red-700">Feed belum dapat diterbitkan. {create.error?.message}</p>}
         {successMessage && <p role="status" className="text-emerald-700">{successMessage}</p>}
