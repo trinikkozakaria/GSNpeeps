@@ -115,6 +115,8 @@ func New(
 	if uat.Handler != nil {
 		api.Handle("/company-feed", protected(uat.Handler.ListFeeds)).Methods(http.MethodGet)
 		api.Handle("/company-feed", protected(uat.Handler.CreateFeed)).Methods(http.MethodPost)
+		api.Handle("/company-feed/{id}", protected(uat.Handler.UpdateFeed)).Methods(http.MethodPut)
+		api.Handle("/company-feed/{id}", protected(uat.Handler.DeleteFeed)).Methods(http.MethodDelete)
 		api.Handle("/kalender/libur", protected(uat.Handler.ListHolidays)).Methods(http.MethodGet)
 		api.Handle("/kalender/libur/bulk", protected(uat.Handler.UpsertHolidays)).Methods(http.MethodPut)
 		api.Handle("/master/jenis-dokumen", protected(uat.Handler.ListDocumentTypes)).Methods(http.MethodGet)

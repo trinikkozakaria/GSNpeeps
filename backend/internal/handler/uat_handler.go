@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -16,9 +17,16 @@ import (
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/middleware"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/pkg/response"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// defaultFeedPageSize mengikuti kebutuhan infinite scroll Beranda (20 feed per load).
+const defaultFeedPageSize = 20
+
+// maxFeedPageSize membatasi limit agar klien tidak dapat meminta dataset tak terbatas.
+const maxFeedPageSize = 100
 
 // UATHandler menangani master dan konten sederhana yang tetap disimpan PostgreSQL.
 // Aturan role diterapkan di sini selain penyaringan menu di frontend.
@@ -177,8 +185,36 @@ type feedInput struct {
 
 var unsafeHTML = regexp.MustCompile(`(?is)</?(script|iframe|object|embed|style|link|meta|base|form|svg|math)\b|\son\w+\s*=|javascript:|data:text/html`)
 
+// ListFeeds mendukung pagination: Beranda memanggilnya berulang dengan page yang bertambah
+// untuk infinite scroll (20 per load), sementara halaman Company Feed memakai kontrol
+// pagination biasa dengan limit yang sama.
 func (h *UATHandler) ListFeeds(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.db.Query(r.Context(), `SELECT f.id,f.judul,f.konten_html,f.published_at,e.nama FROM company_feeds f JOIN users u ON u.id=f.author_id JOIN employees e ON e.id=u.employee_id ORDER BY f.published_at DESC LIMIT 50`)
+	page, ok := positiveIntQuery(w, r, "page", 1)
+	if !ok {
+		return
+	}
+	limit, ok := positiveIntQuery(w, r, "limit", defaultFeedPageSize)
+	if !ok {
+		return
+	}
+	if limit > maxFeedPageSize {
+		limit = maxFeedPageSize
+	}
+
+	var total int
+	if err := h.db.QueryRow(r.Context(), `SELECT COUNT(*) FROM company_feeds`).Scan(&total); err != nil {
+		response.Error(w, 500, "INTERNAL_ERROR", "Company feed belum dapat dimuat")
+		return
+	}
+
+	rows, err := h.db.Query(r.Context(), `
+		SELECT f.id,f.judul,f.konten_html,f.published_at,e.nama
+		FROM company_feeds f
+		JOIN users u ON u.id=f.author_id
+		JOIN employees e ON e.id=u.employee_id
+		ORDER BY f.published_at DESC
+		LIMIT $1 OFFSET $2
+	`, limit, (page-1)*limit)
 	if err != nil {
 		response.Error(w, 500, "INTERNAL_ERROR", "Company feed belum dapat dimuat")
 		return
@@ -195,7 +231,9 @@ func (h *UATHandler) ListFeeds(w http.ResponseWriter, r *http.Request) {
 		}
 		items = append(items, map[string]any{"id": id, "judul": title, "konten_html": html, "published_at": published, "penulis": author})
 	}
-	response.Success(w, 200, items, "Company feed berhasil dimuat")
+	response.Paginated(w, items, response.PaginationMeta{
+		Page: page, Limit: limit, TotalData: total, TotalPage: totalPages(total, limit),
+	}, "Company feed berhasil dimuat")
 }
 
 func (h *UATHandler) CreateFeed(w http.ResponseWriter, r *http.Request) {
@@ -208,13 +246,133 @@ func (h *UATHandler) CreateFeed(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, 400, "INVALID_PARAM", "Judul atau konten tidak valid")
 		return
 	}
-	var id uuid.UUID
-	err := h.db.QueryRow(r.Context(), `INSERT INTO company_feeds(author_id,judul,konten_html) VALUES($1,$2,$3) RETURNING id`, identity.UserID, strings.TrimSpace(input.Title), strings.TrimSpace(input.HTML)).Scan(&id)
+	id, err := h.withFeedAudit(w, r, "CREATE", func(ctx context.Context, tx pgx.Tx) (uuid.UUID, error) {
+		var created uuid.UUID
+		err := tx.QueryRow(ctx, `INSERT INTO company_feeds(author_id,judul,konten_html) VALUES($1,$2,$3) RETURNING id`,
+			identity.UserID, strings.TrimSpace(input.Title), strings.TrimSpace(input.HTML)).Scan(&created)
+		return created, err
+	}, "Company feed belum dapat diterbitkan")
 	if err != nil {
-		response.Error(w, 500, "INTERNAL_ERROR", "Company feed belum dapat diterbitkan")
 		return
 	}
 	response.Success(w, 201, map[string]any{"id": id}, "Company feed berhasil diterbitkan")
+}
+
+// UpdateFeed mengubah judul/konten. HR mana pun boleh menyunting feed siapa pun karena
+// Company Feed adalah kanal komunikasi bersama, bukan konten milik perorangan.
+func (h *UATHandler) UpdateFeed(w http.ResponseWriter, r *http.Request) {
+	_, ok := requireHR(w, r)
+	if !ok {
+		return
+	}
+	id, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		response.Error(w, 400, "INVALID_PARAM", "ID tidak valid")
+		return
+	}
+	var input feedInput
+	if decodeJSON(r, &input) != nil || strings.TrimSpace(input.Title) == "" || strings.TrimSpace(input.HTML) == "" || unsafeHTML.MatchString(input.HTML) {
+		response.Error(w, 400, "INVALID_PARAM", "Judul atau konten tidak valid")
+		return
+	}
+	_, err = h.withFeedAudit(w, r, "UPDATE", func(ctx context.Context, tx pgx.Tx) (uuid.UUID, error) {
+		tag, execErr := tx.Exec(ctx, `UPDATE company_feeds SET judul=$2,konten_html=$3,updated_at=NOW() WHERE id=$1`,
+			id, strings.TrimSpace(input.Title), strings.TrimSpace(input.HTML))
+		if execErr == nil && tag.RowsAffected() == 0 {
+			execErr = pgx.ErrNoRows
+		}
+		return id, execErr
+	}, "")
+	if errors.Is(err, pgx.ErrNoRows) {
+		response.Error(w, 404, "NOT_FOUND", "Company feed tidak ditemukan")
+		return
+	}
+	if err != nil {
+		response.Error(w, 500, "INTERNAL_ERROR", "Company feed belum dapat diperbarui")
+		return
+	}
+	response.Success(w, 200, map[string]any{"id": id}, "Company feed berhasil diperbarui")
+}
+
+// DeleteFeed menghapus feed. Company feed bukan salah satu entitas hard-delete-terlarang di
+// CLAUDE.md (bukan employee/notifikasi/audit log) dan tidak memiliki kolom soft-delete.
+func (h *UATHandler) DeleteFeed(w http.ResponseWriter, r *http.Request) {
+	_, ok := requireHR(w, r)
+	if !ok {
+		return
+	}
+	id, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		response.Error(w, 400, "INVALID_PARAM", "ID tidak valid")
+		return
+	}
+	_, err = h.withFeedAudit(w, r, "DELETE", func(ctx context.Context, tx pgx.Tx) (uuid.UUID, error) {
+		tag, execErr := tx.Exec(ctx, `DELETE FROM company_feeds WHERE id=$1`, id)
+		if execErr == nil && tag.RowsAffected() == 0 {
+			execErr = pgx.ErrNoRows
+		}
+		return id, execErr
+	}, "")
+	if errors.Is(err, pgx.ErrNoRows) {
+		response.Error(w, 404, "NOT_FOUND", "Company feed tidak ditemukan")
+		return
+	}
+	if err != nil {
+		response.Error(w, 500, "INTERNAL_ERROR", "Company feed belum dapat dihapus")
+		return
+	}
+	response.Success(w, 200, map[string]any{"id": id}, "Company feed berhasil dihapus")
+}
+
+// withFeedAudit membungkus mutasi company_feeds dan baris audit_logs dalam satu transaction,
+// sama seperti pola create+audit atomik pada service layer lain: kegagalan audit membatalkan
+// mutasi alih-alih diam-diam kehilangan jejaknya. errorMessage kosong berarti pemanggil sendiri
+// yang memetakan error (mis. NOT_FOUND vs INTERNAL_ERROR).
+func (h *UATHandler) withFeedAudit(
+	w http.ResponseWriter,
+	r *http.Request,
+	action string,
+	mutate func(context.Context, pgx.Tx) (uuid.UUID, error),
+	errorMessage string,
+) (uuid.UUID, error) {
+	identity, ok := middleware.IdentityFromContext(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "INVALID_TOKEN", "Sesi tidak valid")
+		return uuid.Nil, errors.New("missing identity")
+	}
+	tx, err := h.db.Begin(r.Context())
+	if err != nil {
+		if errorMessage != "" {
+			response.Error(w, 500, "INTERNAL_ERROR", errorMessage)
+		}
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(r.Context())
+
+	id, err := mutate(r.Context(), tx)
+	if err != nil {
+		if errorMessage != "" && !errors.Is(err, pgx.ErrNoRows) {
+			response.Error(w, 500, "INTERNAL_ERROR", errorMessage)
+		}
+		return id, err
+	}
+	if _, err = tx.Exec(r.Context(),
+		`INSERT INTO audit_logs(user_id,aksi,modul,data_id) VALUES($1,$2,'company_feed',$3)`,
+		identity.UserID, action, id,
+	); err != nil {
+		slog.ErrorContext(r.Context(), "company feed audit write failed", "action", action, "error", err)
+		if errorMessage != "" {
+			response.Error(w, 500, "INTERNAL_ERROR", errorMessage)
+		}
+		return id, err
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		if errorMessage != "" {
+			response.Error(w, 500, "INTERNAL_ERROR", errorMessage)
+		}
+		return id, err
+	}
+	return id, nil
 }
 
 type holidayInput struct {
