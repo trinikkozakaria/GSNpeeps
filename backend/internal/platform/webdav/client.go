@@ -57,6 +57,9 @@ func (c *Client) Upload(ctx context.Context, objectPath string, body io.Reader, 
 	if err != nil {
 		return "", err
 	}
+	if err := c.ensureCollections(ctx, objectPath); err != nil {
+		return "", err
+	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPut, target, body)
 	if err != nil {
 		return "", fmt.Errorf("create WebDAV upload request: %w", err)
@@ -72,6 +75,54 @@ func (c *Client) Upload(ctx context.Context, objectPath string, body io.Reader, 
 		return "", fmt.Errorf("upload WebDAV object: unexpected status %d", response.StatusCode)
 	}
 	return path.Join(c.rootFolder, objectPath), nil
+}
+
+// ensureCollections membuat rootFolder dan setiap direktori antara sebelum PUT, karena WebDAV
+// menolak menulis objek bila koleksi induknya belum ada (Nextcloud mengembalikan 404/409, bukan
+// membuatnya otomatis seperti filesystem lokal).
+func (c *Client) ensureCollections(ctx context.Context, objectPath string) error {
+	object, err := safePath(objectPath)
+	if err != nil {
+		return err
+	}
+	segments := strings.Split(c.rootFolder, "/")
+	if dir := path.Dir(object); dir != "." {
+		segments = append(segments, strings.Split(dir, "/")...)
+	}
+	current := ""
+	for _, segment := range segments {
+		if segment == "" {
+			continue
+		}
+		current = path.Join(current, segment)
+		if err := c.mkcol(ctx, current); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Client) mkcol(ctx context.Context, relativeFromBase string) error {
+	target := *c.baseURL
+	target.Path = path.Join(target.Path, relativeFromBase)
+	request, err := http.NewRequestWithContext(ctx, "MKCOL", target.String(), nil)
+	if err != nil {
+		return fmt.Errorf("create WebDAV collection request: %w", err)
+	}
+	request.SetBasicAuth(c.username, c.password)
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return fmt.Errorf("create WebDAV collection: %w", err)
+	}
+	defer response.Body.Close()
+	// 201 Created bila koleksi baru dibuat, 405 Method Not Allowed bila sudah ada
+	// sebelumnya (mis. upload berikutnya untuk karyawan yang sama); keduanya bukan
+	// kegagalan. Traversal berjalan top-down sehingga parent selalu sudah dibuat lebih
+	// dahulu sebelum child dicoba.
+	if response.StatusCode == http.StatusCreated || response.StatusCode == http.StatusMethodNotAllowed {
+		return nil
+	}
+	return fmt.Errorf("create WebDAV collection: unexpected status %d", response.StatusCode)
 }
 
 func (c *Client) Delete(ctx context.Context, objectPath string) error {
