@@ -997,22 +997,42 @@ func (r *EmployeeRepository) FindDocuments(
 	return items, rows.Err()
 }
 
-// CreateDocument menyimpan locator dokumen. Dipanggil di dalam transaction agar kegagalan
-// setelah upload dapat dikompensasi oleh service.
-func (r *EmployeeRepository) CreateDocument(
+// UpsertDocument menyimpan locator dokumen. Setiap karyawan hanya boleh memiliki satu
+// dokumen per document_type_id (constraint employee_documents_employee_type_unique);
+// upload berikutnya untuk jenis yang sama menggantikan baris yang ada alih-alih menambah
+// baris baru. CTE `previous` dibaca dari snapshot sebelum ON CONFLICT DO UPDATE berjalan,
+// sehingga file_url lama dapat dikembalikan ke service untuk dihapus dari Nextcloud setelah
+// transaction berhasil, tanpa race condition check-then-act pada upload bersamaan. Dipanggil
+// di dalam transaction agar kegagalan setelah upload dapat dikompensasi oleh service.
+func (r *EmployeeRepository) UpsertDocument(
 	ctx context.Context,
 	document domain.NewEmployeeDocument,
-) (uuid.UUID, error) {
-	var id uuid.UUID
-	err := executor(ctx, r.pool).QueryRow(ctx, `
-		INSERT INTO employee_documents (employee_id, jenis_dokumen, nama_file, file_url)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id
-	`, document.EmployeeID, document.Type, document.FileName, document.FileURL).Scan(&id)
+) (id uuid.UUID, previousFileURL string, replaced bool, err error) {
+	var previous *string
+	err = executor(ctx, r.pool).QueryRow(ctx, `
+		WITH previous AS (
+			SELECT file_url FROM employee_documents
+			WHERE employee_id = $1 AND document_type_id = $2
+		), upsert AS (
+			INSERT INTO employee_documents (employee_id, document_type_id, jenis_dokumen, nama_file, file_url)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (employee_id, document_type_id) DO UPDATE
+				SET jenis_dokumen = EXCLUDED.jenis_dokumen,
+				    nama_file = EXCLUDED.nama_file,
+				    file_url = EXCLUDED.file_url,
+				    uploaded_at = NOW()
+			RETURNING id
+		)
+		SELECT upsert.id, previous.file_url FROM upsert LEFT JOIN previous ON TRUE
+	`, document.EmployeeID, document.DocumentTypeID, document.Type, document.FileName, document.FileURL,
+	).Scan(&id, &previous)
 	if err != nil {
-		return uuid.Nil, mapEmployeeMutationError(err)
+		return uuid.Nil, "", false, mapEmployeeMutationError(err)
 	}
-	return id, nil
+	if previous != nil {
+		return id, *previous, true, nil
+	}
+	return id, "", false, nil
 }
 
 // ExistsActive memastikan employee ada dan belum soft-deleted sebelum operasi dokumen.

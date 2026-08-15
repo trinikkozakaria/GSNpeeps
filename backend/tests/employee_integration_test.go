@@ -265,20 +265,59 @@ func TestEmployeeDocumentsStoreLocatorOnly(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
 
-	documentID, err := f.employees.CreateDocument(ctx, domain.NewEmployeeDocument{
-		EmployeeID: f.activeID,
-		Type:       "Ijazah",
-		FileName:   "ijazah.pdf",
-		FileURL:    "GSNpeeps/employee-documents/" + f.activeID.String() + "/berkas.pdf",
+	// Upsert idempoten: document_types tidak dibersihkan oleh t.Cleanup fixture (FK RESTRICT
+	// dari employee_documents akan menolak penghapusannya sebelum baris karyawan dihapus),
+	// jadi test ini harus tetap lulus meski berjalan berulang terhadap database yang sama.
+	var documentTypeID uuid.UUID
+	require.NoError(t, f.pool.QueryRow(ctx, `
+		INSERT INTO document_types (kode, nama) VALUES ('IJAZAH', 'Ijazah')
+		ON CONFLICT (kode) DO UPDATE SET nama = EXCLUDED.nama
+		RETURNING id
+	`).Scan(&documentTypeID))
+
+	firstURL := "GSNpeeps/employee-documents/" + f.activeID.String() + "/berkas.pdf"
+	documentID, err := f.employees.ResolveDocumentType(ctx, "Ijazah")
+	require.NoError(t, err)
+	assert.Equal(t, documentTypeID, documentID)
+
+	created, previousFileURL, replaced, err := f.employees.UpsertDocument(ctx, domain.NewEmployeeDocument{
+		EmployeeID:     f.activeID,
+		DocumentTypeID: documentTypeID,
+		Type:           "Ijazah",
+		FileName:       "ijazah.pdf",
+		FileURL:        firstURL,
 	})
 	require.NoError(t, err)
+	assert.Empty(t, previousFileURL)
+	assert.False(t, replaced)
 
 	documents, err := f.employees.FindDocuments(ctx, f.activeID)
 	require.NoError(t, err)
 	require.Len(t, documents, 1)
-	assert.Equal(t, documentID, documents[0].ID)
+	assert.Equal(t, created, documents[0].ID)
 	assert.Equal(t, "ijazah.pdf", documents[0].FileName)
 	assert.False(t, documents[0].CreatedAt.IsZero())
+
+	// Upload berikutnya untuk jenis yang sama menggantikan baris yang ada (defect: setiap
+	// karyawan hanya boleh memiliki satu dokumen per jenis dokumen master), bukan menambah
+	// baris baru.
+	secondURL := "GSNpeeps/employee-documents/" + f.activeID.String() + "/berkas-baru.pdf"
+	replacedID, previousFileURL, replaced, err := f.employees.UpsertDocument(ctx, domain.NewEmployeeDocument{
+		EmployeeID:     f.activeID,
+		DocumentTypeID: documentTypeID,
+		Type:           "Ijazah",
+		FileName:       "ijazah-baru.pdf",
+		FileURL:        secondURL,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, created, replacedID, "baris yang sama diperbarui, bukan baris baru")
+	assert.Equal(t, firstURL, previousFileURL)
+	assert.True(t, replaced)
+
+	documents, err = f.employees.FindDocuments(ctx, f.activeID)
+	require.NoError(t, err)
+	require.Len(t, documents, 1, "tetap hanya satu dokumen terdaftar untuk jenis yang sama")
+	assert.Equal(t, "ijazah-baru.pdf", documents[0].FileName)
 
 	// Karyawan yang sudah soft-delete tidak dapat menerima dokumen baru.
 	require.ErrorIs(t, f.employees.ExistsActive(ctx, f.inactiveID), repository.ErrNotFound)

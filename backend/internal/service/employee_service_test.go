@@ -25,10 +25,14 @@ type employeeReaderStub struct {
 	detailPeriod      string
 	detail            domain.EmployeeDetail
 	existsError       error
-	documents         []domain.EmployeeDocument
-	createdDocument   domain.NewEmployeeDocument
-	createDocumentErr error
-	exportRows        []domain.EmployeeSummary
+	documents              []domain.EmployeeDocument
+	createdDocument        domain.NewEmployeeDocument
+	createDocumentErr      error
+	resolvedDocumentTypeID uuid.UUID
+	resolveDocumentTypeErr error
+	upsertPreviousFileURL  string
+	upsertReplaced         bool
+	exportRows             []domain.EmployeeSummary
 	exportQuery       domain.EmployeeExportQuery
 	updatedPhotoID    uuid.UUID
 	updatedPhotoURL   string
@@ -163,15 +167,28 @@ func (s *employeeReaderStub) FindDocuments(
 	return s.documents, nil
 }
 
-func (s *employeeReaderStub) CreateDocument(
+func (s *employeeReaderStub) ResolveDocumentType(
+	context.Context,
+	string,
+) (uuid.UUID, error) {
+	if s.resolveDocumentTypeErr != nil {
+		return uuid.Nil, s.resolveDocumentTypeErr
+	}
+	if s.resolvedDocumentTypeID == uuid.Nil {
+		return uuid.New(), nil
+	}
+	return s.resolvedDocumentTypeID, nil
+}
+
+func (s *employeeReaderStub) UpsertDocument(
 	_ context.Context,
 	document domain.NewEmployeeDocument,
-) (uuid.UUID, error) {
+) (uuid.UUID, string, bool, error) {
 	s.createdDocument = document
 	if s.createDocumentErr != nil {
-		return uuid.Nil, s.createDocumentErr
+		return uuid.Nil, "", false, s.createDocumentErr
 	}
-	return uuid.New(), nil
+	return uuid.New(), s.upsertPreviousFileURL, s.upsertReplaced, nil
 }
 
 func (s *employeeReaderStub) ExportRows(
@@ -329,6 +346,50 @@ func TestEmployeeUploadDocumentBuildsNamespacedServerSidePath(t *testing.T) {
 		"nama berkas dari client tidak boleh menjadi nama object")
 	assert.Equal(t, "ijazah-asli.pdf", stub.createdDocument.FileName)
 	assert.Equal(t, store.uploadedPath, strings.TrimPrefix(document.FileURL, "GSNpeeps/"))
+}
+
+func TestEmployeeUploadDocumentRejectsUnknownDocumentType(t *testing.T) {
+	store := &documentStoreStub{}
+	stub := &employeeReaderStub{resolveDocumentTypeErr: repository.ErrNotFound}
+	service := newEmployeeServiceWith(stub, transactionStub{}, store)
+
+	_, err := service.UploadDocument(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), Role: domain.RoleHR},
+		uuid.New(),
+		validDocumentUpload(),
+		RequestMeta{},
+	)
+
+	require.ErrorIs(t, err, domain.ErrInvalidRequest)
+	assert.Empty(t, store.uploadedPath, "jenis dokumen tidak dikenal tidak boleh mengunggah berkas")
+}
+
+// Setiap karyawan hanya boleh memiliki satu dokumen per jenis dokumen master (defect:
+// dokumen dobel). Upload berikutnya untuk jenis yang sudah terdaftar harus mengganti berkas
+// lama di storage, bukan meninggalkannya sebagai orphan.
+func TestEmployeeUploadDocumentReplacesExistingDocumentOfSameType(t *testing.T) {
+	store := &documentStoreStub{}
+	stub := &employeeReaderStub{
+		upsertReplaced:        true,
+		upsertPreviousFileURL: "GSNpeeps/employee-documents/emp-1/old-document.pdf",
+	}
+	service := newEmployeeServiceWith(stub, transactionStub{}, store)
+
+	_, err := service.UploadDocument(
+		context.Background(),
+		domain.Identity{UserID: uuid.New(), Role: domain.RoleHR},
+		uuid.New(),
+		validDocumentUpload(),
+		RequestMeta{},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, "employee-documents/emp-1/old-document.pdf", store.deletedPath,
+		"berkas dokumen lama harus dihapus setelah baris baru berhasil dicatat")
+	assert.NotEmpty(t, store.uploadedPath, "berkas baru tetap harus terunggah")
+	assert.NotEqual(t, store.uploadedPath, store.deletedPath,
+		"berkas yang baru diunggah tidak boleh ikut terhapus")
 }
 
 func TestEmployeeUploadDocumentRemovesOrphanWhenTransactionFails(t *testing.T) {

@@ -100,10 +100,11 @@ type EmployeeDocument struct {
 }
 
 type NewEmployeeDocument struct {
-	EmployeeID uuid.UUID
-	Type       string
-	FileName   string
-	FileURL    string
+	EmployeeID     uuid.UUID
+	DocumentTypeID uuid.UUID
+	Type           string
+	FileName       string
+	FileURL        string
 }
 
 type EmployeeDetail struct {

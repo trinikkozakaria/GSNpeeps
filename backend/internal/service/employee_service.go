@@ -33,7 +33,8 @@ type EmployeeReader interface {
 	SoftDelete(context.Context, uuid.UUID) (domain.EmployeeMutationResult, error)
 	ExistsActive(context.Context, uuid.UUID) error
 	FindDocuments(context.Context, uuid.UUID) ([]domain.EmployeeDocument, error)
-	CreateDocument(context.Context, domain.NewEmployeeDocument) (uuid.UUID, error)
+	ResolveDocumentType(context.Context, string) (uuid.UUID, error)
+	UpsertDocument(context.Context, domain.NewEmployeeDocument) (id uuid.UUID, previousFileURL string, replaced bool, err error)
 	ExportRows(context.Context, domain.EmployeeExportQuery, int) ([]domain.EmployeeSummary, error)
 	UpdatePhoto(context.Context, uuid.UUID, string) error
 }
@@ -620,8 +621,11 @@ type DocumentUpload struct {
 }
 
 // UploadDocument menyimpan dokumen melalui backend ke Nextcloud lalu mencatat locator-nya.
-// Nama object dibentuk server-side dan tidak pernah menerima path dari client. Bila
-// transaction database gagal setelah upload, object yang sudah terunggah dihapus kembali.
+// Nama object dibentuk server-side dan tidak pernah menerima path dari client. Setiap
+// karyawan hanya boleh memiliki satu dokumen per jenis dokumen master (defect: dokumen
+// dobel); upload berikutnya untuk jenis yang sama menggantikan dokumen lama, termasuk
+// menghapus berkas lama dari Nextcloud setelah baris baru berhasil dicatat. Bila transaction
+// database gagal setelah upload, object yang baru terunggah dihapus kembali.
 func (s *EmployeeService) UploadDocument(
 	ctx context.Context,
 	identity domain.Identity,
@@ -635,12 +639,12 @@ func (s *EmployeeService) UploadDocument(
 	if len(upload.Content) == 0 || len(upload.Content) > maxDocumentBytes {
 		return domain.EmployeeDocument{}, domain.ErrInvalidRequest
 	}
-	if resolver, ok := s.employees.(interface {
-		ResolveDocumentType(context.Context, string) (uuid.UUID, error)
-	}); ok {
-		if _, err := resolver.ResolveDocumentType(ctx, upload.Type); err != nil {
-			return domain.EmployeeDocument{}, domain.ErrInvalidRequest
-		}
+	documentTypeID, err := s.employees.ResolveDocumentType(ctx, upload.Type)
+	if errors.Is(err, repository.ErrNotFound) {
+		return domain.EmployeeDocument{}, domain.ErrInvalidRequest
+	}
+	if err != nil {
+		return domain.EmployeeDocument{}, fmt.Errorf("resolve document type: %w", err)
 	}
 	if err := s.employees.ExistsActive(ctx, employeeID); err != nil {
 		return domain.EmployeeDocument{}, mapEmployeeRepositoryError(err)
@@ -656,24 +660,30 @@ func (s *EmployeeService) UploadDocument(
 	if err != nil {
 		return domain.EmployeeDocument{}, fmt.Errorf("upload employee document: %w", err)
 	}
+	// rootFolderPrefix menyusutkan file_url dokumen lama (juga berbentuk rootFolder + "/" +
+	// objectPath) kembali menjadi objectPath relatif yang dipahami DocumentStore.Delete.
+	rootFolderPrefix := strings.TrimSuffix(location, objectPath)
 
 	var documentID uuid.UUID
+	var previousFileURL string
+	var replaced bool
 	err = s.tx.Within(ctx, func(txContext context.Context) error {
-		created, err := s.employees.CreateDocument(txContext, domain.NewEmployeeDocument{
-			EmployeeID: employeeID,
-			Type:       upload.Type,
-			FileName:   upload.FileName,
-			FileURL:    location,
+		id, previous, isReplace, err := s.employees.UpsertDocument(txContext, domain.NewEmployeeDocument{
+			EmployeeID:     employeeID,
+			DocumentTypeID: documentTypeID,
+			Type:           upload.Type,
+			FileName:       upload.FileName,
+			FileURL:        location,
 		})
 		if err != nil {
 			return mapEmployeeRepositoryError(err)
 		}
-		documentID = created
+		documentID, previousFileURL, replaced = id, previous, isReplace
 		return s.audit.Append(txContext, domain.AuditEntry{
 			UserID: &identity.UserID,
-			Action: "CREATE",
+			Action: map[bool]string{true: "UPDATE", false: "CREATE"}[replaced],
 			Module: "karyawan_dokumen",
-			DataID: &created,
+			DataID: &id,
 			Detail: map[string]any{
 				"employee_id":   employeeID,
 				"jenis_dokumen": upload.Type,
@@ -691,6 +701,13 @@ func (s *EmployeeService) UploadDocument(
 				"object_path", objectPath, "error", cleanupErr)
 		}
 		return domain.EmployeeDocument{}, fmt.Errorf("record employee document: %w", err)
+	}
+	if replaced && previousFileURL != "" {
+		oldObjectPath := strings.TrimPrefix(previousFileURL, rootFolderPrefix)
+		if cleanupErr := s.documents.Delete(ctx, oldObjectPath); cleanupErr != nil {
+			slog.ErrorContext(ctx, "previous document cleanup failed",
+				"object_path", oldObjectPath, "error", cleanupErr)
+		}
 	}
 	return domain.EmployeeDocument{
 		ID:        documentID,
