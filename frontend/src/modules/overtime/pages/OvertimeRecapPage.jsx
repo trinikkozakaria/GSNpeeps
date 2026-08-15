@@ -2,10 +2,12 @@ import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { DataTable } from "../../../components/data-table/DataTable";
+import { ExportButton } from "../../../components/data-table/ExportButton";
 import { Button } from "../../../components/ui/Button";
 import { formatNumber } from "../../../lib/format";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { useDepartments } from "../../employees/hooks/useEmployees";
+import { exportOvertimeRecapRequest } from "../api/overtime-api";
 import { useOvertimeRecap } from "../hooks/useOvertime";
 
 /**
@@ -94,6 +96,14 @@ export const OvertimeRecapPage = () => {
             ))}
           </select>
         </label>
+      </div>
+
+      <div className="mt-5">
+        <ExportButton
+          label="Download Excel"
+          exportRequest={() => exportOvertimeRecapRequest(filters)}
+          emptyMessage="Tidak ada lembur disetujui pada filter ini."
+        />
       </div>
 
       <div className="mt-6" aria-live="polite">

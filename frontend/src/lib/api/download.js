@@ -71,4 +71,23 @@ export const downloadFile = async (path, params, { signal, fallbackFileName } = 
   };
 };
 
+/**
+ * Memicu unduhan blob lewat object URL sementara dan langsung mencabutnya setelah dipakai
+ * sehingga tidak bertahan di memory maupun dapat diakses ulang lewat URL.
+ */
+export const saveBlob = (blob, fileName) => {
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    link.rel = "noopener";
+    document.body.append(link);
+    link.click();
+    link.remove();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
 export const __testing = { filenameFromDisposition };

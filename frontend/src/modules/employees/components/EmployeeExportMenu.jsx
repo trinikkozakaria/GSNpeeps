@@ -1,31 +1,13 @@
 import { useState } from "react";
 
 import { Button } from "../../../components/ui/Button";
+import { saveBlob } from "../../../lib/api/download";
 import { exportEmployeesRequest } from "../api/employee-api";
 
 const exportErrorMessage = (error) => {
   if (error?.status === 403) return "Anda tidak memiliki akses untuk mengekspor data karyawan.";
   if (error?.status === 404) return "Tidak ada data karyawan yang cocok dengan filter saat ini.";
   return error?.message ?? "Export belum dapat diproses.";
-};
-
-/**
- * Memicu unduhan terautentikasi dan langsung mencabut object URL setelah dipakai sehingga
- * blob tidak bertahan di memory maupun dapat diakses ulang lewat URL.
- */
-const saveBlob = (blob, fileName) => {
-  const objectUrl = URL.createObjectURL(blob);
-  try {
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = fileName;
-    link.rel = "noopener";
-    document.body.append(link);
-    link.click();
-    link.remove();
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
 };
 
 export const EmployeeExportMenu = ({ filters, employeeId, label = "Export data" }) => {

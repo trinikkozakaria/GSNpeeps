@@ -1,4 +1,5 @@
 import { apiClient } from "../../../lib/api/client";
+import { downloadFile } from "../../../lib/api/download";
 import { requestStateSchema } from "../../leave/schemas/leave-schema";
 import {
   overtimeDetailSchema,
@@ -42,3 +43,6 @@ export const overtimeRecapRequest = async (params, signal) => {
   const envelope = await apiClient.get("/lembur/rekap", { params, signal });
   return overtimeRecapListSchema.parse(envelope.data);
 };
+
+export const exportOvertimeRecapRequest = (params, signal) =>
+  downloadFile("/lembur/rekap/export", params, { signal, fallbackFileName: "rekap-lembur.xlsx" });

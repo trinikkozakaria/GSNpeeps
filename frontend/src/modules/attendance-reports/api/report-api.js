@@ -12,3 +12,9 @@ export const exportAttendanceReportRequest = (query, signal) =>
     signal,
     fallbackFileName: `laporan-kehadiran.${query.format ?? "xlsx"}`,
   });
+
+export const exportLiveFeedRequest = (tanggal, signal) =>
+  downloadFile("/absensi/livefeed/export", { tanggal }, {
+    signal,
+    fallbackFileName: `live-feed-absensi-${tanggal || "hari-ini"}.xlsx`,
+  });

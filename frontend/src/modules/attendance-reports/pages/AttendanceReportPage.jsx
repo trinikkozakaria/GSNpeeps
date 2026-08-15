@@ -47,7 +47,6 @@ export const AttendanceReportPage = () => {
     { key: "hadir", header: "Hadir", render: (row) => formatNumber(row.hadir) },
     { key: "terlambat", header: "Terlambat", render: (row) => formatNumber(row.terlambat) },
     { key: "izin", header: "Izin", render: (row) => formatNumber(row.izin) },
-    { key: "alpha", header: "Alpha", render: (row) => formatNumber(row.alpha) },
   ];
 
   return (

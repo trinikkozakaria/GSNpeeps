@@ -2,11 +2,13 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { DataTable } from "../../../components/data-table/DataTable";
+import { ExportButton } from "../../../components/data-table/ExportButton";
 import { Button } from "../../../components/ui/Button";
 import { attendanceStatusLabel, workModeLabel } from "../../../lib/request-status";
 import { formatTime } from "../../../lib/format";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { useLiveFeed } from "../../attendance/hooks/useAttendance";
+import { exportLiveFeedRequest } from "../api/report-api";
 import { PhotoPreviewModal } from "../components/PhotoPreviewModal";
 
 const monitoringRoles = ["hr"];
@@ -131,6 +133,16 @@ export const LiveFeedPage = () => {
           Kosongkan untuk memakai tanggal hari ini menurut server.
         </span>
       </label>
+
+      {canRead && (
+        <div className="mt-5">
+          <ExportButton
+            label="Download Excel"
+            exportRequest={() => exportLiveFeedRequest(tanggal)}
+            emptyMessage="Tidak ada absensi tercatat pada tanggal ini."
+          />
+        </div>
+      )}
 
       <div className="mt-6" aria-live="polite">
         {feed.isPending && <p role="status" className="text-slate-600">Memuat live feed…</p>}
