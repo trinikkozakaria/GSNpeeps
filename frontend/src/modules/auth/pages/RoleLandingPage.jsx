@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "../../../components/ui/Button";
-import { CompanyFeedList } from "../../uat/pages/CompanyFeedPage";
+import { CompanyFeedInfiniteList } from "../../uat/components/CompanyFeedInfiniteList";
 import { homeSummaryRequest } from "../../uat/api/uat-api";
 import { roleLabel } from "../../../routes/navigation/navigation";
 import { useAuth } from "../hooks/useAuth";
@@ -64,7 +64,7 @@ export const RoleLandingPage = () => {
 
       <section className="mt-8" aria-labelledby="feed-title">
         <h2 id="feed-title" className="mb-4 text-2xl font-bold">Company feed</h2>
-        <CompanyFeedList />
+        <CompanyFeedInfiniteList />
       </section>
     </section>
   );

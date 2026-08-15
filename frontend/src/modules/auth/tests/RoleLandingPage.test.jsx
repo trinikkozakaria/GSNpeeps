@@ -17,8 +17,8 @@ vi.mock("../hooks/useAuth", () => ({
   }),
 }));
 
-vi.mock("../../uat/pages/CompanyFeedPage", () => ({
-  CompanyFeedList: () => <p>Daftar company feed</p>,
+vi.mock("../../uat/components/CompanyFeedInfiniteList", () => ({
+  CompanyFeedInfiniteList: () => <p>Daftar company feed</p>,
 }));
 
 describe("RoleLandingPage", () => {
