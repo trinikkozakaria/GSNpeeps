@@ -31,6 +31,9 @@ type OvertimeService interface {
 	Recap(
 		context.Context, domain.Identity, domain.OvertimeRecapFilter,
 	) ([]domain.OvertimeRecapItem, error)
+	ExportRecap(
+		context.Context, domain.Identity, domain.OvertimeRecapFilter, service.RequestMeta,
+	) (domain.ExportFile, error)
 }
 
 type OvertimeHandler struct {
@@ -229,16 +232,9 @@ func (h *OvertimeHandler) Recap(writer http.ResponseWriter, request *http.Reques
 		response.FromError(writer, domain.ErrInvalidToken)
 		return
 	}
-	departmentID, ok := optionalUUIDQuery(writer, request, "department_id")
+	filter, ok := h.recapFilter(writer, request)
 	if !ok {
 		return
-	}
-	filter := domain.OvertimeRecapFilter{DepartmentID: departmentID}
-	if value := strings.TrimSpace(request.URL.Query().Get("tanggal_mulai")); value != "" {
-		filter.Start = &value
-	}
-	if value := strings.TrimSpace(request.URL.Query().Get("tanggal_selesai")); value != "" {
-		filter.End = &value
 	}
 
 	items, err := h.service.Recap(request.Context(), identity, filter)
@@ -247,4 +243,41 @@ func (h *OvertimeHandler) Recap(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 	response.Success(writer, http.StatusOK, items, "OK")
+}
+
+func (h *OvertimeHandler) recapFilter(
+	writer http.ResponseWriter, request *http.Request,
+) (domain.OvertimeRecapFilter, bool) {
+	departmentID, ok := optionalUUIDQuery(writer, request, "department_id")
+	if !ok {
+		return domain.OvertimeRecapFilter{}, false
+	}
+	filter := domain.OvertimeRecapFilter{DepartmentID: departmentID}
+	if value := strings.TrimSpace(request.URL.Query().Get("tanggal_mulai")); value != "" {
+		filter.Start = &value
+	}
+	if value := strings.TrimSpace(request.URL.Query().Get("tanggal_selesai")); value != "" {
+		filter.End = &value
+	}
+	return filter, true
+}
+
+// ExportRecap mengunduh rekap lembur sebagai XLSX. Hanya HR sesuai API Contract.
+func (h *OvertimeHandler) ExportRecap(writer http.ResponseWriter, request *http.Request) {
+	identity, ok := middleware.IdentityFromContext(request.Context())
+	if !ok {
+		response.FromError(writer, domain.ErrInvalidToken)
+		return
+	}
+	filter, ok := h.recapFilter(writer, request)
+	if !ok {
+		return
+	}
+
+	file, err := h.service.ExportRecap(request.Context(), identity, filter, h.requestMeta(request))
+	if err != nil {
+		response.FromError(writer, err)
+		return
+	}
+	writeExportFile(writer, request, file)
 }

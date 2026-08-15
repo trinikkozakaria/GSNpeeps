@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -311,6 +312,39 @@ func TestOvertimeRecapRestrictedToHR(t *testing.T) {
 	require.Len(t, items, 1)
 	assert.Equal(t, 2, items[0].TotalRequest)
 	assert.InDelta(t, 5, items[0].TotalHours, 0.001)
+}
+
+// Export rekap mengikuti aturan akses yang sama dengan melihat rekap: HR-only.
+func TestOvertimeExportRecapRestrictedToHRAndProducesXLSX(t *testing.T) {
+	store := &overtimeStoreStub{recap: []domain.OvertimeRecapItem{
+		{EmployeeName: "Karyawan Uji", Department: "Teknologi", TotalRequest: 2, TotalHours: 5},
+	}}
+	service, _, _ := newOvertimeServiceForTest(store, supervisorStub{}, transactionStub{})
+
+	_, err := service.ExportRecap(
+		context.Background(), domain.Identity{Role: domain.RoleEmployee}, domain.OvertimeRecapFilter{}, RequestMeta{},
+	)
+	require.ErrorIs(t, err, domain.ErrForbidden)
+
+	file, err := service.ExportRecap(
+		context.Background(), domain.Identity{Role: domain.RoleHR}, domain.OvertimeRecapFilter{}, RequestMeta{},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", file.ContentType)
+	assert.NotEmpty(t, file.Content)
+	assert.Contains(t, file.FileName, "rekap-lembur")
+	assert.True(t, strings.HasSuffix(file.FileName, ".xlsx"))
+}
+
+// Dataset kosong menghasilkan ErrNotFound, bukan berkas XLSX tanpa baris data.
+func TestOvertimeExportRecapRejectsEmptyDataset(t *testing.T) {
+	store := &overtimeStoreStub{recap: []domain.OvertimeRecapItem{}}
+	service, _, _ := newOvertimeServiceForTest(store, supervisorStub{}, transactionStub{})
+
+	_, err := service.ExportRecap(
+		context.Background(), domain.Identity{Role: domain.RoleHR}, domain.OvertimeRecapFilter{}, RequestMeta{},
+	)
+	require.ErrorIs(t, err, domain.ErrNotFound)
 }
 
 func TestOvertimeListAppliesApprovalScope(t *testing.T) {

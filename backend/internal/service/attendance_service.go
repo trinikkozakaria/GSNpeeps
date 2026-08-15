@@ -78,9 +78,8 @@ func (s *AttendanceService) Record(
 
 	networkTime := s.now().UTC()
 	localTime := networkTime.In(domain.Jakarta())
-	if !domain.IsWorkingDay(networkTime) {
-		return domain.Attendance{}, domain.ErrNonWorkingDay
-	}
+	// Absensi dibuka setiap hari termasuk Sabtu dan Minggu; limit hari kerja reguler
+	// dicabut dari validasi check-in/out (defect: batasan hari kerja terlalu ketat).
 	date := localTime.Format(domain.DateLayout)
 
 	row := domain.AttendanceRow{
@@ -245,16 +244,150 @@ func (s *AttendanceService) LiveFeed(
 	if identity.Role != domain.RoleHR {
 		return nil, domain.ErrForbidden
 	}
-	if date == "" {
-		date = s.now().In(domain.Jakarta()).Format(domain.DateLayout)
-	} else if _, err := time.ParseInLocation(domain.DateLayout, date, domain.Jakarta()); err != nil {
-		return nil, domain.ErrInvalidRequest
+	date, err := s.resolveLiveFeedDate(date)
+	if err != nil {
+		return nil, err
 	}
 	items, err := s.attendances.LiveFeed(ctx, date)
 	if err != nil {
 		return nil, fmt.Errorf("read attendance live feed: %w", err)
 	}
 	return items, nil
+}
+
+// resolveLiveFeedDate memakai tanggal hari ini menurut server (Asia/Jakarta) bila tidak
+// diberikan, sama seperti default pada LiveFeed sebelumnya.
+func (s *AttendanceService) resolveLiveFeedDate(date string) (string, error) {
+	if date == "" {
+		return s.now().In(domain.Jakarta()).Format(domain.DateLayout), nil
+	}
+	if _, err := time.ParseInLocation(domain.DateLayout, date, domain.Jakarta()); err != nil {
+		return "", domain.ErrInvalidRequest
+	}
+	return date, nil
+}
+
+// ExportLiveFeed mengunduh live feed absensi pada satu tanggal sebagai XLSX. Hanya HR,
+// konsisten dengan pola export laporan kehadiran. Waktu check-in/check-out ditulis dalam
+// format 24 jam zona Asia/Jakarta, bukan format 12 jam lokal browser.
+func (s *AttendanceService) ExportLiveFeed(
+	ctx context.Context,
+	identity domain.Identity,
+	date string,
+	meta RequestMeta,
+) (domain.ExportFile, error) {
+	if identity.Role != domain.RoleHR {
+		return domain.ExportFile{}, domain.ErrForbidden
+	}
+	date, err := s.resolveLiveFeedDate(date)
+	if err != nil {
+		return domain.ExportFile{}, err
+	}
+	items, err := s.attendances.LiveFeed(ctx, date)
+	if err != nil {
+		return domain.ExportFile{}, fmt.Errorf("read attendance live feed: %w", err)
+	}
+	if len(items) == 0 {
+		return domain.ExportFile{}, domain.ErrNotFound
+	}
+
+	table := liveFeedTable(items, date)
+	var buffer bytes.Buffer
+	if err := export.WriteXLSX(&buffer, table); err != nil {
+		return domain.ExportFile{}, fmt.Errorf("render live feed export: %w", err)
+	}
+
+	if err := s.audit.Append(ctx, domain.AuditEntry{
+		UserID: &identity.UserID,
+		Action: "DOWNLOAD",
+		Module: "live_feed_absensi",
+		Detail: map[string]any{
+			"tanggal":    date,
+			"jumlah_row": len(items),
+			"request_id": meta.RequestID,
+		},
+		IPAddress: meta.IPAddress,
+		CreatedAt: s.now().UTC(),
+	}); err != nil {
+		return domain.ExportFile{}, fmt.Errorf("audit live feed export: %w", err)
+	}
+
+	return domain.ExportFile{
+		FileName:    export.SanitizeFileName(fmt.Sprintf("live-feed-absensi-%s.xlsx", date)),
+		ContentType: export.XLSXContentType,
+		Content:     buffer.Bytes(),
+	}, nil
+}
+
+// liveFeedRow menggabungkan event check-in dan check-out yang sama employee+tanggal menjadi
+// satu baris, sama seperti pengelompokan pada halaman Live Feed Absensi di frontend.
+type liveFeedRow struct {
+	EmployeeName string
+	Department   string
+	WorkMode     domain.WorkMode
+	CheckIn      *domain.AttendanceLiveFeedItem
+	CheckOut     *domain.AttendanceLiveFeedItem
+}
+
+func groupLiveFeedByEmployee(items []domain.AttendanceLiveFeedItem) []liveFeedRow {
+	order := make([]uuid.UUID, 0, len(items))
+	rows := make(map[uuid.UUID]*liveFeedRow, len(items))
+	for i := range items {
+		item := items[i]
+		row, ok := rows[item.EmployeeID]
+		if !ok {
+			row = &liveFeedRow{EmployeeName: item.EmployeeName, Department: item.Department}
+			rows[item.EmployeeID] = row
+			order = append(order, item.EmployeeID)
+		}
+		if item.Type == domain.AttendanceCheckIn {
+			row.CheckIn = &item
+		} else {
+			row.CheckOut = &item
+		}
+		if item.WorkMode != "" {
+			row.WorkMode = item.WorkMode
+		}
+	}
+	result := make([]liveFeedRow, 0, len(order))
+	for _, id := range order {
+		result = append(result, *rows[id])
+	}
+	return result
+}
+
+// clockWIB memformat waktu absensi sebagai jam 24 jam zona Asia/Jakarta (HH:MM).
+func clockWIB(moment time.Time) string {
+	return moment.In(domain.Jakarta()).Format("15:04")
+}
+
+func liveFeedTable(items []domain.AttendanceLiveFeedItem, date string) export.Table {
+	rows := groupLiveFeedByEmployee(items)
+	table := export.Table{
+		Title:   fmt.Sprintf("GSNpeeps - Live Feed Absensi %s WIB", date),
+		Headers: []string{"Nama", "Departemen", "Mode Kerja", "Check-in", "Check-out", "Status Masuk", "Status Pulang"},
+		Rows:    make([][]string, 0, len(rows)),
+	}
+	for _, row := range rows {
+		checkInTime, checkInStatus := "—", "—"
+		if row.CheckIn != nil {
+			checkInTime, checkInStatus = clockWIB(row.CheckIn.Time), row.CheckIn.Status
+		}
+		checkOutTime, checkOutStatus := "—", "—"
+		if row.CheckOut != nil {
+			checkOutTime, checkOutStatus = clockWIB(row.CheckOut.Time), row.CheckOut.Status
+		}
+		table.Rows = append(table.Rows, []string{
+			row.EmployeeName,
+			row.Department,
+			string(row.WorkMode),
+			checkInTime,
+			checkOutTime,
+			checkInStatus,
+			checkOutStatus,
+		})
+	}
+	return table
 }
 
 // ReportQuery adalah parameter laporan sebelum rentang diselesaikan.

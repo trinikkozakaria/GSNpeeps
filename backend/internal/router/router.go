@@ -127,6 +127,9 @@ func New(
 	}
 
 	api.Handle("/absensi/checkin", protected(attendances.Handler.Record)).Methods(http.MethodPost)
+	// Route literal export didaftarkan sebelum pola lain pada prefix yang sama.
+	api.Handle("/absensi/livefeed/export", protected(attendances.Handler.ExportLiveFeed)).
+		Methods(http.MethodGet)
 	api.Handle("/absensi/livefeed", protected(attendances.Handler.LiveFeed)).Methods(http.MethodGet)
 	// Route literal export didaftarkan sebelum pola lain pada prefix yang sama.
 	api.Handle("/laporan/kehadiran/export", protected(attendances.Handler.ExportReport)).
@@ -150,6 +153,7 @@ func New(
 	api.Handle("/lembur", protected(overtimes.Handler.List)).Methods(http.MethodGet)
 	api.Handle("/lembur/saya", protected(overtimes.Handler.ListMine)).Methods(http.MethodGet)
 	api.Handle("/lembur/rekap", protected(overtimes.Handler.Recap)).Methods(http.MethodGet)
+	api.Handle("/lembur/rekap/export", protected(overtimes.Handler.ExportRecap)).Methods(http.MethodGet)
 	api.Handle("/lembur/{id}", protected(overtimes.Handler.Detail)).Methods(http.MethodGet)
 	api.Handle("/lembur/{id}/decision", protected(overtimes.Handler.Decide)).Methods(http.MethodPut)
 

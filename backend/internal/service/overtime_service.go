@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
+	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/export"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/repository"
 )
 
@@ -348,4 +349,69 @@ func (s *OvertimeService) Recap(
 		return nil, fmt.Errorf("read overtime recap: %w", err)
 	}
 	return items, nil
+}
+
+// ExportRecap mengunduh rekap lembur sebagai XLSX. HR-only, konsisten dengan pola export
+// laporan kehadiran: melihat boleh lebih luas, mengunduh berkas tetap HR-only.
+func (s *OvertimeService) ExportRecap(
+	ctx context.Context,
+	identity domain.Identity,
+	filter domain.OvertimeRecapFilter,
+	meta RequestMeta,
+) (domain.ExportFile, error) {
+	if identity.Role != domain.RoleHR {
+		return domain.ExportFile{}, domain.ErrForbidden
+	}
+	items, err := s.overtimes.Recap(ctx, filter)
+	if err != nil {
+		return domain.ExportFile{}, fmt.Errorf("read overtime recap: %w", err)
+	}
+	if len(items) == 0 {
+		return domain.ExportFile{}, domain.ErrNotFound
+	}
+
+	table := overtimeRecapTable(items)
+	var buffer bytes.Buffer
+	if err := export.WriteXLSX(&buffer, table); err != nil {
+		return domain.ExportFile{}, fmt.Errorf("render overtime recap export: %w", err)
+	}
+
+	if err := s.audit.Append(ctx, domain.AuditEntry{
+		UserID: &identity.UserID,
+		Action: "DOWNLOAD",
+		Module: "rekap_lembur",
+		Detail: map[string]any{
+			"jumlah_row": len(items),
+			"request_id": meta.RequestID,
+		},
+		IPAddress: meta.IPAddress,
+		CreatedAt: s.now().UTC(),
+	}); err != nil {
+		return domain.ExportFile{}, fmt.Errorf("audit overtime recap export: %w", err)
+	}
+
+	return domain.ExportFile{
+		FileName: export.SanitizeFileName(fmt.Sprintf(
+			"rekap-lembur-%s.xlsx", s.now().In(domain.Jakarta()).Format("20060102-150405"),
+		)),
+		ContentType: export.XLSXContentType,
+		Content:     buffer.Bytes(),
+	}, nil
+}
+
+func overtimeRecapTable(items []domain.OvertimeRecapItem) export.Table {
+	table := export.Table{
+		Title:   "GSNpeeps - Rekap Lembur",
+		Headers: []string{"Nama", "Departemen", "Total Pengajuan", "Total Jam"},
+		Rows:    make([][]string, 0, len(items)),
+	}
+	for _, item := range items {
+		table.Rows = append(table.Rows, []string{
+			item.EmployeeName,
+			item.Department,
+			fmt.Sprintf("%d", item.TotalRequest),
+			fmt.Sprintf("%.2f", item.TotalHours),
+		})
+	}
+	return table
 }

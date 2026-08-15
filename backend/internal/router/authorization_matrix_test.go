@@ -24,10 +24,11 @@ type operation struct {
 	public bool
 }
 
-// contractOperations mendaftar seluruh 49 operasi OpenAPI. Daftar ini menjadi matriks
-// otorisasi: setiap operasi terproteksi wajib menolak permintaan tanpa token, dan setiap
-// operasi publik wajib tidak menolaknya. Operasi baru yang lupa didaftarkan pada router akan
-// menghasilkan 404 dan membuat matriks gagal.
+// contractOperations mendaftar seluruh 51 operasi OpenAPI (49 dari API Contract v1.1 ditambah
+// dua endpoint export yang belum tercatat: live feed dan rekap lembur). Daftar ini menjadi
+// matriks otorisasi: setiap operasi terproteksi wajib menolak permintaan tanpa token, dan
+// setiap operasi publik wajib tidak menolaknya. Operasi baru yang lupa didaftarkan pada
+// router akan menghasilkan 404 dan membuat matriks gagal.
 func contractOperations() []operation {
 	employeeID := uuid.NewString()
 	requestID := uuid.NewString()
@@ -63,6 +64,7 @@ func contractOperations() []operation {
 
 		{http.MethodPost, "/api/v1/absensi/checkin", false},
 		{http.MethodGet, "/api/v1/absensi/livefeed", false},
+		{http.MethodGet, "/api/v1/absensi/livefeed/export", false},
 		{http.MethodGet, "/api/v1/laporan/kehadiran", false},
 		{http.MethodGet, "/api/v1/laporan/kehadiran/export", false},
 
@@ -81,6 +83,7 @@ func contractOperations() []operation {
 		{http.MethodGet, "/api/v1/lembur", false},
 		{http.MethodGet, "/api/v1/lembur/saya", false},
 		{http.MethodGet, "/api/v1/lembur/rekap", false},
+		{http.MethodGet, "/api/v1/lembur/rekap/export", false},
 		{http.MethodGet, "/api/v1/lembur/" + requestID, false},
 		{http.MethodPut, "/api/v1/lembur/" + requestID + "/decision", false},
 
@@ -141,10 +144,12 @@ func newGuardedRouter() http.Handler {
 	)
 }
 
-// Jumlah operasi harus tetap 49 sesuai keputusan D-001, D-035, dan D-037; endpoint baru
-// memerlukan revisi kontrak lebih dahulu.
-func TestContractExposesExactlyFortyNineOperations(t *testing.T) {
-	assert.Len(t, contractOperations(), 49)
+// Jumlah operasi harus tetap 51: 49 sesuai keputusan D-001, D-035, dan D-037, ditambah
+// export live feed dan export rekap lembur (defect: download report excel pada halaman
+// live-feed dan rekap lembur). Endpoint baru di luar daftar ini memerlukan revisi kontrak
+// lebih dahulu.
+func TestContractExposesExactlyFiftyOneOperations(t *testing.T) {
+	assert.Len(t, contractOperations(), 51)
 }
 
 // Setiap operasi terproteksi menolak permintaan tanpa token. Karena `/api/v1` memiliki

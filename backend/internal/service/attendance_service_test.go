@@ -1,8 +1,11 @@
 package service
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"testing"
 	"time"
 
@@ -121,7 +124,7 @@ func activeOffice() domain.OfficeLocation {
 	}
 }
 
-func TestAttendanceRejectsWeekend(t *testing.T) {
+func TestAttendanceAllowsWeekend(t *testing.T) {
 	store := &attendanceStoreStub{existing: map[string]bool{}}
 	photos := &documentStoreStub{}
 	// Sabtu 8 Agustus 2026.
@@ -134,8 +137,8 @@ func TestAttendanceRejectsWeekend(t *testing.T) {
 		RequestMeta{},
 	)
 
-	require.ErrorIs(t, err, domain.ErrNonWorkingDay)
-	assert.Empty(t, photos.uploadedPath, "hari libur tidak boleh mengunggah foto")
+	require.NoError(t, err)
+	assert.NotEmpty(t, photos.uploadedPath, "check-in akhir pekan tetap mengunggah foto seperti hari kerja")
 }
 
 // WFO ditolak hanya bila melebihi 100 meter dari koordinat tepercaya kantor.
@@ -313,6 +316,85 @@ func TestLiveFeedRestrictsToMonitoringRoles(t *testing.T) {
 		_, err := service.LiveFeed(context.Background(), domain.Identity{Role: role}, "")
 		require.NoErrorf(t, err, "role %s harus dapat membaca live feed", role)
 	}
+}
+
+// xlsxSheetText mengekstrak isi sheet1.xml agar test dapat memverifikasi nilai sel secara
+// end-to-end, bukan hanya bahwa export tidak error.
+func xlsxSheetText(t *testing.T, content []byte) string {
+	t.Helper()
+	archive, err := zip.NewReader(bytes.NewReader(content), int64(len(content)))
+	require.NoError(t, err)
+	for _, entry := range archive.File {
+		if entry.Name != "xl/worksheets/sheet1.xml" {
+			continue
+		}
+		reader, err := entry.Open()
+		require.NoError(t, err)
+		defer reader.Close()
+		raw, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		return string(raw)
+	}
+	t.Fatal("sheet1.xml tidak ditemukan pada workbook")
+	return ""
+}
+
+// Export live feed mengikuti akses HR-only yang sama dengan melihat live feed, dan waktu
+// check-in/check-out ditulis 24 jam zona Asia/Jakarta (defect: format waktu wajib 24 jam
+// WIB), bukan waktu UTC mentah atau format 12 jam.
+func TestExportLiveFeedRestrictsToHRAndFormatsClockInWIB24Hour(t *testing.T) {
+	employeeID := uuid.New()
+	checkInUTC := time.Date(2026, time.August, 3, 2, 5, 0, 0, time.UTC)   // 09:05 WIB
+	checkOutUTC := time.Date(2026, time.August, 3, 11, 30, 0, 0, time.UTC) // 18:30 WIB
+	store := &attendanceStoreStub{feed: []domain.AttendanceLiveFeedItem{
+		{
+			Attendance: domain.Attendance{
+				EmployeeID: employeeID, Type: domain.AttendanceCheckIn, WorkMode: domain.WorkModeWFO,
+				Time: checkInUTC, Status: domain.AttendanceStatusOnTime,
+			},
+			EmployeeName: "Karyawan Uji", Department: "Teknologi",
+		},
+		{
+			Attendance: domain.Attendance{
+				EmployeeID: employeeID, Type: domain.AttendanceCheckOut, WorkMode: domain.WorkModeWFO,
+				Time: checkOutUTC, Status: domain.AttendanceStatusEarlyLeave,
+			},
+			EmployeeName: "Karyawan Uji", Department: "Teknologi",
+		},
+	}}
+	service := newAttendanceServiceForTest(
+		store, &documentStoreStub{}, transactionStub{}, workingMonday(),
+	)
+
+	_, err := service.ExportLiveFeed(
+		context.Background(), domain.Identity{Role: domain.RoleEmployee}, "2026-08-03", RequestMeta{},
+	)
+	require.ErrorIs(t, err, domain.ErrForbidden)
+
+	file, err := service.ExportLiveFeed(
+		context.Background(), domain.Identity{Role: domain.RoleHR}, "2026-08-03", RequestMeta{},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", file.ContentType)
+	assert.Equal(t, "live-feed-absensi-2026-08-03.xlsx", file.FileName)
+
+	sheet := xlsxSheetText(t, file.Content)
+	assert.Contains(t, sheet, "09:05", "check-in harus 24 jam WIB, bukan UTC/12 jam")
+	assert.Contains(t, sheet, "18:30", "check-out harus 24 jam WIB, bukan UTC/12 jam")
+	assert.NotContains(t, sheet, "AM")
+	assert.NotContains(t, sheet, "PM")
+}
+
+// Dataset kosong menghasilkan ErrNotFound, bukan berkas XLSX tanpa baris data.
+func TestExportLiveFeedRejectsEmptyDataset(t *testing.T) {
+	service := newAttendanceServiceForTest(
+		&attendanceStoreStub{}, &documentStoreStub{}, transactionStub{}, workingMonday(),
+	)
+
+	_, err := service.ExportLiveFeed(
+		context.Background(), domain.Identity{Role: domain.RoleHR}, "2026-08-03", RequestMeta{},
+	)
+	require.ErrorIs(t, err, domain.ErrNotFound)
 }
 
 // Rentang laporan mengikuti keputusan D-026.

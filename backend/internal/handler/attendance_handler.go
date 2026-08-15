@@ -22,6 +22,9 @@ type AttendanceService interface {
 		context.Context, domain.Identity, domain.RecordAttendance, service.RequestMeta,
 	) (domain.Attendance, error)
 	LiveFeed(context.Context, domain.Identity, string) ([]domain.AttendanceLiveFeedItem, error)
+	ExportLiveFeed(
+		context.Context, domain.Identity, string, service.RequestMeta,
+	) (domain.ExportFile, error)
 	Report(
 		context.Context, domain.Identity, service.ReportQuery,
 	) (domain.AttendanceReportPage, error)
@@ -197,6 +200,24 @@ func (h *AttendanceHandler) LiveFeed(writer http.ResponseWriter, request *http.R
 		return
 	}
 	response.Success(writer, http.StatusOK, items, "OK")
+}
+
+// ExportLiveFeed mengunduh live feed absensi pada satu tanggal sebagai XLSX. Hanya HR.
+func (h *AttendanceHandler) ExportLiveFeed(writer http.ResponseWriter, request *http.Request) {
+	identity, ok := middleware.IdentityFromContext(request.Context())
+	if !ok {
+		response.FromError(writer, domain.ErrInvalidToken)
+		return
+	}
+	file, err := h.service.ExportLiveFeed(
+		request.Context(), identity, strings.TrimSpace(request.URL.Query().Get("tanggal")),
+		h.requestMeta(request),
+	)
+	if err != nil {
+		response.FromError(writer, err)
+		return
+	}
+	writeExportFile(writer, request, file)
 }
 
 func (h *AttendanceHandler) reportQuery(
