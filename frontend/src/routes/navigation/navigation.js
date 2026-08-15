@@ -35,7 +35,34 @@ export const navigationItems = [
       { label: "Pengajuan Saya", path: "/app/pengajuan", roles: personalRoles },
     ],
   },
-  { label: "Persetujuan", path: "/app/persetujuan", roles: approvalRoles },
+  {
+    label: "Persetujuan",
+    roles: approvalRoles,
+    children: [
+      {
+        label: "Ketidakhadiran",
+        path: "/app/persetujuan",
+        query: { tab: "ketidakhadiran" },
+        isDefaultQuery: true,
+        roles: approvalRoles,
+      },
+      {
+        label: "Lembur",
+        path: "/app/persetujuan",
+        query: { tab: "lembur" },
+        roles: approvalRoles,
+      },
+      {
+        label: "Koreksi Absensi",
+        // Sama teksnya dengan item "Koreksi Absensi" di grup Pribadi (pengajuan sendiri)
+        // tapi menuju antrean persetujuan; aria-label dibedakan agar accessible name unik.
+        ariaLabel: "Koreksi Absensi (Persetujuan)",
+        path: "/app/persetujuan",
+        query: { tab: "koreksi" },
+        roles: [roles.supervisor, roles.hr],
+      },
+    ],
+  },
   {
     label: "Organisasi",
     roles: hrOnly,
@@ -87,6 +114,43 @@ export const navigationItems = [
 
 export const canAccessRoles = (role, allowedRoles) =>
   allRoles.includes(role) && allowedRoles.includes(role);
+
+// Seluruh path leaf yang terdaftar di sidebar, dipakai isPathActive untuk menentukan item
+// mana yang paling spesifik terhadap path yang sedang diakses.
+const flattenPaths = (items) =>
+  items.flatMap((item) => (item.children ? item.children.map((child) => child.path) : item.path ? [item.path] : []));
+
+export const allNavigationPaths = flattenPaths(navigationItems);
+
+// isPathActive mencegah item sidebar seperti /app/absensi tetap "aktif" hanya karena path
+// yang sedang diakses (mis. /app/absensi/lembur) kebetulan berbagi prefix — item lain yang
+// path-nya terdaftar dan lebih spesifik selalu menang.
+export const isPathActive = (itemPath, pathname, allPaths = allNavigationPaths) => {
+  if (pathname === itemPath) return true;
+  if (!pathname.startsWith(`${itemPath}/`)) return false;
+  return !allPaths.some(
+    (otherPath) =>
+      otherPath !== itemPath &&
+      otherPath.length > itemPath.length &&
+      (pathname === otherPath || pathname.startsWith(`${otherPath}/`)),
+  );
+};
+
+// isNavItemActive menangani dua bentuk item: path biasa (isPathActive) dan item yang
+// membedakan diri lewat query string pada path yang sama, seperti tab Persetujuan.
+export const isNavItemActive = (item, pathname, search) => {
+  if (!item.query) return isPathActive(item.path, pathname);
+  if (item.path !== pathname) return false;
+  const current = new URLSearchParams(search);
+  return Object.entries(item.query).every(([key, value]) => {
+    const currentValue = current.get(key);
+    return currentValue === null ? Boolean(item.isDefaultQuery) : currentValue === value;
+  });
+};
+
+// navLinkTarget membangun props `to` React Router untuk item biasa maupun item berbasis query.
+export const navLinkTarget = (item) =>
+  item.query ? { pathname: item.path, search: `?${new URLSearchParams(item.query).toString()}` } : item.path;
 
 export const navigationForRole = (role) => {
   if (!allRoles.includes(role)) return [];

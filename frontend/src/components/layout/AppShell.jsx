@@ -3,7 +3,12 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../modules/auth/hooks/useAuth";
 import { NotificationBell } from "../../modules/notifications/components/NotificationBell";
-import { navigationForRole, roleLabel } from "../../routes/navigation/navigation";
+import {
+  isNavItemActive,
+  navigationForRole,
+  navLinkTarget,
+  roleLabel,
+} from "../../routes/navigation/navigation";
 import { Button } from "../ui/Button";
 import { ProtectedImage } from "../media/ProtectedImage";
 
@@ -69,13 +74,18 @@ export const AppShell = () => {
   const location = useLocation();
   const sidebarRef = useRef(null);
   const collapsedFlyoutRef = useRef(null);
+  const mobileMenuButtonRef = useRef(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [collapsedGroup, setCollapsedGroup] = useState(null);
   const [collapsedFlyoutTop, setCollapsedFlyoutTop] = useState(80);
   const [openGroups, setOpenGroups] = useState({});
+  // Menu navbar mobile memakai render yang sama dengan compact icon list sidebar yang
+  // diciutkan di desktop; hanya visibilitas dan trigger-nya berbeda per breakpoint.
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigation = useMemo(() => navigationForRole(auth.role), [auth.role]);
   const collapsedGroupItem = navigation.find((item) => item.label === collapsedGroup);
+  const compactMenuVisible = sidebarCollapsed || mobileMenuOpen;
 
   useEffect(() => {
     const activeGroup = navigation.find((item) =>
@@ -85,6 +95,7 @@ export const AppShell = () => {
       setOpenGroups((current) => ({ ...current, [activeGroup.label]: true }));
     }
     setCollapsedGroup(null);
+    setMobileMenuOpen(false);
   }, [location.pathname, navigation]);
 
   useEffect(() => {
@@ -95,20 +106,6 @@ export const AppShell = () => {
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [collapsedGroup]);
-
-  useEffect(() => {
-    if (sidebarCollapsed) return undefined;
-    const closeExpandedSidebar = (event) => {
-      const desktopViewport = window.matchMedia?.("(min-width: 1024px)");
-      if (desktopViewport && !desktopViewport.matches) return;
-      if (!sidebarRef.current?.contains(event.target)) {
-        setSidebarCollapsed(true);
-        setCollapsedGroup(null);
-      }
-    };
-    document.addEventListener("pointerdown", closeExpandedSidebar);
-    return () => document.removeEventListener("pointerdown", closeExpandedSidebar);
-  }, [sidebarCollapsed]);
 
   useEffect(() => {
     if (!collapsedGroup) return undefined;
@@ -123,6 +120,32 @@ export const AppShell = () => {
     document.addEventListener("pointerdown", closeFlyout);
     return () => document.removeEventListener("pointerdown", closeFlyout);
   }, [collapsedGroup]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setMobileMenuOpen(false);
+        setCollapsedGroup(null);
+      }
+    };
+    const closeOnOutsideClick = (event) => {
+      if (
+        !sidebarRef.current?.contains(event.target) &&
+        !collapsedFlyoutRef.current?.contains(event.target) &&
+        !mobileMenuButtonRef.current?.contains(event.target)
+      ) {
+        setMobileMenuOpen(false);
+        setCollapsedGroup(null);
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+    };
+  }, [mobileMenuOpen]);
 
   const handleLogout = async () => {
     if (isLoggingOut) {
@@ -146,7 +169,20 @@ export const AppShell = () => {
       </a>
       <header className="fixed inset-x-0 top-0 z-40 h-16 border-b border-slate-900/10 bg-white">
         <div className="mx-auto flex h-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-baseline gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              ref={mobileMenuButtonRef}
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen((current) => !current);
+                setCollapsedGroup(null);
+              }}
+              aria-expanded={mobileMenuOpen}
+              aria-label={mobileMenuOpen ? "Tutup menu navigasi" : "Buka menu navigasi"}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-600 hover:bg-slate-900/5 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700 lg:hidden"
+            >
+              <MenuIcon />
+            </button>
             <p className="truncate text-lg font-bold tracking-tight">GSNpeeps</p>
             <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-cyan-700 sm:block">
               HR Information System
@@ -189,40 +225,49 @@ export const AppShell = () => {
           aria-label="Navigasi utama"
           className={`sticky top-16 z-30 border-b border-slate-900/10 bg-white px-4 py-2 transition-[width] sm:px-6 lg:fixed lg:inset-y-0 lg:top-16 lg:left-0 lg:z-30 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-4 lg:py-6 ${sidebarCollapsed ? "lg:w-20" : "lg:w-60"}`}
         >
-          {sidebarCollapsed && (
-            <Button
+          {/* Satu-satunya kontrol yang boleh mengubah collapsed/expanded sidebar; klik di
+              luar sidebar sengaja tidak lagi menutupnya secara otomatis. Ikon hamburger polos
+              tanpa border/background Button agar tidak terlihat besar. */}
+          <div className={`mb-3 hidden lg:flex ${sidebarCollapsed ? "justify-center" : "justify-end"}`}>
+            <button
               type="button"
-              variant="secondary"
               onClick={() => {
-                setSidebarCollapsed(false);
+                setSidebarCollapsed((current) => !current);
                 setCollapsedGroup(null);
               }}
-              aria-expanded="false"
-              aria-label="Buka sidebar"
-              className="mb-3 hidden h-12 min-h-0 w-12 px-0 py-0 lg:inline-flex"
+              aria-expanded={!sidebarCollapsed}
+              aria-label={sidebarCollapsed ? "Buka sidebar" : "Ciutkan sidebar"}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-slate-600 hover:bg-slate-900/5 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700"
             >
               <MenuIcon />
-            </Button>
-          )}
+            </button>
+          </div>
           <ul
             aria-label="Menu utama"
-            className={`flex gap-2 overflow-x-auto pb-1 lg:space-y-1 lg:overflow-visible lg:pb-0 ${sidebarCollapsed ? "lg:hidden" : "lg:block"}`}
+            className={`hidden lg:space-y-1 lg:overflow-visible lg:pb-0 ${sidebarCollapsed ? "lg:hidden" : "lg:block"}`}
           >
             {navigation.map((item) => {
               const groupVisible = item.children ? Boolean(openGroups[item.label]) : false;
               return item.children ? (
                 // Label pengelompokan UI-saja (mis. "Pengajuan"): tidak pernah menjadi link
-                // sendiri, hanya menyorot hierarki anaknya. Disembunyikan di strip mobile
-                // karena indentasi tidak berarti pada layout horizontal; anaknya tetap
-                // tampil sebagai item biasa di sana.
+                // sendiri, hanya menyorot hierarki anaknya. Menu ini hanya untuk sidebar
+                // desktop yang diperluas; navbar mobile memakai compact icon list yang sama
+                // dengan sidebar yang diciutkan (lihat "Menu ringkas" di bawah).
                 <li key={item.label} className="contents lg:block">
                   <Button type="button" variant="secondary" aria-expanded={groupVisible} onClick={() => setOpenGroups((current) => ({ ...current, [item.label]: !current[item.label] }))} className="hidden w-full justify-between lg:inline-flex">
                     <span>{item.label}</span><span aria-hidden="true">{openGroups[item.label] ? "▾" : "▸"}</span>
                   </Button>
                   <ul className={`contents lg:space-y-1 ${groupVisible ? "lg:block" : "lg:hidden"}`}>
                     {item.children.map((child) => (
-                      <li key={child.path} className="shrink-0">
-                        <NavLink to={child.path} className={navLinkClassName} title={child.label}>
+                      <li key={`${child.path}-${child.label}`} className="shrink-0">
+                        <NavLink
+                          to={navLinkTarget(child)}
+                          className={navLinkClassName({
+                            isActive: isNavItemActive(child, location.pathname, location.search),
+                          })}
+                          title={child.label}
+                          aria-label={child.ariaLabel}
+                        >
                           <span className="lg:pl-3">{child.label}</span>
                         </NavLink>
                       </li>
@@ -231,15 +276,24 @@ export const AppShell = () => {
                 </li>
               ) : (
                 <li key={item.path} className="shrink-0">
-                  <NavLink to={item.path} end={item.path === "/app"} className={navLinkClassName} title={item.label}>
+                  <NavLink
+                    to={navLinkTarget(item)}
+                    className={navLinkClassName({
+                      isActive: isNavItemActive(item, location.pathname, location.search),
+                    })}
+                    title={item.label}
+                  >
                     <span>{item.label}</span>
                   </NavLink>
                 </li>
               );
             })}
           </ul>
-          {sidebarCollapsed && (
-            <ul aria-label="Menu ringkas" className="hidden space-y-2 lg:block">
+          {compactMenuVisible && (
+            <ul
+              aria-label="Menu ringkas"
+              className={`mt-2 flex flex-wrap gap-2 border-t border-slate-900/10 pt-3 lg:mt-0 lg:gap-0 lg:space-y-2 lg:border-t-0 lg:pt-0 ${sidebarCollapsed ? "lg:block" : "lg:hidden"}`}
+            >
               {navigation.map((item) => {
                 const active = item.children
                   ? item.children.some((child) => location.pathname === child.path)
@@ -263,11 +317,12 @@ export const AppShell = () => {
                       </button>
                     ) : (
                       <NavLink
-                        to={item.path}
-                        end={item.path === "/app"}
+                        to={navLinkTarget(item)}
                         aria-label={item.label}
                         title={item.label}
-                        className={({ isActive }) => compactItemClassName(isActive)}
+                        className={compactItemClassName(
+                          isNavItemActive(item, location.pathname, location.search),
+                        )}
                       >
                         <NavigationIcon label={item.label} />
                       </NavLink>
@@ -278,13 +333,13 @@ export const AppShell = () => {
             </ul>
           )}
         </nav>
-        {sidebarCollapsed && collapsedGroupItem && (
+        {compactMenuVisible && collapsedGroupItem && (
           <section
             ref={collapsedFlyoutRef}
             role="group"
             aria-label={`Submenu ${collapsedGroupItem.label}`}
             style={{ top: collapsedFlyoutTop }}
-            className="fixed left-20 z-40 hidden w-64 rounded-xl border border-slate-900/15 bg-white p-3 shadow-xl lg:block"
+            className="fixed left-4 z-40 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-900/15 bg-white p-3 shadow-xl lg:left-20"
           >
             <div className="mb-2 flex items-center justify-between gap-3 px-2">
               <p className="font-bold">{collapsedGroupItem.label}</p>
@@ -299,10 +354,13 @@ export const AppShell = () => {
             </div>
             <ul className="space-y-1">
               {collapsedGroupItem.children.map((child) => (
-                <li key={child.path}>
+                <li key={`${child.path}-${child.label}`}>
                   <NavLink
-                    to={child.path}
-                    className={navLinkClassName}
+                    to={navLinkTarget(child)}
+                    className={navLinkClassName({
+                      isActive: isNavItemActive(child, location.pathname, location.search),
+                    })}
+                    aria-label={child.ariaLabel}
                     onClick={() => setCollapsedGroup(null)}
                   >
                     {child.label}

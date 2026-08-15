@@ -46,13 +46,20 @@ describe("AppShell sidebar", () => {
     expect(menu).toHaveClass("lg:block");
     expect(screen.queryByRole("button", { name: "Buka sidebar" })).not.toBeInTheDocument();
 
+    // Klik di luar sidebar tidak boleh mengubah collapsed/expanded state; hanya tombol
+    // dedicated di pojok kanan atas sidebar yang boleh melakukannya.
     fireEvent.pointerDown(main);
+    expect(main).toHaveClass("lg:ml-60");
+    expect(navigation).toHaveClass("lg:w-60");
+    expect(menu).toHaveClass("lg:block");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ciutkan sidebar" }));
     expect(main).toHaveClass("lg:ml-20");
     expect(navigation).toHaveClass("lg:w-20");
     expect(menu).toHaveClass("lg:hidden");
     const hamburger = screen.getByRole("button", { name: "Buka sidebar" });
     expect(hamburger).toHaveAttribute("aria-expanded", "false");
-    expect(hamburger).toHaveClass("h-12", "w-12");
+    expect(hamburger).toHaveClass("h-8", "w-8");
     const compactMenu = screen.getByRole("list", { name: "Menu ringkas" });
     expect(compactMenu).toHaveClass("lg:block");
     expect(compactMenu).not.toHaveTextContent(/BR|PR|PG|PS|OR|MN|IN|MD|AD|AK/);
@@ -75,6 +82,38 @@ describe("AppShell sidebar", () => {
     expect(main).toHaveClass("lg:ml-60");
     expect(menu).toHaveClass("lg:block");
     expect(screen.queryByRole("button", { name: "Buka sidebar" })).not.toBeInTheDocument();
+  });
+
+  it("opens the mobile navbar menu with the same compact icon list as the collapsed sidebar", () => {
+    renderShell();
+    const main = screen.getByRole("main");
+
+    expect(screen.queryByRole("list", { name: "Menu ringkas" })).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole("button", { name: "Buka menu navigasi" });
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Tutup menu navigasi" })).toBe(toggle);
+    const compactMenu = screen.getByRole("list", { name: "Menu ringkas" });
+    expect(within(compactMenu).getByRole("link", { name: "Beranda" })).toBeInTheDocument();
+    expect(within(compactMenu).getByRole("button", { name: "Pribadi" })).toBeInTheDocument();
+
+    // Klik di luar navbar/menu menutup menu mobile, sama seperti flyout desktop.
+    fireEvent.pointerDown(main);
+    expect(screen.queryByRole("list", { name: "Menu ringkas" })).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole("list", { name: "Menu ringkas" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("list", { name: "Menu ringkas" })).not.toBeInTheDocument();
+
+    // Tombol toggle sendiri harus tetap membuka/menutup menu, bukan diperlakukan sebagai
+    // klik di luar yang langsung menutupnya kembali.
+    fireEvent.click(toggle);
+    expect(screen.getByRole("list", { name: "Menu ringkas" })).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("list", { name: "Menu ringkas" })).not.toBeInTheDocument();
   });
 
   it("groups module links and reveals their children from the parent control", () => {
