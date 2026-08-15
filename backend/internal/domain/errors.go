@@ -17,7 +17,6 @@ var (
 	ErrInvalidRequest     = errors.New("invalid request")
 
 	// Aturan bisnis absensi. Seluruhnya dipetakan ke 422 dengan kode kontrak.
-	ErrNonWorkingDay          = errors.New("non working day")
 	ErrOutOfRadius            = errors.New("out of office radius")
 	ErrDuplicateCheckIn       = errors.New("duplicate check-in")
 	ErrCheckoutWithoutCheckIn = errors.New("checkout without check-in")

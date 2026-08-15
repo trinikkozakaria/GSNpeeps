@@ -135,8 +135,15 @@ type LeaveRequestFilter struct {
 	Limit  int
 }
 
-// TotalLeaveDays menghitung jumlah hari kalender inklusif pada rentang pengajuan.
-// Kalender libur nasional belum tersedia (G-010) sehingga seluruh hari dihitung.
+// TotalLeaveDays menghitung jumlah hari kerja inklusif pada rentang pengajuan; Sabtu dan
+// Minggu tidak dihitung karena bukan hari kerja yang mengurangi saldo. Kalender libur
+// nasional belum tersedia (G-010) sehingga hanya akhir pekan yang dikecualikan.
 func TotalLeaveDays(start, end time.Time) int {
-	return int(end.Sub(start).Hours()/24) + 1
+	days := 0
+	for day := start; !day.After(end); day = day.AddDate(0, 0, 1) {
+		if weekday := day.Weekday(); weekday != time.Saturday && weekday != time.Sunday {
+			days++
+		}
+	}
+	return days
 }

@@ -49,20 +49,6 @@ func TestDistanceMetersOfficeRadiusBoundary(t *testing.T) {
 	}
 }
 
-func TestIsWorkingDayExcludesWeekend(t *testing.T) {
-	cases := map[string]bool{
-		"2026-08-03": true,  // Senin
-		"2026-08-07": true,  // Jumat
-		"2026-08-08": false, // Sabtu
-		"2026-08-09": false, // Minggu
-	}
-	for date, expected := range cases {
-		moment, err := time.ParseInLocation(DateLayout, date, Jakarta())
-		assert.NoError(t, err)
-		assert.Equalf(t, expected, IsWorkingDay(moment), "tanggal %s", date)
-	}
-}
-
 // Check-in tepat pukul 09:00:00 WIB belum terlambat; setelahnya terlambat.
 func TestCheckInStatusBoundaryAtNineAM(t *testing.T) {
 	cases := map[string]string{

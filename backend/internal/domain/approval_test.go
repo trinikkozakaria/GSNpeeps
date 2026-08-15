@@ -121,9 +121,23 @@ func TestStageForStatus(t *testing.T) {
 }
 
 func TestTotalLeaveDaysIsInclusive(t *testing.T) {
-	start := time.Date(2026, time.August, 3, 0, 0, 0, 0, Jakarta())
+	start := time.Date(2026, time.August, 3, 0, 0, 0, 0, Jakarta()) // Senin
 	assert.Equal(t, 1, TotalLeaveDays(start, start))
-	assert.Equal(t, 5, TotalLeaveDays(start, start.AddDate(0, 0, 4)))
+	assert.Equal(t, 5, TotalLeaveDays(start, start.AddDate(0, 0, 4))) // s.d. Jumat
+}
+
+// TestTotalLeaveDaysExcludesWeekend memastikan Sabtu dan Minggu di dalam rentang tidak
+// mengurangi saldo, hanya hari kerja yang dihitung.
+func TestTotalLeaveDaysExcludesWeekend(t *testing.T) {
+	friday := time.Date(2026, time.August, 7, 0, 0, 0, 0, Jakarta())
+	nextMonday := friday.AddDate(0, 0, 3)
+	// Jumat, Sabtu, Minggu, Senin: hanya Jumat dan Senin yang dihitung.
+	assert.Equal(t, 2, TotalLeaveDays(friday, nextMonday))
+
+	saturday := friday.AddDate(0, 0, 1)
+	sunday := friday.AddDate(0, 0, 2)
+	// Rentang murni akhir pekan tidak mengurangi saldo sama sekali.
+	assert.Equal(t, 0, TotalLeaveDays(saturday, sunday))
 }
 
 // SLA eskalasi adalah 2x24 jam dan hanya berlaku dari Atasan ke HR.

@@ -148,13 +148,6 @@ type ExpiredPhoto struct {
 // PhotoRetention adalah masa simpan foto absensi menurut PRD.
 const PhotoRetention = 3 * 30 * 24 * time.Hour
 
-// IsWorkingDay menyatakan hari kerja reguler Senin-Jumat. Kalender libur nasional belum
-// tersedia (gap G-010) sehingga hanya akhir pekan yang dikecualikan.
-func IsWorkingDay(moment time.Time) bool {
-	day := moment.In(Jakarta()).Weekday()
-	return day != time.Saturday && day != time.Sunday
-}
-
 // CheckInStatus mengembalikan `terlambat` hanya bila waktu server melewati 09:00:00 WIB.
 // Tepat pukul 09:00:00 belum terlambat.
 func CheckInStatus(moment time.Time) string {

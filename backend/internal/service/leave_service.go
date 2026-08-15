@@ -206,6 +206,11 @@ func (s *LeaveService) Create(
 		return domain.RequestStateData{}, domain.ErrInvalidRequest
 	}
 	totalDays := domain.TotalLeaveDays(start, end)
+	if totalDays < 1 {
+		// Rentang yang hanya berisi Sabtu/Minggu tidak mengurangi hari kerja apa pun;
+		// constraint jumlah_hari >= 1 di database akan menolaknya tanpa pesan yang jelas.
+		return domain.RequestStateData{}, domain.ErrInvalidRequest
+	}
 
 	leaveType, err := s.leaves.FindLeaveType(ctx, command.LeaveTypeID)
 	if errors.Is(err, repository.ErrNotFound) {
