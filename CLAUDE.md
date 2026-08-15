@@ -117,6 +117,8 @@ Nama produk repository ini selalu **GSNpeeps**. `janjikupadamu.id` adalah kandid
 - Library yang belum dipilih dan bukan bagian baseline (misalnya chart, data-table, icon,
   mocking network, client-state global, scheduler, export, dan linter tambahan) dipilih hanya
   saat kebutuhan nyata muncul dan dicatat tanpa mengganti baseline.
+- **WYSIWYG**: `react-simple-wysiwyg` (dipilih eksplisit dari daftar defect untuk Company
+  Feed; konten tetap disimpan sebagai HTML pada `konten_html`; tidak mengganti baseline lain).
 
 ---
 
@@ -394,7 +396,7 @@ Base path aplikasi:
 /api/v1
 ```
 
-Total: **49 endpoint dalam 13 modul**.
+Total: **51 endpoint dalam 13 modul**.
 
 ### Sistem
 
@@ -454,6 +456,7 @@ Total: **49 endpoint dalam 13 modul**.
 |---|---|---|
 | POST | `/absensi/checkin` | Karyawan, Atasan, HR |
 | GET | `/absensi/livefeed` | HR, Top Management read-only |
+| GET | `/absensi/livefeed/export` | HR |
 
 ### Laporan Kehadiran
 
@@ -491,6 +494,7 @@ Total: **49 endpoint dalam 13 modul**.
 | GET | `/lembur/{id}` | Pemohon/approver terkait |
 | PUT | `/lembur/{id}/decision` | Approver pada tahap aktif |
 | GET | `/lembur/rekap` | HR, Top Management read-only |
+| GET | `/lembur/rekap/export` | HR |
 
 ### Akses
 
@@ -515,7 +519,10 @@ self-reset yang memverifikasi password saat ini. Revisi 0.5.0 menambahkan `GET
 /lembur/saya` (D-035) agar histori lembur milik sendiri tidak lagi memakai endpoint inbox
 approval. Revisi 0.6.0 menambahkan write support BPJS/NPWP/kontak darurat/pendidikan/
 riwayat jabatan/gaji berjalan pada `POST`/`PUT /karyawan` (D-036). Revisi 0.7.0 menambahkan
-`PUT /auth/me/foto` dan `PUT /karyawan/{id}/foto` untuk foto profil di navbar (D-037).
+`PUT /auth/me/foto` dan `PUT /karyawan/{id}/foto` untuk foto profil di navbar (D-037). Revisi
+0.8.0 menambahkan `GET /absensi/livefeed/export` dan `GET /lembur/rekap/export` (XLSX,
+HR-only) untuk tombol download report pada halaman Live Feed Absensi dan Rekap Lembur,
+konsisten dengan pola `GET /laporan/kehadiran/export` yang sudah ada (D-038).
 Jangan menambahkan refresh token atau mekanisme forgot-password berbasis email/OTP tanpa
 keputusan produk.
 
