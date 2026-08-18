@@ -1,0 +1,21 @@
+{
+  "npm.packageManager": "pnpm",
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "files.exclude": {
+    "**/.pnpm-store": true,
+    "**/node_modules": true,
+    "**/node_modules.container-backup": true
+  },
+  "search.exclude": {
+    "**/dist": true,
+    "**/node_modules*": true,
+    "**/playwright-report": true,
+    "**/test-results": true
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/node_modules*/**": true,
+    "**/frontend/dist/**": true
+  },
+  "go.toolsManagement.autoUpdate": false
+}

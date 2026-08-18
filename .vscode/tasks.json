@@ -1,0 +1,89 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Frontend: dev",
+      "type": "process",
+      "command": "pnpm",
+      "windows": {
+        "command": "pnpm.cmd"
+      },
+      "args": ["dev"],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: test",
+      "type": "process",
+      "command": "pnpm",
+      "windows": {
+        "command": "pnpm.cmd"
+      },
+      "args": ["test"],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: dev up",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "docker-compose.dev.yml",
+        "up",
+        "--build",
+        "-d"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: logs",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "docker-compose.dev.yml",
+        "logs",
+        "-f",
+        "--tail=100"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: down",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "docker-compose.dev.yml",
+        "down"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -82,6 +82,23 @@ describe("EmployeeListPage", () => {
     expect(receivedFilters.current.page).toBe(1);
   });
 
+  it("keeps the requested page after the search debounce interval", async () => {
+    const user = userEvent.setup();
+    employeesState.current = page([employeeRow], {
+      page: 1,
+      limit: 10,
+      total_data: 56,
+      total_page: 6,
+    });
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Berikutnya" }));
+    await waitFor(() => expect(receivedFilters.current.page).toBe(2));
+
+    await new Promise((resolve) => window.setTimeout(resolve, 450));
+    expect(receivedFilters.current.page).toBe(2);
+  });
+
   it("labels search with the fields the contract actually searches", () => {
     renderPage();
 

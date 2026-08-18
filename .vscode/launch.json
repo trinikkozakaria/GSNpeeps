@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Dashboard: Docker",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://localhost:8080",
+      "webRoot": "${workspaceFolder}/frontend/src"
+    },
+    {
+      "name": "Dashboard: Vite lokal",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend/src"
+    }
+  ]
+}

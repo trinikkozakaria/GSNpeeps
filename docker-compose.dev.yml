@@ -19,6 +19,11 @@ services:
       target: dev
     expose:
       - "5173"
+    environment:
+      # Docker Desktop di Windows memerlukan polling untuk perubahan bind mount.
+      # Interval 1 detik menjaga HMR responsif tanpa membebani event loop Vite.
+      VITE_USE_POLLING: "true"
+      VITE_POLLING_INTERVAL_MS: "1000"
     volumes:
       - ./frontend:/app
       # node_modules dipakai milik image; jangan tertimpa isi host yang mungkin

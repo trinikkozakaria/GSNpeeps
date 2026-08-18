@@ -2,6 +2,9 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+const usePolling = process.env.VITE_USE_POLLING === "true";
+const pollingInterval = Number(process.env.VITE_POLLING_INTERVAL_MS ?? 1000);
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
@@ -20,10 +23,18 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     // Bind mount Docker Desktop di Windows kadang tidak meneruskan event perubahan
-    // file. Polling memastikan localhost selalu memakai source terbaru tanpa restart.
+    // file. Aktifkan polling hanya dari Compose; host/VS Code memakai watcher native.
     watch: {
-      usePolling: true,
-      interval: 250,
+      usePolling,
+      interval: pollingInterval,
+      ignored: [
+        "**/node_modules*/**",
+        "**/dist/**",
+        "**/playwright-report/**",
+        "**/test-results/**",
+        "**/e2e/**",
+        "**/*.{test,spec}.{js,jsx}",
+      ],
     },
     // Nginx memakai nama service Docker sebagai Host saat browser E2E mengakses stack
     // secara internal. Host publik localhost tetap diizinkan oleh default Vite.

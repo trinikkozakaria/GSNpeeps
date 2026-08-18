@@ -33,16 +33,21 @@ export const EmployeeListPage = () => {
   const employees = useEmployees(auth.role, filters);
 
   useEffect(() => {
+    const normalized = searchInput.trim();
     const timer = window.setTimeout(() => {
-      const next = new URLSearchParams(params);
-      const normalized = searchInput.trim();
-      if (normalized) next.set("search", normalized);
-      else next.delete("search");
-      next.delete("page");
-      if (next.toString() !== params.toString()) setParams(next, { replace: true });
+      setParams((current) => {
+        const currentSearch = current.get("search") ?? "";
+        if (normalized === currentSearch) return current;
+
+        const next = new URLSearchParams(current);
+        if (normalized) next.set("search", normalized);
+        else next.delete("search");
+        next.delete("page");
+        return next;
+      }, { replace: true });
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [params, searchInput, setParams]);
+  }, [searchInput, setParams]);
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(params);
