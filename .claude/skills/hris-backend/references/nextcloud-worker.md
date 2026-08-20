@@ -1,13 +1,26 @@
-# Nextcloud and workers
+# Object storage and workers
 
-## Nextcloud
+## Object storage
 
-- Browser uploads to Backend API; backend uses a technical WebDAV account.
-- Validate size, extension, MIME, and signature before storage.
-- Generate server-owned paths under a GSNpeeps root and reject traversal.
+- Browser uploads to Backend API; backend uploads to object storage through the
+  `filestore.Store` port (`internal/platform/filestore`), which selects the active adapter
+  via `STORAGE_DRIVER`:
+  - `minio` (default since 2026-08-20; `internal/platform/minio`) — MinIO, S3-compatible,
+    uses a technical access key/secret key pair scoped to one bucket.
+  - `nextcloud` (back-compat; `internal/platform/webdav`) — Nextcloud, uses a technical
+    WebDAV account.
+  See `docs/architecture/minio-integration.md` for the migration decision and action list.
+- Validate size, extension, MIME, and signature before storage. This validation happens in
+  the handler/service layer and applies identically regardless of the active driver.
+- Generate server-owned paths under a stable per-employee/per-document hierarchy and reject
+  traversal (`internal/pkg/objectpath.SafePath`, shared by both adapters).
 - Store only URL/path in PostgreSQL.
-- Use HTTP timeouts and clean orphan files when a DB transaction fails.
-- Never expose WebDAV credentials to handlers, responses, logs, or frontend.
+- Use timeouts and clean orphan files when a DB transaction fails.
+- Never expose MinIO or Nextcloud credentials to handlers, responses, logs, or frontend.
+- Do not add a third storage adapter or an alternate upload path without a recorded product
+  decision; both existing adapters must keep satisfying the same narrow interfaces consumed
+  by services and handlers (`service.DocumentStore`, `handler`'s `mediaReader`,
+  `worker.PhotoDeleter`).
 
 ## Workers
 
@@ -19,4 +32,6 @@
   except the contract subject; when no eligible HR exists, notify the single active Top
   Management user. Deduplicate recipients before insertion.
 - Support graceful shutdown, bounded retries, and aggregate logs without PII.
-- Never delete an attendance row during photo cleanup; clear `foto_url` after successful file handling.
+- Never delete an attendance row during photo cleanup; clear `foto_url` after successful file
+  handling. This holds for either storage driver — the retention job depends only on
+  `worker.PhotoDeleter.Delete`, not on which adapter implements it.

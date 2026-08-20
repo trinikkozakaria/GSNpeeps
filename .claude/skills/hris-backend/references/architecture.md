@@ -1,7 +1,7 @@
 # Backend architecture
 
 Use this reference when creating a backend module, deciding package placement, reviewing
-dependency direction, or changing PostgreSQL, Redis, Nextcloud, export, API, and worker
+dependency direction, or changing PostgreSQL, Redis, object storage, export, API, and worker
 integration in GSNpeeps.
 
 ## Contents
@@ -17,7 +17,7 @@ integration in GSNpeeps.
 - [Transaction and consistency boundaries](#transaction-and-consistency-boundaries)
 - [Data architecture](#data-architecture)
 - [Redis architecture](#redis-architecture)
-- [Nextcloud and file architecture](#nextcloud-and-file-architecture)
+- [Object storage and file architecture](#object-storage-and-file-architecture)
 - [Background jobs](#background-jobs)
 - [Security boundaries](#security-boundaries)
 - [Failure handling](#failure-handling)
@@ -71,21 +71,22 @@ Nginx gateway
 Go API
    |----> PostgreSQL 16       authoritative business data and audit records
    |----> Redis 7             active sessions, rate limits, short-lived cache/locks
-   `----> Nextcloud WebDAV    employee files and photos
+   `----> Object storage      employee files and photos (MinIO default, Nextcloud WebDAV
+                              adapter kept for deployments that have not migrated)
 
 Go worker
    |----> PostgreSQL 16       scans due work and records results
    |----> Redis 7             distributed locks/deduplication when required
-   `----> Nextcloud WebDAV    file cleanup when required
+   `----> Object storage      file cleanup when required
 ```
 
 Enforce these boundaries:
 
 - Expose the application publicly through Nginx; do not expose database, Redis, or
-  Nextcloud credentials to the browser.
+  object storage credentials to the browser.
 - Let the backend mediate file authorization. Return only a contract-approved,
   access-controlled URL or proxy response.
-- Treat PostgreSQL as the source of truth. Redis and Nextcloud must not redefine
+- Treat PostgreSQL as the source of truth. Redis and object storage must not redefine
   employee, role, approval, or attendance state.
 - Keep all services on the internal Docker network unless the deployment specification
   explicitly requires a public port.
@@ -205,13 +206,16 @@ backend/
 |   |-- platform/
 |   |   |-- postgres/        repository implementations and transaction adapter
 |   |   |-- redis/           session, rate-limit, cache, lock implementations
-|   |   |-- nextcloud/       WebDAV file-store implementation
+|   |   |-- filestore/       object storage port (Store) and driver-selection factory
+|   |   |-- minio/           MinIO (S3-compatible) adapter, default driver
+|   |   |-- webdav/          Nextcloud/WebDAV adapter, back-compat driver
 |   |   |-- password/        approved password-hashing adapter
 |   |   |-- jwt/             access-token signing and verification adapter
 |   |   |-- export/          CSV/XLSX/PDF implementations when required
 |   |   `-- logger/          approved structured logging adapter
 |   `-- pkg/                 small cross-cutting mechanisms without business meaning
 |       |-- response/        standard JSON success/error writer
+|       |-- objectpath/      shared path-traversal validation for storage adapters
 |       `-- pagination/      validated pagination calculations when genuinely shared
 |-- migrations/              ordered PostgreSQL migrations
 |   |-- <version>_create_core_identity_tables.sql
@@ -427,7 +431,8 @@ Use one database transaction for:
 Do not hold a database transaction open while making slow external calls when avoidable.
 For mixed infrastructure operations, define compensation or durable handoff:
 
-- Nextcloud upload then database insert: delete the uploaded object if the insert fails.
+- Object storage upload then database insert: delete the uploaded object if the insert fails
+  (same compensation for either adapter, MinIO or Nextcloud).
 - Database state then notification delivery: commit a durable notification/outbox record,
   then deliver asynchronously and retry.
 - Session creation after login: if Redis is required for authentication, fail login clearly
@@ -477,17 +482,35 @@ For every key family, define:
 Avoid unbounded keys and values. Do not cache authorization state without invalidating it
 on role, permission, or employee-status changes.
 
-## Nextcloud and file architecture
+## Object storage and file architecture
 
-Access Nextcloud through a `FileStore` port implemented by the WebDAV adapter.
+Access object storage through the `filestore.Store` port (`internal/platform/filestore`).
+`cmd/api` and `cmd/worker` call `filestore.New(ctx, cfg)`, which selects the concrete adapter
+based on `cfg.Storage.Driver` (`STORAGE_DRIVER`):
+
+- `internal/platform/minio` — MinIO (S3-compatible), the default driver since the
+  2026-08-20 decision recorded in `docs/architecture/minio-integration.md`.
+- `internal/platform/webdav` — Nextcloud/WebDAV, kept for deployments that have not
+  migrated.
+
+Service and handler code does not depend on `filestore.Store` directly; each consumer keeps
+its own narrow interface (e.g. `service.DocumentStore` for Upload/Delete, `handler`'s
+`mediaReader` for Download, `worker.PhotoDeleter` for Delete). Both adapters satisfy every one
+of those interfaces structurally, so switching `STORAGE_DRIVER` never touches service or
+handler code — only the composition root (`cmd/api/main.go`, `cmd/worker/main.go`) changes.
 
 - Upload and download through the backend authorization boundary.
 - Enforce the approved maximum file size, MIME allowlist, and filename policy.
 - Generate server-controlled object names; do not trust the client filename as a path.
+  Both adapters validate the object path through `internal/pkg/objectpath` before it becomes
+  an object key/collection path.
 - Store file metadata and the approved locator/URL in PostgreSQL, not file bytes.
-- Never persist or return Nextcloud credentials.
+- Never persist or return object storage credentials (MinIO access/secret key, Nextcloud app
+  password) to handlers, responses, logs, or the frontend.
 - Treat a returned file URL as access-controlled; do not create a permanent public link
-  unless the product and security specifications explicitly require it.
+  unless the product and security specifications explicitly require it. Prefer the backend
+  staying the download proxy over issuing presigned URLs directly to the browser, so
+  per-request authorization checks in the handler cannot be bypassed.
 - Apply timeouts and bounded retries only to safe/idempotent operations.
 - Clean up orphaned uploads using compensation and a scheduled reconciliation job.
 
@@ -554,7 +577,7 @@ unexpected defect -> internal error + correlated server log
 
 - Return only documented error codes and the standard response envelope.
 - Preserve the original cause for server logging without leaking it to clients.
-- Apply deadlines to PostgreSQL, Redis, and Nextcloud operations.
+- Apply deadlines to PostgreSQL, Redis, and object storage operations.
 - Retry only transient errors and only when the operation is idempotent.
 - Use bounded exponential backoff with jitter for worker delivery/reconciliation.
 - Never turn an unknown infrastructure failure into `not found`.
@@ -582,7 +605,7 @@ Emit structured logs with:
 - Dependency name and operation for external failures.
 
 Add metrics for request volume/latency/error rate, database and Redis pool health,
-Nextcloud latency/failures, authentication failures, rate limits, and job outcomes.
+object storage latency/failures, authentication failures, rate limits, and job outcomes.
 
 Propagate the request ID through service, repository, integration, audit, and notification
 operations. For workers, generate a run ID and a per-item correlation ID.
@@ -605,7 +628,8 @@ Use:
 - Handler tests for decode, validation, error mapping, and response shape.
 - Repository integration tests against PostgreSQL.
 - Integration tests for Redis key/TTL behavior.
-- Contract tests for the Nextcloud adapter using a controlled server or fake.
+- Contract tests for each object storage adapter (MinIO, Nextcloud) using a controlled
+  server or fake, run against the same scenarios so both stay behaviorally equivalent.
 - Worker tests for locking, idempotency, batching, retry, and cancellation.
 - API integration tests for middleware order, RBAC, and transaction-visible outcomes.
 

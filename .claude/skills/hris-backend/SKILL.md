@@ -1,6 +1,6 @@
 ---
 name: hris-backend
-description: Use this skill whenever working on the GSNpeeps Go backend. Trigger it for HTTP endpoints, handlers, services, repositories, PostgreSQL migrations, middleware, JWT and Redis sessions, RBAC and row-level authorization, DTOs, validation, Nextcloud WebDAV, exports, audit logs, scheduled workers, notifications, Docker backend services, or any Go file under backend/. Also use it for requests such as add an endpoint, build a service, fix a handler, create a repository, implement attendance or approval rules, or review backend security. GSNpeeps has strict OpenAPI, role, workflow, audit, storage, and idempotency requirements; consult this skill before editing backend code.
+description: Use this skill whenever working on the GSNpeeps Go backend. Trigger it for HTTP endpoints, handlers, services, repositories, PostgreSQL migrations, middleware, JWT and Redis sessions, RBAC and row-level authorization, DTOs, validation, object storage (MinIO, Nextcloud WebDAV), exports, audit logs, scheduled workers, notifications, Docker backend services, or any Go file under backend/. Also use it for requests such as add an endpoint, build a service, fix a handler, create a repository, implement attendance or approval rules, or review backend security. GSNpeeps has strict OpenAPI, role, workflow, audit, storage, and idempotency requirements; consult this skill before editing backend code.
 ---
 
 # GSNpeeps Backend Skill
@@ -17,7 +17,7 @@ Follow this workflow for all backend changes. Do not improvise contracts or intr
 - **Architecture**: `router -> middleware -> handler -> service/use-case -> repository/integration`.
 - **Data**: PostgreSQL 16 with 26 contract tables, including `office_locations`.
 - **Session/rate limit**: Redis 7.
-- **Files**: Nextcloud via backend WebDAV; PostgreSQL stores only URL/path.
+- **Files**: object storage via `filestore.Store` (MinIO default, Nextcloud/WebDAV back-compat); PostgreSQL stores only URL/path.
 - **API**: OpenAPI 3.1, 46 operations, JSON `snake_case`.
 - **Auth**: JWT 8 hours plus Redis `session:<user_id>`; no refresh endpoint.
 - **Roles**: `karyawan`, `atasan`, `hr`, `top_management`.
@@ -67,7 +67,7 @@ packages merely to make the directory tree look complete.
 - `references/dto-validation.md` — create/update DTOs and field validation.
 - `references/migration-pattern.md` — PostgreSQL migration rules.
 - `references/audit-log.md` — append-only audit records and redaction.
-- `references/nextcloud-worker.md` — WebDAV storage and scheduled jobs.
+- `references/nextcloud-worker.md` — object storage (MinIO default, Nextcloud back-compat) and scheduled jobs.
 - `references/testing.md` — unit, integration, concurrency, worker, and security tests.
 
 ## Standard response

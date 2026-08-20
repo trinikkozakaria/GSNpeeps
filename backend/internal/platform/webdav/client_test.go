@@ -25,24 +25,6 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) (*Client, *httptest.S
 	return client, server
 }
 
-func TestSafePathRejectsTraversal(t *testing.T) {
-	for _, value := range []string{"../secret", "employees/../../secret", `employees\..\secret`, "/absolute"} {
-		if _, err := safePath(value); err == nil {
-			t.Fatalf("safePath(%q) accepted traversal", value)
-		}
-	}
-}
-
-func TestSafePathAcceptsNestedRelativePath(t *testing.T) {
-	got, err := safePath("employees/123/contract.pdf")
-	if err != nil {
-		t.Fatalf("safePath() error = %v", err)
-	}
-	if got != "employees/123/contract.pdf" {
-		t.Fatalf("safePath() = %q", got)
-	}
-}
-
 func TestClientRejectsRedirectToWebPage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/index.php", http.StatusFound)

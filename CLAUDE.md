@@ -82,7 +82,10 @@ Nama produk repository ini selalu **GSNpeeps**. `janjikupadamu.id` adalah kandid
 - **Authentication**: JWT dengan masa berlaku 8 jam.
 - **Database**: PostgreSQL 16.
 - **Cache/session/rate limit**: Redis 7.
-- **File integration**: Nextcloud self-hosted melalui WebDAV.
+- **File integration**: object storage di balik interface `filestore` internal. Adapter default
+  adalah **MinIO** (S3-compatible, self-hosted); adapter Nextcloud/WebDAV tetap tersedia dan
+  dapat dipilih lewat konfigurasi untuk deployment yang belum bermigrasi. Lihat
+  `docs/architecture/minio-integration.md` untuk action list migrasi.
 - **Worker**: binary/container terpisah dengan codebase yang sama seperti API.
 
 ### Frontend
@@ -106,7 +109,9 @@ Nama produk repository ini selalu **GSNpeeps**. `janjikupadamu.id` adalah kandid
 - **Reverse proxy**: Nginx.
 - **TLS**: Let's Encrypt/Certbot.
 - **Container**: Docker + Docker Compose.
-- **Services**: `nginx`, `frontend`, `backend-api`, `cron-worker`, `postgres`, `redis`, `nextcloud`.
+- **Services**: `nginx`, `frontend`, `backend-api`, `cron-worker`, `postgres`, `redis`, `minio`.
+  `nextcloud` tetap ada sebagai service opsional (Docker Compose profile) selama adapter WebDAV
+  masih didukung untuk deployment yang belum bermigrasi ke MinIO.
 - Hanya Nginx yang boleh mengekspos port publik. Service lain berada di Docker internal network.
 
 ### Batas Pemilihan Stack
@@ -119,6 +124,11 @@ Nama produk repository ini selalu **GSNpeeps**. `janjikupadamu.id` adalah kandid
   saat kebutuhan nyata muncul dan dicatat tanpa mengganti baseline.
 - **WYSIWYG**: `react-simple-wysiwyg` (dipilih eksplisit dari daftar defect untuk Company
   Feed; konten tetap disimpan sebagai HTML pada `konten_html`; tidak mengganti baseline lain).
+- **Object storage**: keputusan 20 Agustus 2026 mengubah baseline file integration dari
+  Nextcloud-only menjadi interface `filestore` dengan adapter **MinIO** (`github.com/minio/minio-go/v7`)
+  sebagai default dan adapter Nextcloud/WebDAV dipertahankan untuk kompatibilitas mundur.
+  Pemilihan driver aktif memakai env var `STORAGE_DRIVER`. Detail action list ada di
+  `docs/architecture/minio-integration.md`.
 
 ---
 
@@ -746,6 +756,15 @@ REDIS_URL=redis://redis:6379/0
 JWT_SECRET=change-me
 JWT_TTL=8h
 
+STORAGE_DRIVER=minio
+
+MINIO_ENDPOINT=minio:9000
+MINIO_ACCESS_KEY=gsnpeeps-service
+MINIO_SECRET_KEY=change-me
+MINIO_BUCKET=gsnpeeps
+MINIO_USE_SSL=false
+
+# Hanya dipakai saat STORAGE_DRIVER=nextcloud (adapter kompatibilitas mundur).
 NEXTCLOUD_BASE_URL=http://nextcloud/remote.php/dav/files/gsnpeeps
 NEXTCLOUD_USER=gsnpeeps-service
 NEXTCLOUD_APP_PASSWORD=change-me

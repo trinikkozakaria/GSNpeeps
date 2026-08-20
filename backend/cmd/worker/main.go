@@ -10,9 +10,9 @@ import (
 
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/config"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
+	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/filestore"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/postgres"
 	redisstore "github.com/gsnpeeps/gsnpeeps/backend/internal/platform/redis"
-	"github.com/gsnpeeps/gsnpeeps/backend/internal/platform/webdav"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/repository"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/service"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/worker"
@@ -57,9 +57,9 @@ func run() int {
 	}
 	defer cache.Close()
 
-	storage, err := webdav.New(cfg.Nextcloud)
+	storage, err := filestore.New(ctx, cfg)
 	if err != nil {
-		logger.Error("nextcloud adapter startup failed", "error", err)
+		logger.Error("object storage adapter startup failed", "error", err, "driver", cfg.Storage.Driver)
 		return 1
 	}
 

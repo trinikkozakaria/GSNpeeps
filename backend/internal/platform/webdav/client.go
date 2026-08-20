@@ -11,13 +11,8 @@ import (
 	"strings"
 
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/config"
+	"github.com/gsnpeeps/gsnpeeps/backend/internal/pkg/objectpath"
 )
-
-type Storage interface {
-	Upload(context.Context, string, io.Reader, string) (string, error)
-	Delete(context.Context, string) error
-	Health(context.Context) error
-}
 
 type Client struct {
 	baseURL    *url.URL
@@ -32,7 +27,7 @@ func New(cfg config.Nextcloud) (*Client, error) {
 	if err != nil || baseURL.Scheme == "" || baseURL.Host == "" {
 		return nil, errors.New("invalid NEXTCLOUD_WEBDAV_URL")
 	}
-	root, err := safePath(cfg.RootFolder)
+	root, err := objectpath.SafePath(cfg.RootFolder)
 	if err != nil {
 		return nil, fmt.Errorf("invalid NEXTCLOUD_ROOT_FOLDER: %w", err)
 	}
@@ -81,7 +76,7 @@ func (c *Client) Upload(ctx context.Context, objectPath string, body io.Reader, 
 // menolak menulis objek bila koleksi induknya belum ada (Nextcloud mengembalikan 404/409, bukan
 // membuatnya otomatis seperti filesystem lokal).
 func (c *Client) ensureCollections(ctx context.Context, objectPath string) error {
-	object, err := safePath(objectPath)
+	object, err := objectpath.SafePath(objectPath)
 	if err != nil {
 		return err
 	}
@@ -148,7 +143,7 @@ func (c *Client) Delete(ctx context.Context, objectPath string) error {
 
 // Download reads a stored locator returned by Upload through the authenticated WebDAV client.
 func (c *Client) Download(ctx context.Context, storedPath string) (io.ReadCloser, string, error) {
-	cleaned, err := safePath(storedPath)
+	cleaned, err := objectpath.SafePath(storedPath)
 	if err != nil {
 		return nil, "", err
 	}
@@ -189,28 +184,11 @@ func (c *Client) Health(ctx context.Context) error {
 }
 
 func (c *Client) objectURL(objectPath string) (string, error) {
-	object, err := safePath(objectPath)
+	object, err := objectpath.SafePath(objectPath)
 	if err != nil {
 		return "", err
 	}
 	target := *c.baseURL
 	target.Path = path.Join(target.Path, c.rootFolder, object)
 	return target.String(), nil
-}
-
-func safePath(value string) (string, error) {
-	normalized := strings.ReplaceAll(strings.TrimSpace(value), "\\", "/")
-	if normalized == "" || strings.HasPrefix(normalized, "/") {
-		return "", errors.New("path must be relative and non-empty")
-	}
-	for _, part := range strings.Split(normalized, "/") {
-		if part == "" || part == "." || part == ".." {
-			return "", errors.New("path traversal is not allowed")
-		}
-	}
-	cleaned := path.Clean(normalized)
-	if cleaned == "." || strings.HasPrefix(cleaned, "../") {
-		return "", errors.New("path traversal is not allowed")
-	}
-	return cleaned, nil
 }

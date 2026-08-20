@@ -8,7 +8,9 @@ Provision these values through an access-controlled runtime `.env` or the deploy
 
 - `POSTGRES_PASSWORD`
 - `JWT_SECRET`
-- `NEXTCLOUD_ADMIN_PASSWORD`
+- `MINIO_ROOT_PASSWORD` (required for the default `STORAGE_DRIVER=minio`)
+- `NEXTCLOUD_ADMIN_PASSWORD` (only required when running with `--profile nextcloud` /
+  `STORAGE_DRIVER=nextcloud`)
 
 Set these non-secret or environment-specific values as needed:
 
@@ -16,8 +18,15 @@ Set these non-secret or environment-specific values as needed:
 - `APP_ENV`, `LOG_LEVEL`
 - `CORS_ALLOWED_ORIGIN`
 - `POSTGRES_DB`, `POSTGRES_USER`
+- `STORAGE_DRIVER` (default `minio`; set to `nextcloud` only alongside `--profile nextcloud`)
+- `MINIO_ROOT_USER`, `MINIO_BUCKET`
 - `NEXTCLOUD_ADMIN_USER`
 - `SEED_PASSWORD` only for explicitly approved synthetic/local seeding; leave it empty in production
+
+Object storage defaults to MinIO as of the 2026-08-20 decision in
+`docs/architecture/minio-integration.md`. The `nextcloud` Compose service no longer starts by
+default; start it explicitly with `docker compose --profile nextcloud up` for deployments still
+on `STORAGE_DRIVER=nextcloud`.
 
 Restrict secret-file permissions, rotate any value exposed to logs or terminals, and use a high-entropy independent value for each secret.
 
@@ -58,7 +67,7 @@ docker compose logs --since 15m nginx
 docker compose ps
 ```
 
-At minimum alert on repeated failed health checks, API 5xx rate, authentication rate-limit spikes, migration failure, worker restarts/failures, PostgreSQL/Redis unavailability, Nextcloud errors, and disk/volume capacity. Application logs go to container stdout/stderr; centralize them in the deployment platform and restrict access because audit metadata may contain personal identifiers.
+At minimum alert on repeated failed health checks, API 5xx rate, authentication rate-limit spikes, migration failure, worker restarts/failures, PostgreSQL/Redis unavailability, object storage errors (MinIO or Nextcloud), and disk/volume capacity. Application logs go to container stdout/stderr; centralize them in the deployment platform and restrict access because audit metadata may contain personal identifiers.
 
 ## Failure handling
 
@@ -76,9 +85,19 @@ At minimum alert on repeated failed health checks, API 5xx rate, authentication 
 3. Verify lock and idempotency behavior by monitoring duplicate-event constraints and job results.
 4. Do not manually replay a job unless its idempotency key and intended recipients are understood.
 
-### Nextcloud outage
+### Object storage outage (MinIO / Nextcloud)
 
-Employee metadata in PostgreSQL and file content in Nextcloud form one logical record. During outage, block or fail file operations explicitly; do not mark an upload successful without confirmed storage completion. After recovery, verify file metadata and WebDAV content together.
+Employee metadata in PostgreSQL and file content in object storage form one logical record.
+During outage, block or fail file operations explicitly; do not mark an upload successful
+without confirmed storage completion. After recovery, verify file metadata and object storage
+content together — same principle for either driver.
+
+For `STORAGE_DRIVER=minio` (default): check `docker compose ps minio` and the container health
+endpoint (`/minio/health/live`); the backend adapter also self-checks bucket existence at
+startup and fails fast if the configured bucket is missing.
+
+For `STORAGE_DRIVER=nextcloud`: see the Nextcloud-specific procedure below, which applies only
+when running with `--profile nextcloud`.
 
 ### Redis loss or restart
 
@@ -86,12 +105,17 @@ Redis loss removes ephemeral cache/rate-limit state. PostgreSQL-backed session r
 
 ## Consistent backup and restore
 
-Back up PostgreSQL and the Nextcloud data/config/database set within one maintenance window. Record timestamps and checksums. Prevent file mutations during the consistency window or use storage/database snapshots that share a recovery point. A PostgreSQL dump alone is not a complete employee-document backup.
+Back up PostgreSQL and the active object storage's data/config set (MinIO `minio-data` volume,
+or the Nextcloud data/config/database set when running `STORAGE_DRIVER=nextcloud`) within one
+maintenance window. Record timestamps and checksums. Prevent file mutations during the
+consistency window or use storage/database snapshots that share a recovery point. A PostgreSQL
+dump alone is not a complete employee-document backup.
 
 Restore into an isolated environment first:
 
 1. Restore PostgreSQL to the recorded recovery point.
-2. Restore the matching Nextcloud data, configuration, and its own database.
+2. Restore the matching object storage data (the MinIO `minio-data` volume/bucket contents, or
+   the Nextcloud data/configuration/database set for the `nextcloud` driver).
 3. Start dependencies without public ingress.
 4. Run migrations only after confirming the restored schema version.
 5. Verify health, synthetic login, employee metadata-to-file links, and representative downloads.
@@ -99,9 +123,14 @@ Restore into an isolated environment first:
 
 The commands and credentials depend on the deployment backup system; document the exact tested procedure and recovery time before changing the release decision to GO.
 
-### Local restore-drill evidence (2026-08-03)
+### Local restore-drill evidence (2026-08-03, Nextcloud driver)
 
 The disposable Compose project was quiesced for storage copying. `pg_dump -Fc` was restored into a separately named database and representative table counts matched the source (`employees=5`, `notifications=23`, `audit_logs=71`). The Nextcloud volume was copied read-only into a separately named restore volume and both sides contained 26,878 files. The temporary database and volume were then removed, Nextcloud restarted, and application health recovered. This proves the local procedure, but it does not replace a timed restore test using the production backup platform and its encryption, retention, and access controls.
+
+**Known limitation**: this drill predates the 2026-08-20 MinIO decision and only exercises the
+Nextcloud adapter. An equivalent MinIO restore drill (`minio-data` volume copy, or `mc mirror`
+against a backup bucket) has not yet been rehearsed and must be completed before relying on this
+procedure for a `STORAGE_DRIVER=minio` production restore.
 
 ## Application rollback
 
@@ -110,12 +139,12 @@ Record the previous known-good image digest and commit before rollout. If rollba
 1. Remove the candidate from ingress.
 2. Stop state-changing workers.
 3. Decide migration rollback versus forward-fix per migration. Never assume an older image can safely use a newer schema.
-4. If a safe Goose down migration was rehearsed, run exactly one approved step and verify its data impact. Otherwise restore the consistent PostgreSQL/Nextcloud backup or deploy a forward-fix.
+4. If a safe Goose down migration was rehearsed, run exactly one approved step and verify its data impact. Otherwise restore the consistent PostgreSQL/object storage backup or deploy a forward-fix.
 5. Redeploy the recorded image digests, not mutable tags.
 6. Restart Redis when forced session/cache invalidation is required.
 7. Verify combined health, four-role authentication/authorization, worker status, and file access before restoring ingress.
 
-Container rollback does not reverse database writes or Nextcloud file changes. Treat those as explicit compensation or restore work.
+Container rollback does not reverse database writes or object storage file changes. Treat those as explicit compensation or restore work.
 
 ### Local rollback-drill evidence (2026-08-03)
 
@@ -123,4 +152,4 @@ The disposable ingress was cut over from the candidate API to a retained pre-can
 
 ## Credential rotation
 
-Rotate one dependency at a time with an approved maintenance plan. Update the secret store, recreate only the affected services, verify health and authentication, then revoke the previous credential. Rotating `JWT_SECRET` invalidates all signed access tokens and requires a planned user re-login. PostgreSQL and Nextcloud rotations must update both the dependency account and application secret atomically.
+Rotate one dependency at a time with an approved maintenance plan. Update the secret store, recreate only the affected services, verify health and authentication, then revoke the previous credential. Rotating `JWT_SECRET` invalidates all signed access tokens and requires a planned user re-login. PostgreSQL and object storage rotations (MinIO access/secret key, or Nextcloud app password) must update both the dependency account and application secret atomically.

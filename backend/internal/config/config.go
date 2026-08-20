@@ -16,6 +16,8 @@ type Config struct {
 	Redis     Redis
 	JWT       JWT
 	Auth      Auth
+	Storage   Storage
+	MinIO     MinIO
 	Nextcloud Nextcloud
 }
 
@@ -77,6 +79,30 @@ type Nextcloud struct {
 	Timeout     time.Duration
 }
 
+// StorageDriver memilih adapter object storage aktif di balik interface filestore.Store.
+type StorageDriver string
+
+const (
+	// StorageDriverMinIO adalah default sejak keputusan 2026-08-20; lihat
+	// docs/architecture/minio-integration.md.
+	StorageDriverMinIO     StorageDriver = "minio"
+	StorageDriverNextcloud StorageDriver = "nextcloud"
+)
+
+type Storage struct {
+	Driver StorageDriver
+}
+
+type MinIO struct {
+	Endpoint  string
+	AccessKey string
+	SecretKey string
+	Bucket    string
+	UseSSL    bool
+	Region    string
+	Timeout   time.Duration
+}
+
 func Load() (Config, error) {
 	cfg := Config{
 		App: App{
@@ -131,6 +157,21 @@ func Load() (Config, error) {
 			RootFolder:  get("NEXTCLOUD_ROOT_FOLDER", "GSNpeeps"),
 			Timeout:     duration("NEXTCLOUD_HTTP_TIMEOUT", 20*time.Second),
 		},
+		Storage: Storage{
+			Driver: StorageDriver(get("STORAGE_DRIVER", string(StorageDriverMinIO))),
+		},
+		MinIO: MinIO{
+			Endpoint:  os.Getenv("MINIO_ENDPOINT"),
+			AccessKey: os.Getenv("MINIO_ACCESS_KEY"),
+			SecretKey: os.Getenv("MINIO_SECRET_KEY"),
+			Bucket:    get("MINIO_BUCKET", "gsnpeeps"),
+			UseSSL:    boolValue("MINIO_USE_SSL", false),
+			// Region tetap dan diketahui di muka (self-hosted, bukan multi-region AWS), jadi
+			// nilai default diisi eksplisit agar minio-go tidak perlu request GetBucketLocation
+			// tambahan sebelum setiap request pertama.
+			Region:  get("MINIO_REGION", "us-east-1"),
+			Timeout: duration("MINIO_HTTP_TIMEOUT", 20*time.Second),
+		},
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
@@ -141,13 +182,25 @@ func Load() (Config, error) {
 func (c Config) validate() error {
 	var missing []string
 	required := map[string]string{
-		"CORS_ALLOWED_ORIGIN":    c.HTTP.AllowedOrigin,
-		"DATABASE_URL":           c.Postgres.URL,
-		"REDIS_URL":              c.Redis.URL,
-		"JWT_SECRET":             c.JWT.Secret,
-		"NEXTCLOUD_WEBDAV_URL":   c.Nextcloud.BaseURL,
-		"NEXTCLOUD_USERNAME":     c.Nextcloud.Username,
-		"NEXTCLOUD_APP_PASSWORD": c.Nextcloud.AppPassword,
+		"CORS_ALLOWED_ORIGIN": c.HTTP.AllowedOrigin,
+		"DATABASE_URL":        c.Postgres.URL,
+		"REDIS_URL":           c.Redis.URL,
+		"JWT_SECRET":          c.JWT.Secret,
+	}
+	// Hanya mewajibkan credential adapter object storage yang aktif; driver yang tidak
+	// dipilih tidak perlu dikonfigurasi.
+	switch c.Storage.Driver {
+	case StorageDriverMinIO:
+		required["MINIO_ENDPOINT"] = c.MinIO.Endpoint
+		required["MINIO_ACCESS_KEY"] = c.MinIO.AccessKey
+		required["MINIO_SECRET_KEY"] = c.MinIO.SecretKey
+		required["MINIO_BUCKET"] = c.MinIO.Bucket
+	case StorageDriverNextcloud:
+		required["NEXTCLOUD_WEBDAV_URL"] = c.Nextcloud.BaseURL
+		required["NEXTCLOUD_USERNAME"] = c.Nextcloud.Username
+		required["NEXTCLOUD_APP_PASSWORD"] = c.Nextcloud.AppPassword
+	default:
+		return fmt.Errorf("unsupported STORAGE_DRIVER %q", c.Storage.Driver)
 	}
 	for name, value := range required {
 		if strings.TrimSpace(value) == "" {
