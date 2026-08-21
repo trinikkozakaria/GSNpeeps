@@ -47,6 +47,7 @@ describe("NotificationBell", () => {
 
     expect(screen.getByRole("link", { name: "Notifikasi, 3 belum dibaca" })).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", "/app/notifikasi");
+    expect(screen.getByRole("link")).toHaveClass("h-12", "w-12", "rounded-xl");
   });
 
   // Angka besar tidak boleh merusak lebar badge.

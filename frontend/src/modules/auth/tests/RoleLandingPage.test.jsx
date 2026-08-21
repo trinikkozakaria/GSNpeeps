@@ -37,11 +37,11 @@ describe("RoleLandingPage", () => {
   it("renders every requested home summary and company feed", () => {
     render(<RoleLandingPage />);
 
-    expect(screen.getByText("Perlu disetujui")).toBeInTheDocument();
-    expect(screen.getByText("Ketidakhadiran pribadi")).toBeInTheDocument();
-    expect(screen.getByText((_, element) =>
-      element?.tagName === "P" && element.textContent.includes("8 hari · Cuti Tahunan")))
-      .toBeInTheDocument();
+    expect(screen.getByText("Perlu disetujui").parentElement).toHaveClass("bg-slate-900/[0.03]");
+    expect(screen.getByText("Ketidakhadiran pribadi").parentElement).toHaveClass("bg-slate-900/[0.03]");
+    expect(screen.getByText("8")).toHaveClass("text-3xl", "font-bold");
+    expect(screen.getByText("8").parentElement).toHaveClass("mt-1", "items-baseline");
+    expect(screen.getByText("hari · Cuti Tahunan")).toHaveClass("text-sm");
     expect(screen.getByText("Daftar company feed")).toBeInTheDocument();
   });
 

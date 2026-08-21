@@ -25,7 +25,7 @@ export const EmployeeListPage = () => {
       department_id: params.get("department_id") || undefined,
       status: params.get("status") || undefined,
       page: parsePositiveInteger(params.get("page"), 1),
-      limit: 10,
+      limit: parsePositiveInteger(params.get("limit"), 10),
     }),
     [params],
   );
@@ -83,7 +83,11 @@ export const EmployeeListPage = () => {
             >
               Tambah karyawan
             </Link>
-            <EmployeeExportMenu filters={filters} label="Export hasil filter" />
+            <EmployeeExportMenu
+              filters={filters}
+              label="Export hasil filter"
+              labelClassName="text-sm"
+            />
             <EmployeeBulkUpload />
           </div>
         )}
@@ -151,7 +155,10 @@ export const EmployeeListPage = () => {
             <Pagination
               meta={data.meta}
               label="Navigasi halaman daftar karyawan"
+              itemLabel="employee"
+              itemAriaLabel="karyawan"
               onPageChange={(page) => setFilter("page", String(page))}
+              onPageSizeChange={(limit) => setFilter("limit", String(limit))}
             />
           </>
         )}

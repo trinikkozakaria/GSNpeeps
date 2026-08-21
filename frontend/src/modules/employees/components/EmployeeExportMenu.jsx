@@ -10,7 +10,13 @@ const exportErrorMessage = (error) => {
   return error?.message ?? "Export belum dapat diproses.";
 };
 
-export const EmployeeExportMenu = ({ filters, employeeId, label = "Export data" }) => {
+export const EmployeeExportMenu = ({
+  filters,
+  employeeId,
+  label = "Export data",
+  buttonSize = "default",
+  labelClassName = "",
+}) => {
   const [busyFormat, setBusyFormat] = useState("");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
@@ -39,17 +45,15 @@ export const EmployeeExportMenu = ({ filters, employeeId, label = "Export data" 
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={label}>
-        <span className="text-sm text-slate-500">{label}:</span>
-        <Button variant="secondary" disabled={Boolean(busyFormat)} onClick={() => runExport("xlsx")}>
+        <span className={`text-sm text-slate-500 ${labelClassName}`}>{label}:</span>
+        <Button size={buttonSize} variant="secondary" disabled={Boolean(busyFormat)} onClick={() => runExport("xlsx")}>
           {busyFormat === "xlsx" ? "Menyiapkan XLSX…" : "XLSX"}
         </Button>
-        <Button variant="secondary" disabled={Boolean(busyFormat)} onClick={() => runExport("pdf")}>
+        <Button size={buttonSize} variant="secondary" disabled={Boolean(busyFormat)} onClick={() => runExport("pdf")}>
           {busyFormat === "pdf" ? "Menyiapkan PDF…" : "PDF"}
         </Button>
       </div>
-      <p aria-live="polite" className="mt-2 text-sm text-slate-500">
-        {status}
-      </p>
+      {status && <p aria-live="polite" className="mt-2 text-sm text-slate-500">{status}</p>}
       {error && (
         <p role="alert" className="mt-2 text-sm text-rose-700">
           {error}

@@ -1,18 +1,39 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CompanyFeedPage } from "../pages/CompanyFeedPage";
 
-const { createMock, updateMock, deleteMock, mutationStates, feedsState, callOrder } = vi.hoisted(() => ({
+const {
+  createMock,
+  updateMock,
+  deleteMock,
+  uploadAttachmentMock,
+  deleteAttachmentMock,
+  mutationStates,
+  feedsState,
+  callOrder,
+} = vi.hoisted(() => ({
   createMock: vi.fn(),
   updateMock: vi.fn(),
   deleteMock: vi.fn(),
+  uploadAttachmentMock: vi.fn(),
+  deleteAttachmentMock: vi.fn(),
   // [create, update, delete] tambahan state (isPending/isError/error) per mutation.
   mutationStates: { current: [{}, {}, {}] },
   feedsState: { current: {} },
   callOrder: { current: 0 },
+}));
+
+vi.mock("../api/uat-api", async (importOriginal) => ({
+  ...(await importOriginal()),
+  uploadFeedAttachmentRequest: uploadAttachmentMock,
+  deleteFeedAttachmentRequest: deleteAttachmentMock,
+}));
+
+vi.mock("../../../components/media/ProtectedImage", () => ({
+  ProtectedDocumentPreview: ({ fileName }) => <p>Pratinjau {fileName}</p>,
 }));
 
 // CompanyFeedPage memanggil useMutation tiga kali per render dengan urutan tetap
@@ -50,6 +71,8 @@ describe("CompanyFeedPage", () => {
     createMock.mockReset().mockResolvedValue({});
     updateMock.mockReset().mockResolvedValue({});
     deleteMock.mockReset().mockResolvedValue({});
+    uploadAttachmentMock.mockReset().mockResolvedValue({});
+    deleteAttachmentMock.mockReset().mockResolvedValue({});
     mutationStates.current = [{}, {}, {}];
     callOrder.current = 0;
     feedsState.current = {
@@ -102,6 +125,32 @@ describe("CompanyFeedPage", () => {
     expect(await screen.findByText("Company feed berhasil diterbitkan.")).toBeInTheDocument();
   });
 
+  it("uploads a validated attachment after creating the feed", async () => {
+    const user = userEvent.setup();
+    createMock.mockResolvedValue({ id: "feed-new" });
+    renderPage();
+
+    await user.type(screen.getByLabelText("Judul"), "Poster kantor");
+    const editor = screen.getByRole("textbox", { name: "Konten" });
+    editor.innerHTML = "<p>Poster terbaru</p>";
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+    const file = new File(["%PDF-1.7\nsynthetic"], "poster.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText("Attachment (opsional)"), { target: { files: [file] } });
+    await user.click(screen.getByRole("button", { name: "Terbitkan" }));
+
+    await waitFor(() => expect(uploadAttachmentMock).toHaveBeenCalledWith("feed-new", file));
+  });
+
+  it("rejects unsupported attachments before publishing", async () => {
+    renderPage();
+
+    const file = new File(["plain"], "catatan.txt", { type: "text/plain" });
+    fireEvent.change(screen.getByLabelText("Attachment (opsional)"), { target: { files: [file] } });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("gunakan PDF/PNG/JPG/JPEG");
+    expect(uploadAttachmentMock).not.toHaveBeenCalled();
+  });
+
   it("renders pagination from the list meta and requests the next page", async () => {
     const user = userEvent.setup();
     feedsState.current = {
@@ -111,7 +160,9 @@ describe("CompanyFeedPage", () => {
     };
     renderPage();
 
-    expect(screen.getByText("Halaman 1 dari 2 · 25 data")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Navigasi halaman company feed" }))
+      .toHaveTextContent(/1from 2 pages/);
+    expect(screen.getByText("25 data")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Berikutnya" }));
     // Pagination menyimpan halaman di URL; komponen membaca ulang query lewat useSearchParams.
   });
@@ -137,6 +188,25 @@ describe("CompanyFeedPage", () => {
     }));
     expect(await screen.findByText("Company feed berhasil diperbarui.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Feed Baru" })).toBeInTheDocument();
+  });
+
+  it("removes a stored attachment while editing", async () => {
+    const user = userEvent.setup();
+    feedsState.current = {
+      data: {
+        items: [feedFixture({ attachments: [{ id: "attachment-1", file_name: "poster.pdf", file_url: "company-feed/feed-1/poster.pdf", media_type: "application/pdf", file_size: 20 }] })],
+        meta: { page: 1, limit: 20, total_data: 1, total_page: 1 },
+      },
+      isPending: false,
+      isError: false,
+    };
+    renderPage();
+
+    expect(screen.getByText("Pratinjau poster.pdf")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Hapus attachment" }));
+
+    await waitFor(() => expect(deleteAttachmentMock).toHaveBeenCalledWith("feed-1", "attachment-1"));
   });
 
   it("cancels edit mode without submitting", async () => {

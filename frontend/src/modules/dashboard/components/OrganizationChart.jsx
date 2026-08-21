@@ -6,7 +6,7 @@ const OrganizationBranch = ({ nodes }) => (
   <ul className="ml-4 border-l border-slate-900/10 pl-4">
     {nodes.map((node) => (
       <li key={node.employee_id} className="mt-3">
-        <div className="rounded-lg border border-slate-900/10 bg-slate-900/[0.03] p-3">
+        <div className="rounded-lg border border-white bg-white p-3 shadow-sm">
           <p className="font-semibold text-slate-900">{node.nama}</p>
           <p className="text-xs text-slate-500">
             {node.jabatan || "Jabatan belum ditetapkan"} ·{" "}

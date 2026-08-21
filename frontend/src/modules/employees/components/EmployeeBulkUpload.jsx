@@ -5,7 +5,7 @@ import { useBulkEmployees } from "../hooks/useEmployees";
 
 const headers = "nip,nama,email,jenis_kelamin,tanggal_lahir,tanggal_join,department_id,position_id,atasan_id,status_pernikahan,role,jalan,kota,provinsi,nomor_ktp,nomor_kontrak,jenis_kontrak,tanggal_mulai_kontrak,tanggal_berakhir_kontrak\n";
 
-export const EmployeeBulkUpload = () => {
+export const EmployeeBulkUpload = ({ buttonSize = "default" }) => {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState(null);
   const bulk = useBulkEmployees();
@@ -69,7 +69,7 @@ export const EmployeeBulkUpload = () => {
 
   return (
     <>
-      <Button variant="secondary" onClick={() => setOpen(true)}>Bulk upload</Button>
+      <Button size={buttonSize} variant="secondary" onClick={() => setOpen(true)}>Bulk Upload</Button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
           <form

@@ -7,7 +7,14 @@ import { Pagination } from "../../../components/data-table/Pagination";
 import { ConfirmDialog } from "../../../components/feedback/ConfirmDialog";
 import { Button } from "../../../components/ui/Button";
 import { queryClient } from "../../../lib/query/query-client";
-import { createFeedRequest, deleteFeedRequest, feedsRequest, updateFeedRequest } from "../api/uat-api";
+import {
+  createFeedRequest,
+  deleteFeedAttachmentRequest,
+  deleteFeedRequest,
+  feedsRequest,
+  updateFeedRequest,
+  uploadFeedAttachmentRequest,
+} from "../api/uat-api";
 import { FeedCard } from "../components/FeedCard";
 
 // invalidateFeedQueries mencocokkan awalan key ["company-feed", ...], sehingga daftar
@@ -15,6 +22,8 @@ import { FeedCard } from "../components/FeedCard";
 const invalidateFeedQueries = () => queryClient.invalidateQueries({ queryKey: ["company-feed"] });
 
 const emptyForm = { title: "", html: "" };
+const maxAttachmentBytes = 5 * 1024 * 1024;
+const allowedAttachmentTypes = new Set(["application/pdf", "image/png", "image/jpeg"]);
 
 export const CompanyFeedPage = () => {
   document.title = "Company Feed — GSNpeeps";
@@ -29,6 +38,10 @@ export const CompanyFeedPage = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [deletingFeed, setDeletingFeed] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+  const [attachmentFiles, setAttachmentFiles] = useState([]);
+  const [attachmentError, setAttachmentError] = useState("");
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState("");
 
   const feeds = useQuery({
     queryKey: ["company-feed", "admin", page],
@@ -39,14 +52,17 @@ export const CompanyFeedPage = () => {
   const update = useMutation({ mutationFn: ({ id, payload }) => updateFeedRequest(id, payload) });
   const remove = useMutation({ mutationFn: deleteFeedRequest });
 
-  const saving = create.isPending || update.isPending;
+  const saving = create.isPending || update.isPending || uploadingAttachments;
   const canPublish = Boolean(form.title.trim() && contentText.trim()) && !saving;
   const isEditing = editingId !== null;
+  const editingFeed = feeds.data?.items.find((feed) => feed.id === editingId);
 
   const resetForm = () => {
     setEditingId(null);
     setForm(emptyForm);
     setContentText("");
+    setAttachmentFiles([]);
+    setAttachmentError("");
   };
 
   const startEdit = (feed) => {
@@ -57,6 +73,8 @@ export const CompanyFeedPage = () => {
     // langsung dari HTML yang tersimpan alih-alih dibaca dari ref.
     setContentText(new DOMParser().parseFromString(feed.konten_html, "text/html").body.textContent ?? "");
     setSuccessMessage("");
+    setAttachmentFiles([]);
+    setAttachmentError("");
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -64,19 +82,74 @@ export const CompanyFeedPage = () => {
     event.preventDefault();
     if (!canPublish) return;
     setSuccessMessage("");
+    setAttachmentError("");
     const payload = { judul: form.title.trim(), konten_html: form.html };
     try {
+      let targetID = editingId;
       if (isEditing) {
         await update.mutateAsync({ id: editingId, payload });
-        setSuccessMessage("Company feed berhasil diperbarui.");
       } else {
-        await create.mutateAsync(payload);
-        setSuccessMessage("Company feed berhasil diterbitkan.");
+        const created = await create.mutateAsync(payload);
+        targetID = created.id;
       }
-      resetForm();
+
+      let attachmentFailure = null;
+      if (attachmentFiles.length > 0) {
+        setUploadingAttachments(true);
+        try {
+          for (const file of attachmentFiles) {
+            // Upload berurutan menjaga batas memory dan membuat pesan error deterministik.
+            // eslint-disable-next-line no-await-in-loop
+            await uploadFeedAttachmentRequest(targetID, file);
+          }
+        } catch (error) {
+          attachmentFailure = error;
+        } finally {
+          setUploadingAttachments(false);
+        }
+      }
       await invalidateFeedQueries();
+      if (attachmentFailure) {
+        setEditingId(targetID);
+        setAttachmentFiles([]);
+        setAttachmentError(`Feed sudah tersimpan, tetapi ada attachment yang gagal diunggah. ${attachmentFailure.message}`);
+        return;
+      }
+      setSuccessMessage(isEditing ? "Company feed berhasil diperbarui." : "Company feed berhasil diterbitkan.");
+      resetForm();
     } catch {
       // State error mutation dirender di bawah form.
+    }
+  };
+
+  const selectAttachments = (event) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    setAttachmentError("");
+    const existingCount = editingFeed?.attachments?.length ?? 0;
+    if (files.length + existingCount > 5) {
+      setAttachmentError("Maksimal 5 attachment per feed.");
+      return;
+    }
+    const invalid = files.find((file) => !allowedAttachmentTypes.has(file.type) || file.size > maxAttachmentBytes || file.size === 0);
+    if (invalid) {
+      setAttachmentError(`${invalid.name}: gunakan PDF/PNG/JPG/JPEG dengan ukuran maksimal 5 MB.`);
+      return;
+    }
+    setAttachmentFiles(files);
+  };
+
+  const deleteAttachment = async (attachment) => {
+    setAttachmentError("");
+    setDeletingAttachmentId(attachment.id);
+    try {
+      await deleteFeedAttachmentRequest(editingId, attachment.id);
+      await invalidateFeedQueries();
+      setSuccessMessage(`Attachment ${attachment.file_name} berhasil dihapus.`);
+    } catch (error) {
+      setAttachmentError(`Attachment belum dapat dihapus. ${error.message}`);
+    } finally {
+      setDeletingAttachmentId("");
     }
   };
 
@@ -140,8 +213,48 @@ export const CompanyFeedPage = () => {
           }}
           className="min-h-40 p-3 focus:outline-none"
         />
+        <div>
+          <label htmlFor="feed-attachments" className="text-sm font-medium">Attachment (opsional)</label>
+          <input
+            id="feed-attachments"
+            type="file"
+            multiple
+            accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+            disabled={saving}
+            onChange={selectAttachments}
+            className="mt-2 block w-full rounded-lg border border-slate-900/15 bg-white p-3 text-sm"
+          />
+          <p className="mt-1 text-xs text-slate-500">Maksimal 5 file per feed, masing-masing maksimal 5 MB.</p>
+          {attachmentFiles.length > 0 && (
+            <ul className="mt-2 space-y-1 text-sm text-slate-600">
+              {attachmentFiles.map((file) => <li key={`${file.name}-${file.lastModified}`}>{file.name}</li>)}
+            </ul>
+          )}
+        </div>
+        {isEditing && editingFeed?.attachments?.length > 0 && (
+          <div className="rounded-lg border border-slate-900/10 p-3">
+            <p className="text-sm font-semibold">Attachment tersimpan</p>
+            <ul className="mt-2 space-y-2">
+              {editingFeed.attachments.map((attachment) => (
+                <li key={attachment.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span>{attachment.file_name}</span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={Boolean(deletingAttachmentId)}
+                    onClick={() => deleteAttachment(attachment)}
+                    className="min-h-8 px-3 py-1 text-rose-700!"
+                  >
+                    {deletingAttachmentId === attachment.id ? "Menghapus…" : "Hapus attachment"}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {attachmentError && <p role="alert" className="text-red-700">{attachmentError}</p>}
         <Button type="submit" disabled={!canPublish}>
-          {saving ? "Menyimpan…" : isEditing ? "Simpan Perubahan" : "Terbitkan"}
+          {uploadingAttachments ? "Mengunggah attachment…" : saving ? "Menyimpan…" : isEditing ? "Simpan Perubahan" : "Terbitkan"}
         </Button>
         {activeMutationIsError && (
           <p role="alert" className="text-red-700">
@@ -160,7 +273,7 @@ export const CompanyFeedPage = () => {
           </div>
         )}
         {feeds.data && feeds.data.items.length === 0 && (
-          <p className="rounded-xl border border-dashed p-5 text-slate-600">Belum ada informasi perusahaan.</p>
+          <p className="rounded-xl border border-slate-900/10 p-5 text-slate-600">Belum ada informasi perusahaan.</p>
         )}
         {feeds.data && feeds.data.items.length > 0 && (
           <>

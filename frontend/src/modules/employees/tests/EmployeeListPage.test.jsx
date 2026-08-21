@@ -61,14 +61,15 @@ describe("EmployeeListPage", () => {
     receivedFilters.current = null;
   });
 
-  it("reads filters and page from the URL", () => {
-    renderPage("/app/karyawan?search=anita&department_id=dept-1&status=aktif&page=3");
+  it("reads filters, page, and page size from the URL", () => {
+    renderPage("/app/karyawan?search=anita&department_id=dept-1&status=aktif&page=3&limit=50");
 
     expect(receivedFilters.current).toMatchObject({
       search: "anita",
       department_id: "dept-1",
       status: "aktif",
       page: 3,
+      limit: 50,
     });
   });
 
@@ -79,6 +80,16 @@ describe("EmployeeListPage", () => {
     await user.selectOptions(screen.getByLabelText("Status"), "nonaktif");
 
     await waitFor(() => expect(receivedFilters.current.status).toBe("nonaktif"));
+    expect(receivedFilters.current.page).toBe(1);
+  });
+
+  it("stores a changed page size in the URL and resets the page", async () => {
+    const user = userEvent.setup();
+    renderPage("/app/karyawan?page=4");
+
+    await user.selectOptions(screen.getByLabelText("Jumlah karyawan per halaman"), "20");
+
+    await waitFor(() => expect(receivedFilters.current.limit).toBe(20));
     expect(receivedFilters.current.page).toBe(1);
   });
 
@@ -115,7 +126,8 @@ describe("EmployeeListPage", () => {
     renderPage();
 
     expect(screen.getByText("134 karyawan ditemukan")).toBeInTheDocument();
-    expect(screen.getByText(/Halaman 2 dari 14/)).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Navigasi halaman daftar karyawan" }))
+      .toHaveTextContent(/2from 14 pages/);
   });
 
   it("gives HR the create and export controls", () => {

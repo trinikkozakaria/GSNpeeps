@@ -44,18 +44,21 @@ export const RoleLandingPage = () => {
         )}
         {summary.data && (
           <div className="grid gap-4 sm:grid-cols-3" aria-label="Ringkasan beranda">
-            <div className="rounded-xl border p-5">
+            <div className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
               <p className="text-sm text-slate-600">Perlu disetujui</p>
-              <p className="text-3xl font-bold">{summary.data.pengajuan_perlu_disetujui}</p>
+              <p className="mt-1 text-3xl font-bold">{summary.data.pengajuan_perlu_disetujui}</p>
             </div>
-            <div className="rounded-xl border p-5">
+            <div className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
               <p className="text-sm text-slate-600">Ketidakhadiran pribadi</p>
-              <p className="text-3xl font-bold">{summary.data.pengajuan_ketidakhadiran_pribadi}</p>
+              <p className="mt-1 text-3xl font-bold">{summary.data.pengajuan_ketidakhadiran_pribadi}</p>
             </div>
-            <div className="rounded-xl border p-5">
+            <div className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
               <p className="text-sm text-slate-600">Saldo cuti</p>
               {summary.data.saldo_cuti.length ? summary.data.saldo_cuti.map((item) => (
-                <p key={item.jenis}><strong>{item.sisa}</strong> hari · {item.jenis}</p>
+                <p key={item.jenis} className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+                  <strong className="text-3xl font-bold leading-none">{item.sisa}</strong>
+                  <span className="text-sm">hari · {item.jenis}</span>
+                </p>
               )) : <p className="text-sm">Belum tersedia</p>}
             </div>
           </div>

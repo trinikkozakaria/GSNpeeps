@@ -45,7 +45,7 @@ export const CompanyFeedInfiniteList = () => {
 
   const items = feeds.data.pages.flatMap((page) => page.items);
   if (items.length === 0) {
-    return <p className="rounded-xl border border-dashed p-5 text-slate-600">Belum ada informasi perusahaan.</p>;
+    return <p className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5 text-slate-600">Belum ada informasi perusahaan.</p>;
   }
 
   return (

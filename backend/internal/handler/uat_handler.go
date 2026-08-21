@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -30,15 +31,17 @@ const maxFeedPageSize = 100
 
 // UATHandler menangani master dan konten sederhana yang tetap disimpan PostgreSQL.
 // Aturan role diterapkan di sini selain penyaringan menu di frontend.
-type mediaReader interface {
+type mediaStore interface {
+	Upload(context.Context, string, io.Reader, string) (string, error)
 	Download(context.Context, string) (io.ReadCloser, string, error)
+	Delete(context.Context, string) error
 }
 type UATHandler struct {
 	db    *pgxpool.Pool
-	media mediaReader
+	media mediaStore
 }
 
-func NewUATHandler(db *pgxpool.Pool, media ...mediaReader) *UATHandler {
+func NewUATHandler(db *pgxpool.Pool, media ...mediaStore) *UATHandler {
 	h := &UATHandler{db: db}
 	if len(media) > 0 {
 		h.media = media[0]
@@ -72,6 +75,9 @@ func (h *UATHandler) Media(w http.ResponseWriter, r *http.Request) {
 		allowed = true
 	}
 	if strings.Contains(stored, "/overtime-documents/") && (identity.Role == domain.RoleSupervisor || identity.Role == domain.RoleHR || identity.Role == domain.RoleTopManagement) {
+		allowed = true
+	}
+	if strings.HasPrefix(stored, "company-feed/") || strings.Contains(stored, "/company-feed/") {
 		allowed = true
 	}
 	if !allowed {
@@ -208,7 +214,14 @@ func (h *UATHandler) ListFeeds(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := h.db.Query(r.Context(), `
-		SELECT f.id,f.judul,f.konten_html,f.published_at,e.nama
+		SELECT f.id,f.judul,f.konten_html,f.published_at,e.nama,
+		       COALESCE((
+		           SELECT jsonb_agg(jsonb_build_object(
+		               'id', a.id, 'file_name', a.file_name, 'media_type', a.media_type,
+		               'file_size', a.file_size, 'file_url', a.stored_path
+		           ) ORDER BY a.created_at)
+		           FROM company_feed_attachments a WHERE a.feed_id = f.id
+		       ), '[]'::jsonb)
 		FROM company_feeds f
 		JOIN users u ON u.id=f.author_id
 		JOIN employees e ON e.id=u.employee_id
@@ -225,11 +238,17 @@ func (h *UATHandler) ListFeeds(w http.ResponseWriter, r *http.Request) {
 		var id uuid.UUID
 		var title, html, author string
 		var published time.Time
-		if rows.Scan(&id, &title, &html, &published, &author) != nil {
+		var attachmentsJSON []byte
+		if rows.Scan(&id, &title, &html, &published, &author, &attachmentsJSON) != nil {
 			response.Error(w, 500, "INTERNAL_ERROR", "Company feed belum dapat dimuat")
 			return
 		}
-		items = append(items, map[string]any{"id": id, "judul": title, "konten_html": html, "published_at": published, "penulis": author})
+		attachments := make([]map[string]any, 0)
+		if err := json.Unmarshal(attachmentsJSON, &attachments); err != nil {
+			response.Error(w, 500, "INTERNAL_ERROR", "Company feed belum dapat dimuat")
+			return
+		}
+		items = append(items, map[string]any{"id": id, "judul": title, "konten_html": html, "published_at": published, "penulis": author, "attachments": attachments})
 	}
 	response.Paginated(w, items, response.PaginationMeta{
 		Page: page, Limit: limit, TotalData: total, TotalPage: totalPages(total, limit),
@@ -306,6 +325,26 @@ func (h *UATHandler) DeleteFeed(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, 400, "INVALID_PARAM", "ID tidak valid")
 		return
 	}
+	storedPaths := make([]string, 0)
+	rows, err := h.db.Query(r.Context(), `SELECT stored_path FROM company_feed_attachments WHERE feed_id=$1`, id)
+	if err != nil {
+		response.Error(w, 500, "INTERNAL_ERROR", "Lampiran company feed belum dapat diperiksa")
+		return
+	}
+	for rows.Next() {
+		var storedPath string
+		if err := rows.Scan(&storedPath); err != nil {
+			rows.Close()
+			response.Error(w, 500, "INTERNAL_ERROR", "Lampiran company feed belum dapat diperiksa")
+			return
+		}
+		storedPaths = append(storedPaths, storedPath)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		response.Error(w, 500, "INTERNAL_ERROR", "Lampiran company feed belum dapat diperiksa")
+		return
+	}
 	_, err = h.withFeedAudit(w, r, "DELETE", func(ctx context.Context, tx pgx.Tx) (uuid.UUID, error) {
 		tag, execErr := tx.Exec(ctx, `DELETE FROM company_feeds WHERE id=$1`, id)
 		if execErr == nil && tag.RowsAffected() == 0 {
@@ -320,6 +359,13 @@ func (h *UATHandler) DeleteFeed(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		response.Error(w, 500, "INTERNAL_ERROR", "Company feed belum dapat dihapus")
 		return
+	}
+	if h.media != nil {
+		for _, storedPath := range storedPaths {
+			if cleanupErr := h.media.Delete(r.Context(), storedPath); cleanupErr != nil {
+				slog.WarnContext(r.Context(), "company feed attachment cleanup failed", "path", storedPath, "error", cleanupErr)
+			}
+		}
 	}
 	response.Success(w, 200, map[string]any{"id": id}, "Company feed berhasil dihapus")
 }

@@ -18,12 +18,13 @@ vi.mock("../../modules/notifications/components/NotificationBell", () => ({
   NotificationBell: () => <span>Notifikasi</span>,
 }));
 
-const renderShell = () =>
+const renderShell = (entry = "/app") =>
   render(
-    <MemoryRouter initialEntries={["/app"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/app" element={<AppShell />}>
           <Route index element={<p>Konten halaman</p>} />
+          <Route path="profil" element={<p>Konten profil</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -41,6 +42,8 @@ describe("AppShell sidebar", () => {
     const menu = screen.getByRole("list", { name: "Menu utama" });
     const main = screen.getByRole("main");
 
+    expect(within(navigation).queryByText("GSNpeeps")).not.toBeInTheDocument();
+    expect(within(navigation).queryByRole("img")).not.toBeInTheDocument();
     expect(main).toHaveClass("lg:ml-60");
     expect(navigation).toHaveClass("lg:w-60");
     expect(menu).toHaveClass("lg:block");
@@ -59,7 +62,7 @@ describe("AppShell sidebar", () => {
     expect(menu).toHaveClass("lg:hidden");
     const hamburger = screen.getByRole("button", { name: "Buka sidebar" });
     expect(hamburger).toHaveAttribute("aria-expanded", "false");
-    expect(hamburger).toHaveClass("h-8", "w-8");
+    expect(hamburger).toHaveClass("h-8", "w-8", "rounded-md", "focus-visible:outline-2");
     const compactMenu = screen.getByRole("list", { name: "Menu ringkas" });
     expect(compactMenu).toHaveClass("lg:block");
     expect(compactMenu).not.toHaveTextContent(/BR|PR|PG|PS|OR|MN|IN|MD|AD|AK/);
@@ -119,13 +122,55 @@ describe("AppShell sidebar", () => {
   it("groups module links and reveals their children from the parent control", () => {
     renderShell();
 
+    const menu = screen.getByRole("list", { name: "Menu utama" });
+    const topLevelItems = [
+      ["link", "Beranda"],
+      ...["Pribadi", "Pengajuan", "Persetujuan", "Organisasi", "Monitoring", "Informasi", "Master Data", "Administrasi", "Akun"]
+        .map((name) => ["button", name]),
+    ];
+    topLevelItems.forEach(([role, name]) => {
+      expect(within(menu).getByRole(role, { name }).querySelector("svg")).toBeInTheDocument();
+    });
+
     const group = screen.getByRole("button", { name: "Pribadi" });
     expect(group).toHaveAttribute("aria-expanded", "false");
+    const chevron = group.querySelector("span[aria-hidden='true']");
+    expect(chevron).toHaveClass("h-6", "w-6", "items-center", "justify-center");
+    expect(chevron.querySelector("path")).toHaveAttribute("d", "m8 5 5 5-5 5");
 
     fireEvent.click(group);
 
     expect(group).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("link", { name: "Profil Saya" })).toBeInTheDocument();
+    expect(chevron.querySelector("path")).toHaveAttribute("d", "m5 8 5 5 5-5");
+    const profileLink = screen.getByRole("link", { name: "Profil Saya" });
+    expect(profileLink).toBeInTheDocument();
+    expect(profileLink).toHaveClass("py-1.5");
+    expect(profileLink.closest("ul")).toHaveClass("lg:mt-1", "lg:space-y-0.5");
     expect(screen.getByRole("link", { name: "Koreksi Absensi" })).toBeInTheDocument();
+  });
+
+  it("shows the active submenu as bold blue text", () => {
+    renderShell("/app/profil");
+
+    const profileLink = screen.getByRole("link", { name: "Profil Saya" });
+    expect(profileLink).toHaveClass("font-bold", "text-cyan-700");
+    expect(profileLink).not.toHaveClass("bg-cyan-50");
+    expect(screen.getByRole("button", { name: "Pribadi" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("opens account settings and sign out from the profile dropdown", () => {
+    renderShell();
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    const profileButton = screen.getByRole("button", { name: "Buka menu profil" });
+    expect(profileButton).toHaveClass("rounded-xl", "border", "max-w-72");
+    expect(profileButton).not.toHaveClass("sm:min-w-64");
+    expect(profileButton.querySelector("svg")).toHaveClass("text-slate-950");
+    fireEvent.click(profileButton);
+
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: "Pengaturan Akun" }))
+      .toHaveAttribute("href", "/app/keamanan");
+    expect(within(menu).getByRole("menuitem", { name: "Keluar" })).toBeInTheDocument();
   });
 });

@@ -5,11 +5,15 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"os"
 	"strings"
 	"testing"
@@ -29,6 +33,31 @@ type companyFeedFixture struct {
 	handler      *handler.UATHandler
 	hrUserID     uuid.UUID
 	hrEmployeeID uuid.UUID
+	media        *companyFeedMediaStub
+}
+
+type companyFeedMediaStub struct {
+	objects map[string][]byte
+	deleted []string
+}
+
+func (s *companyFeedMediaStub) Upload(_ context.Context, objectPath string, body io.Reader, _ string) (string, error) {
+	content, err := io.ReadAll(body)
+	if err != nil {
+		return "", err
+	}
+	s.objects[objectPath] = content
+	return objectPath, nil
+}
+
+func (s *companyFeedMediaStub) Download(_ context.Context, storedPath string) (io.ReadCloser, string, error) {
+	return io.NopCloser(bytes.NewReader(s.objects[storedPath])), "application/octet-stream", nil
+}
+
+func (s *companyFeedMediaStub) Delete(_ context.Context, objectPath string) error {
+	delete(s.objects, objectPath)
+	s.deleted = append(s.deleted, objectPath)
+	return nil
 }
 
 func newCompanyFeedFixture(t *testing.T) *companyFeedFixture {
@@ -62,8 +91,9 @@ func newCompanyFeedFixture(t *testing.T) *companyFeedFixture {
 		RETURNING id
 	`, employeeID, "hr-feed-"+suffix+"@example.test").Scan(&userID))
 
+	media := &companyFeedMediaStub{objects: make(map[string][]byte)}
 	f := &companyFeedFixture{
-		pool: pool, handler: handler.NewUATHandler(pool), hrUserID: userID, hrEmployeeID: employeeID,
+		pool: pool, handler: handler.NewUATHandler(pool, media), hrUserID: userID, hrEmployeeID: employeeID, media: media,
 	}
 	t.Cleanup(func() {
 		cleanupCtx := context.Background()
@@ -76,6 +106,30 @@ func newCompanyFeedFixture(t *testing.T) *companyFeedFixture {
 		pool.Close()
 	})
 	return f
+}
+
+func (f *companyFeedFixture) attachmentRequest(
+	t *testing.T, feedID uuid.UUID, fileName, mediaType string, content []byte,
+) (*httptest.ResponseRecorder, *http.Request) {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	partHeader := make(textproto.MIMEHeader)
+	partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, fileName))
+	partHeader.Set("Content-Type", mediaType)
+	part, err := writer.CreatePart(partHeader)
+	require.NoError(t, err)
+	_, err = part.Write(content)
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	request := httptest.NewRequest(http.MethodPost, "/company-feed/"+feedID.String()+"/attachments", &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	request = request.WithContext(middleware.WithIdentity(request.Context(), domain.Identity{
+		UserID: f.hrUserID, EmployeeID: f.hrEmployeeID, Role: domain.RoleHR,
+	}))
+	request = mux.SetURLVars(request, map[string]string{"id": feedID.String()})
+	return httptest.NewRecorder(), request
 }
 
 func (f *companyFeedFixture) request(
@@ -204,4 +258,52 @@ func TestCompanyFeedPaginationCreateUpdateDelete(t *testing.T) {
 	)
 	f.handler.DeleteFeed(recorder, request)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
+}
+
+func TestCompanyFeedAttachmentUploadListDelete(t *testing.T) {
+	f := newCompanyFeedFixture(t)
+
+	recorder, request := f.request(t, http.MethodPost, "/company-feed",
+		map[string]string{"judul": "Feed dengan attachment", "konten_html": "<p>Dokumen</p>"}, nil,
+	)
+	f.handler.CreateFeed(recorder, request)
+	require.Equal(t, http.StatusCreated, recorder.Code, recorder.Body.String())
+	created := decodeEnvelope(t, recorder)
+	feedID, err := uuid.Parse(fmt.Sprint(created["data"].(map[string]any)["id"]))
+	require.NoError(t, err)
+
+	recorder, request = f.attachmentRequest(t, feedID, "kebijakan.pdf", "application/pdf", []byte("%PDF-1.7\nsynthetic"))
+	f.handler.UploadFeedAttachment(recorder, request)
+	require.Equal(t, http.StatusCreated, recorder.Code, recorder.Body.String())
+	uploaded := decodeEnvelope(t, recorder)["data"].(map[string]any)
+	attachmentID, err := uuid.Parse(fmt.Sprint(uploaded["id"]))
+	require.NoError(t, err)
+	storedPath := fmt.Sprint(uploaded["file_url"])
+	assert.Contains(t, storedPath, "company-feed/"+feedID.String()+"/")
+	assert.Contains(t, f.media.objects, storedPath)
+
+	recorder, request = f.request(t, http.MethodGet, "/company-feed?limit=100", nil, nil)
+	f.handler.ListFeeds(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	items := decodeEnvelope(t, recorder)["data"].([]any)
+	var found map[string]any
+	for _, raw := range items {
+		item := raw.(map[string]any)
+		if fmt.Sprint(item["id"]) == feedID.String() {
+			found = item
+			break
+		}
+	}
+	require.NotNil(t, found)
+	attachments := found["attachments"].([]any)
+	require.Len(t, attachments, 1)
+	assert.Equal(t, "kebijakan.pdf", attachments[0].(map[string]any)["file_name"])
+
+	recorder, request = f.request(t, http.MethodDelete, "/company-feed/"+feedID.String()+"/attachments/"+attachmentID.String(), nil,
+		map[string]string{"id": feedID.String(), "attachmentId": attachmentID.String()},
+	)
+	f.handler.DeleteFeedAttachment(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	assert.NotContains(t, f.media.objects, storedPath)
+	assert.Contains(t, f.media.deleted, storedPath)
 }
