@@ -129,6 +129,160 @@ svg text {
   font-family: var(--font-sans);
 }
 
+/* Bagan organisasi top-down. Lebar pohon mengikuti seluruh cabangnya, sedangkan
+   overflow ditahan oleh .organization-tree agar hanya isi panel yang bergeser horizontal. */
+.organization-tree {
+  --organization-line: rgb(15 23 42 / 26%);
+  --organization-gap: 1rem;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.organization-tree__canvas {
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+}
+
+.organization-tree ul {
+  display: flex;
+  justify-content: center;
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  padding-left: 0;
+}
+
+.organization-tree__roots {
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.organization-tree__member {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--organization-gap) 0.35rem 0;
+}
+
+.organization-tree__roots > .organization-tree__member {
+  padding-top: 0;
+}
+
+.organization-tree__card {
+  position: relative;
+  z-index: 1;
+  width: 7.5rem;
+  min-height: 2.5rem;
+  border-color: var(--organization-department-color, rgb(255 255 255));
+  background-color: var(--organization-department-color, rgb(255 255 255));
+  color: var(--organization-card-foreground, rgb(15 23 42));
+}
+
+.organization-tree__coordination {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.organization-tree__coordination path {
+  fill: none;
+  stroke: rgb(239 68 68 / 55%);
+  stroke-width: 1px;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.organization-tree__legend span {
+  display: inline-block;
+  width: 1.75rem;
+  margin-right: 0.25rem;
+  border-top: 1px dashed rgb(239 68 68 / 65%);
+  vertical-align: middle;
+}
+
+.organization-tree__card[style] {
+  --organization-card-foreground: white;
+}
+
+.organization-tree__subtitle {
+  color: rgb(100 116 139);
+}
+
+.organization-tree__detail {
+  color: rgb(8 145 178);
+}
+
+.organization-tree__card[style] .organization-tree__subtitle {
+  color: rgb(255 255 255 / 82%);
+}
+
+.organization-tree__card[style] .organization-tree__detail {
+  color: white;
+}
+
+.organization-tree__children {
+  position: relative;
+  padding-top: var(--organization-gap);
+}
+
+.organization-tree__children::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: var(--organization-gap);
+  border-left: 1px solid var(--organization-line);
+}
+
+.organization-tree__children > .organization-tree__member::before,
+.organization-tree__children > .organization-tree__member::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: var(--organization-gap);
+  border-top: 1px solid var(--organization-line);
+}
+
+.organization-tree__children > .organization-tree__member::before {
+  right: 50%;
+}
+
+.organization-tree__children > .organization-tree__member::after {
+  left: 50%;
+  border-left: 1px solid var(--organization-line);
+}
+
+.organization-tree__children > .organization-tree__member:first-child::before,
+.organization-tree__children > .organization-tree__member:last-child::after {
+  border: 0;
+}
+
+.organization-tree__children > .organization-tree__member:last-child::before {
+  border-right: 1px solid var(--organization-line);
+  border-radius: 0 0.5rem 0 0;
+}
+
+.organization-tree__children > .organization-tree__member:first-child::after {
+  border-radius: 0.5rem 0 0;
+}
+
+.organization-tree__children > .organization-tree__member:only-child::before,
+.organization-tree__children > .organization-tree__member:only-child::after {
+  display: none;
+}
+
+.organization-tree__children > .organization-tree__member:only-child {
+  padding-top: 0;
+}
+
 .rsw-ce strong,
 .rsw-ce b,
 .wysiwyg-content strong,

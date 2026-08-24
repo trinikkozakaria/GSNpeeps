@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const colorForIndex = (index) => `hsl(${(index * 137.508 + 214) % 360} 68% 45%)`;
+import { chartColorForIndex } from "../../lib/chart-colors";
 
 export const PieChart = ({ title, items, emptyMessage }) => {
   const [activeSegment, setActiveSegment] = useState(null);
@@ -16,7 +16,7 @@ export const PieChart = ({ title, items, emptyMessage }) => {
     const angle = ((start + percentage / 2) / 100) * Math.PI * 2 - Math.PI / 2;
     return {
       ...item,
-      color: colorForIndex(index),
+      color: chartColorForIndex(index),
       percentage,
       dash: (percentage / 100) * circumference,
       offset: -(start / 100) * circumference,

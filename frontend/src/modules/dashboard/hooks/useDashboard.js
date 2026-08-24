@@ -12,4 +12,6 @@ export const useDashboardMetrics = (scope, filters) =>
     queryKey: dashboardKeys.metrics(scope, filters),
     queryFn: ({ signal }) => dashboardMetricsRequest(filters, signal),
     placeholderData: keepPreviousData,
+    staleTime: 0,
+    refetchOnMount: "always",
   });

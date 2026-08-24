@@ -62,6 +62,7 @@ export const useUpdateEmployee = (scope, id) =>
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: employeeKeys.all }),
         queryClient.invalidateQueries({ queryKey: employeeKeys.detail(scope, id) }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     },
   });
@@ -71,7 +72,10 @@ export const useCreateEmployee = () =>
     mutationFn: (payload) => createEmployeeRequest(payload),
     retry: false,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: employeeKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
     },
   });
 
@@ -80,7 +84,10 @@ export const useBulkEmployees = () =>
     mutationFn: (file) => bulkEmployeesRequest(file),
     retry: false,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: employeeKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
     },
   });
 
@@ -124,6 +131,7 @@ export const useDeactivateEmployee = (scope, id) =>
           queryKey: employeeKeys.documents(scope, id),
           refetchType: "none",
         }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     },
   });

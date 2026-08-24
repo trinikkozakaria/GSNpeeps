@@ -6,7 +6,8 @@
       "type": "pwa-chrome",
       "request": "launch",
       "url": "http://localhost:8080",
-      "webRoot": "${workspaceFolder}/frontend/src"
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "preLaunchTask": "Docker: dev up"
     },
     {
       "name": "Dashboard: Vite lokal",

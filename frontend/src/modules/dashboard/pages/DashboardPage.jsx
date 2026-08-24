@@ -172,17 +172,14 @@ export const DashboardPage = () => {
                 />
               </Panel>
 
-              <Panel id="department-inactive-title" title="Komposisi departemen — nonaktif">
-                <PieChart
-                  title="Karyawan nonaktif per departemen"
-                  items={data.komposisi_departemen_nonaktif}
-                  emptyMessage="Belum ada karyawan nonaktif pada periode ini."
-                />
-              </Panel>
-
-              <Panel id="org-chart-title" title="Struktur organisasi">
-                <OrganizationChart nodes={data.organization_chart} />
-              </Panel>
+              <div className="lg:col-span-2">
+                <Panel id="org-chart-title" title="Struktur organisasi">
+                  <OrganizationChart
+                    nodes={data.organization_chart}
+                    departments={data.komposisi_departemen_aktif}
+                  />
+                </Panel>
+              </div>
             </div>
           </>
         )}

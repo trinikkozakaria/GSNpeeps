@@ -30,7 +30,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Docker: dev up",
+      "label": "Docker: dev services up",
       "type": "process",
       "command": "docker",
       "args": [
@@ -46,6 +46,33 @@
       "options": {
         "cwd": "${workspaceFolder}"
       },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: refresh nginx",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "docker-compose.dev.yml",
+        "restart",
+        "nginx"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: dev up",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Docker: dev services up",
+        "Docker: refresh nginx"
+      ],
       "problemMatcher": []
     },
     {
