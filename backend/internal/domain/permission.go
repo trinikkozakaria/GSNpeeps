@@ -19,6 +19,9 @@ const (
 	ModuleNotification     = "notifikasi"
 	ModuleAccess           = "akses"
 	ModuleAudit            = "audit"
+	// ModuleStaticFile menggerbang proxy berkas statis GET /api/v1/media. Scoping per-berkas
+	// (milik sendiri / bawahan langsung / seluruhnya) tetap di handler.
+	ModuleStaticFile = "berkas"
 )
 
 // Aksi mengikuti enum `Permission.aksi` pada OpenAPI (D-031).
@@ -44,6 +47,7 @@ var permissionCatalog = map[string][]string{
 	ModuleNotification:     {ActionRead, ActionUpdate, ActionDelete},
 	ModuleAccess:           {ActionRead, ActionUpdate},
 	ModuleAudit:            {ActionRead},
+	ModuleStaticFile:       {ActionRead},
 }
 
 // roleDescriptions memberi `deskripsi` pada schema RoleSummary. Kolom deskripsi tidak ada di

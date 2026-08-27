@@ -87,6 +87,12 @@ func New(
 	protected := func(handlerFunc http.HandlerFunc) http.Handler {
 		return auth.Authenticate(auth.AuthenticatedLimit(handlerFunc))
 	}
+	// guarded menambah gerbang kedua berbasis matriks permission di atas otentikasi.
+	guarded := func(module, action string, handlerFunc http.HandlerFunc) http.Handler {
+		return auth.Authenticate(auth.AuthenticatedLimit(
+			access.RequirePermission(module, action)(handlerFunc),
+		))
+	}
 	api.Handle("/auth/logout", protected(auth.Handler.Logout)).Methods(http.MethodPost)
 	api.Handle("/auth/me", protected(auth.Handler.Me)).Methods(http.MethodGet)
 	api.Handle("/auth/me/password", protected(auth.Handler.ChangePassword)).Methods(http.MethodPatch)
@@ -126,7 +132,7 @@ func New(
 		api.Handle("/absensi/koreksi", protected(uat.Handler.ListCorrections)).Methods(http.MethodGet)
 		api.Handle("/absensi/koreksi", protected(uat.Handler.CreateCorrection)).Methods(http.MethodPost)
 		api.Handle("/absensi/koreksi/{id}", protected(uat.Handler.DecideCorrection)).Methods(http.MethodPut)
-		api.Handle("/media", protected(uat.Handler.Media)).Methods(http.MethodGet)
+		api.Handle("/media", guarded("berkas", "read", uat.Handler.Media)).Methods(http.MethodGet)
 		api.Handle("/beranda", protected(uat.Handler.HomeSummary)).Methods(http.MethodGet)
 	}
 
@@ -170,11 +176,6 @@ func New(
 	api.Handle("/notifikasi/{id}", protected(notifications.Handler.Dismiss)).
 		Methods(http.MethodDelete)
 
-	guarded := func(module, action string, handlerFunc http.HandlerFunc) http.Handler {
-		return auth.Authenticate(auth.AuthenticatedLimit(
-			access.RequirePermission(module, action)(handlerFunc),
-		))
-	}
 	api.Handle("/akses/role", guarded("akses", "read", access.Handler.ListRoles)).
 		Methods(http.MethodGet)
 	api.Handle("/akses/permission", guarded("akses", "read", access.Handler.PermissionMatrix)).

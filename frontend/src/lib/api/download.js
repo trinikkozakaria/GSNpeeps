@@ -29,9 +29,17 @@ const filenameFromDisposition = (headerValue, fallback) => {
 export const downloadFile = async (path, params, { signal, fallbackFileName } = {}) => {
   const query = new URLSearchParams();
   Object.entries(params ?? {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      query.set(key, String(value));
+    if (value === undefined || value === null || value === "") return;
+    if (Array.isArray(value)) {
+      // Filter multi-select dikirim sebagai kunci berulang, konsisten dengan apiClient.
+      value.forEach((item) => {
+        if (item !== undefined && item !== null && item !== "") {
+          query.append(key, String(item));
+        }
+      });
+      return;
     }
+    query.set(key, String(value));
   });
   const suffix = query.toString() ? `?${query}` : "";
   const token = readAccessToken();

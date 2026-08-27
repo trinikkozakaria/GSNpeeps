@@ -28,6 +28,8 @@ describe("RoleLandingPage", () => {
         pengajuan_perlu_disetujui: 2,
         pengajuan_ketidakhadiran_pribadi: 3,
         saldo_cuti: [{ jenis: "Cuti Tahunan", sisa: 8 }],
+        departemen: "Teknologi",
+        jabatan: "Backend Engineer",
       },
       isPending: false,
       isError: false,
@@ -43,6 +45,15 @@ describe("RoleLandingPage", () => {
     expect(screen.getByText("8").parentElement).toHaveClass("mt-1", "items-baseline");
     expect(screen.getByText("hari · Cuti Tahunan")).toHaveClass("text-sm");
     expect(screen.getByText("Daftar company feed")).toBeInTheDocument();
+  });
+
+  it("shows departemen and jabatan instead of the role", () => {
+    render(<RoleLandingPage />);
+
+    expect(screen.getByText("Departemen")).toBeInTheDocument();
+    expect(screen.getByText("Teknologi")).toBeInTheDocument();
+    expect(screen.getByText("Jabatan")).toBeInTheDocument();
+    expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
   });
 
   it("keeps the summary visible while loading", () => {

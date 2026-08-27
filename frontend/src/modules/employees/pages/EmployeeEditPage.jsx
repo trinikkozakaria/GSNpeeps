@@ -17,6 +17,7 @@ import { EmployeeSelectField } from "../components/EmployeeSelectField";
 import {
   useDepartments,
   useEmployeeDetail,
+  useEmployees,
   usePositions,
   useUpdateEmployee,
 } from "../hooks/useEmployees";
@@ -34,6 +35,7 @@ export const EmployeeEditPage = () => {
   const navigate = useNavigate();
   const detail = useEmployeeDetail(auth.role, id);
   const departments = useDepartments();
+  const supervisors = useEmployees(auth.role, { status: "aktif", page: 1, limit: 100 });
   const mutation = useUpdateEmployee(auth.role, id);
   const [formError, setFormError] = useState("");
   const {
@@ -54,6 +56,8 @@ export const EmployeeEditPage = () => {
       tanggal_join: "",
       department_id: "",
       position_id: "",
+      atasan_id: "",
+      role: "karyawan",
       status_pernikahan: "",
       status: "aktif",
       ...emptyEmployeeDetailDefaults,
@@ -72,6 +76,8 @@ export const EmployeeEditPage = () => {
         tanggal_join: detail.data.tanggal_join,
         department_id: detail.data.department_id ?? "",
         position_id: detail.data.position_id ?? "",
+        atasan_id: detail.data.atasan_id ?? "",
+        role: detail.data.role ?? "karyawan",
         status_pernikahan: detail.data.status_pernikahan ?? "",
         status: detail.data.status,
         ...mapEmployeeDetailToFormDefaults(detail.data),
@@ -84,6 +90,7 @@ export const EmployeeEditPage = () => {
     const { bpjs, npwp, kontak_darurat, pendidikan, riwayat_jabatan, gaji_berjalan, ...rest } = values;
     const payload = {
       ...rest,
+      atasan_id: values.atasan_id || null,
       status_pernikahan: values.status_pernikahan || undefined,
       ...buildEmployeeDetailPayload(values),
     };
@@ -137,6 +144,18 @@ export const EmployeeEditPage = () => {
         <EmployeeSelectField id="employee-position" label="Jabatan" registration={register("position_id")} error={errors.position_id?.message} disabled={isSubmitting || !departmentId}>
           <option value="">Pilih jabatan</option>
           {(positions.data ?? []).map((item) => <option key={item.id} value={item.id}>{item.nama}</option>)}
+        </EmployeeSelectField>
+        <EmployeeSelectField id="employee-supervisor" label="Atasan langsung" registration={register("atasan_id")} error={errors.atasan_id?.message} disabled={isSubmitting}>
+          <option value="">Tanpa atasan langsung</option>
+          {(supervisors.data?.items ?? [])
+            .filter((item) => item.id !== id)
+            .map((item) => <option key={item.id} value={item.id}>{item.nama} — {item.jabatan}</option>)}
+        </EmployeeSelectField>
+        <EmployeeSelectField id="employee-role" label="Role sistem" registration={register("role")} error={errors.role?.message} disabled={isSubmitting}>
+          <option value="karyawan">Karyawan</option>
+          <option value="atasan">Atasan</option>
+          <option value="hr">HR</option>
+          <option value="top_management">Top Management</option>
         </EmployeeSelectField>
         <EmployeeSelectField id="employee-status" label="Status karyawan" registration={register("status")} error={errors.status?.message} disabled={isSubmitting}>
           <option value="aktif">Aktif</option>

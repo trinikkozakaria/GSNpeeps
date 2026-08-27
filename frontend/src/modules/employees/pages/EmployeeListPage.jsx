@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { Pagination } from "../../../components/data-table/Pagination";
+import { CheckboxMultiSelect } from "../../../components/form/CheckboxMultiSelect";
 import { Button } from "../../../components/ui/Button";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { EmployeeExportMenu } from "../components/EmployeeExportMenu";
@@ -22,7 +23,7 @@ export const EmployeeListPage = () => {
   const filters = useMemo(
     () => ({
       search: params.get("search") || undefined,
-      department_id: params.get("department_id") || undefined,
+      department_id: params.getAll("department_id"),
       status: params.get("status") || undefined,
       page: parsePositiveInteger(params.get("page"), 1),
       limit: parsePositiveInteger(params.get("limit"), 10),
@@ -57,13 +58,23 @@ export const EmployeeListPage = () => {
     setParams(next);
   };
 
+  const setDepartments = (ids) => {
+    const next = new URLSearchParams(params);
+    next.delete("department_id");
+    ids.forEach((id) => next.append("department_id", id));
+    next.delete("page");
+    setParams(next);
+  };
+
   const clearFilters = () => {
     setSearchInput("");
     setParams({});
   };
 
   const data = employees.data;
-  const isFiltered = Boolean(filters.search || filters.department_id || filters.status);
+  const isFiltered = Boolean(
+    filters.search || filters.department_id.length > 0 || filters.status,
+  );
 
   return (
     <section aria-labelledby="employee-title">
@@ -103,19 +114,17 @@ export const EmployeeListPage = () => {
             className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
-        <label className="text-sm font-medium text-slate-700">
-          Departemen
-          <select
-            value={filters.department_id ?? ""}
-            onChange={(event) => setFilter("department_id", event.target.value)}
-            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
-          >
-            <option value="">Semua departemen</option>
-            {(departments.data ?? []).map((department) => (
-              <option key={department.id} value={department.id}>{department.nama}</option>
-            ))}
-          </select>
-        </label>
+        <CheckboxMultiSelect
+          legend="Departemen"
+          allLabel="Semua departemen"
+          options={(departments.data ?? []).map((department) => ({
+            value: department.id,
+            label: department.nama,
+          }))}
+          selected={filters.department_id}
+          onChange={setDepartments}
+          emptyLabel="Memuat departemen…"
+        />
         <label className="text-sm font-medium text-slate-700">
           Status
           <select

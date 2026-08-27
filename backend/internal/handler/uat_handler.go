@@ -49,6 +49,79 @@ func NewUATHandler(db *pgxpool.Pool, media ...mediaStore) *UATHandler {
 	return h
 }
 
+// mediaAllowed menegakkan scoping berkas statis di atas gerbang matriks `berkas`/`read`:
+//
+//   - HR dan Top Management: seluruh berkas.
+//   - company-feed: seluruh role terautentikasi (pengumuman internal).
+//   - Karyawan: hanya berkas ter-namespace ke dirinya sendiri.
+//   - Atasan: berkas milik sendiri atau milik bawahan langsung.
+//
+// Path yang tidak dikenal namespace-nya ditolak untuk non-HR (fail closed).
+func (h *UATHandler) mediaAllowed(ctx context.Context, identity domain.Identity, stored string) bool {
+	if identity.Role == domain.RoleHR || identity.Role == domain.RoleTopManagement {
+		return true
+	}
+
+	ownerID, kind, ok := staticFileOwner(stored)
+	if !ok {
+		return false
+	}
+	if kind == "feed" {
+		return true
+	}
+
+	ownerEmployeeID := ownerID
+	if kind == "user" {
+		if err := h.db.QueryRow(ctx,
+			`SELECT employee_id FROM users WHERE id = $1`, ownerID,
+		).Scan(&ownerEmployeeID); err != nil {
+			return false
+		}
+	}
+	if ownerEmployeeID == identity.EmployeeID {
+		return true
+	}
+	if identity.Role == domain.RoleSupervisor && ownerEmployeeID != uuid.Nil {
+		var isSubordinate bool
+		if err := h.db.QueryRow(ctx, `
+			SELECT EXISTS(
+				SELECT 1 FROM employees
+				WHERE id = $1 AND atasan_id = $2 AND deleted_at IS NULL
+			)
+		`, ownerEmployeeID, identity.EmployeeID).Scan(&isSubordinate); err != nil {
+			return false
+		}
+		return isSubordinate
+	}
+	return false
+}
+
+// staticFileOwner mengekstrak pemilik berkas dari object key yang ter-namespace per
+// karyawan/user. Segmen dikenali di posisi mana pun agar prefix root opsional (deployment
+// WebDAV) tetap tertangani. `kind` bernilai "employee", "user", atau "feed".
+func staticFileOwner(stored string) (id uuid.UUID, kind string, ok bool) {
+	segments := strings.Split(strings.Trim(stored, "/"), "/")
+	for index, segment := range segments {
+		switch segment {
+		case "employee-photos", "employee-documents":
+			kind = "employee"
+		case "attendance-photos", "leave-documents", "overtime-documents":
+			kind = "user"
+		case "company-feed":
+			return uuid.Nil, "feed", true
+		default:
+			continue
+		}
+		if index+1 < len(segments) {
+			if parsed, err := uuid.Parse(segments[index+1]); err == nil {
+				return parsed, kind, true
+			}
+		}
+		return uuid.Nil, "", false
+	}
+	return uuid.Nil, "", false
+}
+
 func (h *UATHandler) Media(w http.ResponseWriter, r *http.Request) {
 	if h.media == nil {
 		response.Error(w, 503, "SERVICE_UNAVAILABLE", "Berkas belum tersedia")
@@ -64,23 +137,7 @@ func (h *UATHandler) Media(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusUnauthorized, "INVALID_TOKEN", "Sesi tidak valid")
 		return
 	}
-	allowed := identity.Role == domain.RoleHR
-	if strings.Contains(stored, "/employee-photos/"+identity.EmployeeID.String()+"/") ||
-		strings.Contains(stored, "/attendance-photos/"+identity.UserID.String()+"/") ||
-		strings.Contains(stored, "/leave-documents/"+identity.UserID.String()+"/") ||
-		strings.Contains(stored, "/overtime-documents/"+identity.UserID.String()+"/") {
-		allowed = true
-	}
-	if strings.Contains(stored, "/leave-documents/") && (identity.Role == domain.RoleSupervisor || identity.Role == domain.RoleTopManagement) {
-		allowed = true
-	}
-	if strings.Contains(stored, "/overtime-documents/") && (identity.Role == domain.RoleSupervisor || identity.Role == domain.RoleHR || identity.Role == domain.RoleTopManagement) {
-		allowed = true
-	}
-	if strings.HasPrefix(stored, "company-feed/") || strings.Contains(stored, "/company-feed/") {
-		allowed = true
-	}
-	if !allowed {
+	if !h.mediaAllowed(r.Context(), identity, stored) {
 		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Anda tidak memiliki akses ke berkas")
 		return
 	}
@@ -117,6 +174,11 @@ func (h *UATHandler) HomeSummary(w http.ResponseWriter, r *http.Request) {
 	}
 	var mine int
 	_ = h.db.QueryRow(r.Context(), `SELECT COUNT(*) FROM leave_requests WHERE user_id=$1 AND status NOT IN ('dibatalkan')`, identity.UserID).Scan(&mine)
+
+	// Departemen dan jabatan pengguna untuk widget identitas di halaman Beranda (D-feedback).
+	var departemen, jabatan string
+	_ = h.db.QueryRow(r.Context(), `SELECT COALESCE(d.nama,''), COALESCE(p.nama,'') FROM employees e LEFT JOIN departments d ON d.id=e.department_id LEFT JOIN positions p ON p.id=e.position_id WHERE e.id=$1`, identity.EmployeeID).Scan(&departemen, &jabatan)
+
 	pending := 0
 	switch identity.Role {
 	case domain.RoleSupervisor:
@@ -126,7 +188,7 @@ func (h *UATHandler) HomeSummary(w http.ResponseWriter, r *http.Request) {
 	case domain.RoleTopManagement:
 		_ = h.db.QueryRow(r.Context(), `SELECT (SELECT COUNT(*) FROM leave_requests WHERE status='menunggu_top_management')+(SELECT COUNT(*) FROM overtime_requests WHERE status='menunggu_top_management')`).Scan(&pending)
 	}
-	response.Success(w, 200, map[string]any{"saldo_cuti": balances, "pengajuan_perlu_disetujui": pending, "pengajuan_ketidakhadiran_pribadi": mine}, "Ringkasan beranda berhasil dimuat")
+	response.Success(w, 200, map[string]any{"saldo_cuti": balances, "pengajuan_perlu_disetujui": pending, "pengajuan_ketidakhadiran_pribadi": mine, "departemen": departemen, "jabatan": jabatan}, "Ringkasan beranda berhasil dimuat")
 }
 
 type documentTypeInput struct {
@@ -265,11 +327,26 @@ func (h *UATHandler) CreateFeed(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, 400, "INVALID_PARAM", "Judul atau konten tidak valid")
 		return
 	}
+	title := strings.TrimSpace(input.Title)
 	id, err := h.withFeedAudit(w, r, "CREATE", func(ctx context.Context, tx pgx.Tx) (uuid.UUID, error) {
 		var created uuid.UUID
-		err := tx.QueryRow(ctx, `INSERT INTO company_feeds(author_id,judul,konten_html) VALUES($1,$2,$3) RETURNING id`,
-			identity.UserID, strings.TrimSpace(input.Title), strings.TrimSpace(input.HTML)).Scan(&created)
-		return created, err
+		if err := tx.QueryRow(ctx, `INSERT INTO company_feeds(author_id,judul,konten_html) VALUES($1,$2,$3) RETURNING id`,
+			identity.UserID, title, strings.TrimSpace(input.HTML)).Scan(&created); err != nil {
+			return created, err
+		}
+		// Notifikasi in-app ke seluruh pengguna aktif selain penulis. Idempotensi dijaga
+		// UNIQUE (recipient_user_id, event_key); event_key deterministik per feed.
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO notifications (recipient_user_id, tipe, judul, pesan, referensi_id, referensi_tipe, event_key)
+			SELECT u.id, 'company_feed_baru', $2, $3, $1, 'company_feed', $5
+			FROM users u
+			JOIN employees e ON e.id = u.employee_id
+			WHERE e.status = 'aktif' AND e.deleted_at IS NULL AND u.id <> $4
+			ON CONFLICT (recipient_user_id, event_key) DO NOTHING
+		`, created, "Pengumuman baru di Company Feed", title, identity.UserID, "company_feed:"+created.String()); err != nil {
+			return created, err
+		}
+		return created, nil
 	}, "Company feed belum dapat diterbitkan")
 	if err != nil {
 		return
@@ -388,6 +465,8 @@ func (h *UATHandler) withFeedAudit(
 	}
 	tx, err := h.db.Begin(r.Context())
 	if err != nil {
+		slog.ErrorContext(r.Context(), "company feed transaction begin failed",
+			"action", action, "error", err)
 		if errorMessage != "" {
 			response.Error(w, 500, "INTERNAL_ERROR", errorMessage)
 		}
@@ -397,8 +476,14 @@ func (h *UATHandler) withFeedAudit(
 
 	id, err := mutate(r.Context(), tx)
 	if err != nil {
-		if errorMessage != "" && !errors.Is(err, pgx.ErrNoRows) {
-			response.Error(w, 500, "INTERNAL_ERROR", errorMessage)
+		if !errors.Is(err, pgx.ErrNoRows) {
+			// Error asli (mis. pelanggaran constraint saat insert feed/notifikasi) di-log
+			// lengkap; client hanya menerima pesan generik.
+			slog.ErrorContext(r.Context(), "company feed mutation failed",
+				"action", action, "error", err)
+			if errorMessage != "" {
+				response.Error(w, 500, "INTERNAL_ERROR", errorMessage)
+			}
 		}
 		return id, err
 	}
@@ -413,6 +498,8 @@ func (h *UATHandler) withFeedAudit(
 		return id, err
 	}
 	if err = tx.Commit(r.Context()); err != nil {
+		slog.ErrorContext(r.Context(), "company feed transaction commit failed",
+			"action", action, "error", err)
 		if errorMessage != "" {
 			response.Error(w, 500, "INTERNAL_ERROR", errorMessage)
 		}

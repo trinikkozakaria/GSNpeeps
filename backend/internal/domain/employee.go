@@ -110,6 +110,7 @@ type NewEmployeeDocument struct {
 type EmployeeDetail struct {
 	EmployeeSummary
 	PhotoURL          *string            `json:"foto_profil_url"`
+	Role              RoleName           `json:"role"`
 	Gender            string             `json:"jenis_kelamin"`
 	BirthDate         string             `json:"tanggal_lahir"`
 	JoinDate          string             `json:"tanggal_join"`
@@ -129,11 +130,13 @@ type EmployeeDetail struct {
 }
 
 type EmployeeFilter struct {
-	Search       string
-	DepartmentID *uuid.UUID
-	Status       string
-	Page         int
-	Limit        int
+	Search string
+	// DepartmentIDs mem-filter ke beberapa departemen sekaligus (checkbox multi-select pada
+	// FE). Kosong berarti seluruh departemen; satu elemen setara filter tunggal sebelumnya.
+	DepartmentIDs []uuid.UUID
+	Status        string
+	Page          int
+	Limit         int
 }
 
 // ExportFormat adalah format berkas export yang disetujui kontrak; lihat keputusan D-017.

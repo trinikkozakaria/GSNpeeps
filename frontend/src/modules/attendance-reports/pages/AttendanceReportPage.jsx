@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { DataTable } from "../../../components/data-table/DataTable";
 import { Pagination } from "../../../components/data-table/Pagination";
+import { CheckboxMultiSelect } from "../../../components/form/CheckboxMultiSelect";
 import { Button } from "../../../components/ui/Button";
 import { formatNumber } from "../../../lib/format";
 import { useAuth } from "../../auth/hooks/useAuth";
@@ -17,13 +18,15 @@ export const AttendanceReportPage = () => {
   const auth = useAuth();
   const [params, setParams] = useSearchParams();
   const canRead = monitoringRoles.includes(auth.role);
+  const [nameInput, setNameInput] = useState(params.get("nama") ?? "");
 
   const filters = useMemo(
     () => ({
+      nama: params.get("nama") || undefined,
       periode: params.get("periode") || undefined,
       tanggal_mulai: params.get("tanggal_mulai") || undefined,
       tanggal_selesai: params.get("tanggal_selesai") || undefined,
-      department_id: params.get("department_id") || undefined,
+      department_id: params.getAll("department_id"),
       page: Number.parseInt(params.get("page") ?? "1", 10) || 1,
       limit: 10,
     }),
@@ -40,6 +43,30 @@ export const AttendanceReportPage = () => {
     if (key !== "page") next.delete("page");
     setParams(next);
   };
+
+  const setDepartments = (ids) => {
+    const next = new URLSearchParams(params);
+    next.delete("department_id");
+    ids.forEach((id) => next.append("department_id", id));
+    next.delete("page");
+    setParams(next);
+  };
+
+  // Debounce input nama agar tidak memicu fetch per ketikan; state page direset.
+  useEffect(() => {
+    const normalized = nameInput.trim();
+    const timer = window.setTimeout(() => {
+      setParams((current) => {
+        if (normalized === (current.get("nama") ?? "")) return current;
+        const next = new URLSearchParams(current);
+        if (normalized) next.set("nama", normalized);
+        else next.delete("nama");
+        next.delete("page");
+        return next;
+      }, { replace: true });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [nameInput, setParams]);
 
   const columns = [
     { key: "nama", header: "Karyawan", render: (row) => row.nama_karyawan },
@@ -59,6 +86,16 @@ export const AttendanceReportPage = () => {
       </p>
 
       <div className="mt-7 grid gap-4 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="text-sm font-medium text-slate-700">
+          Cari nama karyawan
+          <input
+            type="search"
+            value={nameInput}
+            onChange={(event) => setNameInput(event.target.value)}
+            placeholder="mis. Budi"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+          />
+        </label>
         <label className="text-sm font-medium text-slate-700">
           Periode (YYYY-MM)
           <input
@@ -86,19 +123,17 @@ export const AttendanceReportPage = () => {
             className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
-        <label className="text-sm font-medium text-slate-700">
-          Departemen
-          <select
-            value={filters.department_id ?? ""}
-            onChange={(event) => setFilter("department_id", event.target.value)}
-            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
-          >
-            <option value="">Semua departemen</option>
-            {(departments.data ?? []).map((item) => (
-              <option key={item.id} value={item.id}>{item.nama}</option>
-            ))}
-          </select>
-        </label>
+        <CheckboxMultiSelect
+          legend="Departemen"
+          allLabel="Semua departemen"
+          options={(departments.data ?? []).map((item) => ({
+            value: item.id,
+            label: item.nama,
+          }))}
+          selected={filters.department_id}
+          onChange={setDepartments}
+          emptyLabel="Memuat departemen…"
+        />
       </div>
 
       {/* Export hanya tersedia bagi HR sesuai API Contract. */}

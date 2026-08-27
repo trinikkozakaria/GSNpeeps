@@ -20,6 +20,10 @@ export const apiClient = axios.create({
   headers: {
     Accept: "application/json",
   },
+  // Parameter array di-serialisasi sebagai kunci berulang tanpa `[]`
+  // (`?department_id=a&department_id=b`) agar cocok dengan pembacaan multi-value di backend
+  // Go untuk filter checkbox multi-select.
+  paramsSerializer: { indexes: null },
 });
 
 export const protectedMediaRequest = async (path, signal) => {

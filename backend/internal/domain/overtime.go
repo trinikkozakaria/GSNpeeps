@@ -81,7 +81,9 @@ type OvertimeRecapItem struct {
 }
 
 type OvertimeRecapFilter struct {
-	Start        *string
-	End          *string
-	DepartmentID *uuid.UUID
+	Start *string
+	End   *string
+	// DepartmentIDs mem-filter ke beberapa departemen sekaligus (checkbox multi-select FE).
+	// Kosong berarti seluruh departemen.
+	DepartmentIDs []uuid.UUID
 }

@@ -98,3 +98,14 @@ func TestRoleDescriptionCoversEveryRole(t *testing.T) {
 		assert.NotEmptyf(t, RoleDescription(role), "deskripsi role %s wajib ada", role)
 	}
 }
+
+// Berkas statis (proxy /media) dapat dipegang setiap role; scoping per-berkas ada di handler.
+func TestValidatePermissionChangeAllowsStaticFileForEveryRole(t *testing.T) {
+	require.True(t, KnownCapability(ModuleStaticFile, ActionRead))
+	for _, role := range []RoleName{RoleEmployee, RoleSupervisor, RoleHR, RoleTopManagement} {
+		assert.NoErrorf(t,
+			ValidatePermissionChange(role, change(ModuleStaticFile, ActionRead, true)),
+			"role %s harus boleh memegang berkas.read", role,
+		)
+	}
+}

@@ -20,7 +20,7 @@ func (h *EmployeeHandler) Export(writer http.ResponseWriter, request *http.Reque
 	if !ok {
 		return
 	}
-	departmentID, ok := optionalUUIDQuery(writer, request, "department_id")
+	departmentIDs, ok := optionalUUIDListQuery(writer, request, "department_id")
 	if !ok {
 		return
 	}
@@ -39,9 +39,9 @@ func (h *EmployeeHandler) Export(writer http.ResponseWriter, request *http.Reque
 		Format:     format,
 		EmployeeID: employeeID,
 		Filter: domain.EmployeeFilter{
-			Search:       strings.TrimSpace(request.URL.Query().Get("search")),
-			DepartmentID: departmentID,
-			Status:       strings.TrimSpace(request.URL.Query().Get("status")),
+			Search:        strings.TrimSpace(request.URL.Query().Get("search")),
+			DepartmentIDs: departmentIDs,
+			Status:        strings.TrimSpace(request.URL.Query().Get("status")),
 		},
 	}, h.requestMeta(request))
 	if err != nil {

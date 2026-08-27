@@ -189,7 +189,7 @@ func (h *EmployeeHandler) List(writer http.ResponseWriter, request *http.Request
 		response.FromError(writer, domain.ErrInvalidToken)
 		return
 	}
-	departmentID, ok := optionalUUIDQuery(writer, request, "department_id")
+	departmentIDs, ok := optionalUUIDListQuery(writer, request, "department_id")
 	if !ok {
 		return
 	}
@@ -202,11 +202,11 @@ func (h *EmployeeHandler) List(writer http.ResponseWriter, request *http.Request
 		return
 	}
 	result, err := h.service.List(request.Context(), identity, domain.EmployeeFilter{
-		Search:       request.URL.Query().Get("search"),
-		DepartmentID: departmentID,
-		Status:       strings.TrimSpace(request.URL.Query().Get("status")),
-		Page:         page,
-		Limit:        limit,
+		Search:        request.URL.Query().Get("search"),
+		DepartmentIDs: departmentIDs,
+		Status:        strings.TrimSpace(request.URL.Query().Get("status")),
+		Page:          page,
+		Limit:         limit,
 	})
 	if err != nil {
 		response.FromError(writer, err)
@@ -258,6 +258,37 @@ func optionalUUIDQuery(
 		return nil, false
 	}
 	return &value, true
+}
+
+// optionalUUIDListQuery membaca parameter yang dapat muncul beberapa kali
+// (mis. `?department_id=a&department_id=b`) untuk mendukung checkbox multi-select di FE.
+// Satu nilai tunggal tetap valid sehingga kontrak lama tidak berubah. Nilai kosong diabaikan.
+func optionalUUIDListQuery(
+	writer http.ResponseWriter,
+	request *http.Request,
+	key string,
+) ([]uuid.UUID, bool) {
+	raw := request.URL.Query()[key]
+	if len(raw) == 0 {
+		return nil, true
+	}
+	values := make([]uuid.UUID, 0, len(raw))
+	for _, item := range raw {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		value, err := uuid.Parse(item)
+		if err != nil {
+			response.Error(writer, http.StatusBadRequest, "INVALID_PARAM", "Parameter "+key+" tidak valid")
+			return nil, false
+		}
+		values = append(values, value)
+	}
+	if len(values) == 0 {
+		return nil, true
+	}
+	return values, true
 }
 
 func positiveIntQuery(

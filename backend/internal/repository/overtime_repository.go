@@ -255,10 +255,10 @@ func (r *OvertimeRepository) Recap(
 		WHERE o.status = 'disetujui'
 		  AND ($1::date IS NULL OR o.tanggal >= $1::date)
 		  AND ($2::date IS NULL OR o.tanggal <= $2::date)
-		  AND ($3::uuid IS NULL OR e.department_id = $3)
+		  AND ($3::uuid[] IS NULL OR e.department_id = ANY($3))
 		GROUP BY e.id, e.nama, d.nama
 		ORDER BY e.nama, e.id
-	`, filter.Start, filter.End, filter.DepartmentID)
+	`, filter.Start, filter.End, filter.DepartmentIDs)
 	if err != nil {
 		return nil, fmt.Errorf("query overtime recap: %w", err)
 	}

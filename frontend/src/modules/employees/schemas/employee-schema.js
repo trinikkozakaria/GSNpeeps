@@ -103,6 +103,7 @@ export const employeeDocumentListSchema = z.array(employeeDocumentSchema);
 
 export const employeeDetailSchema = employeeSummarySchema.extend({
   foto_profil_url: z.string().nullable().optional(),
+  role: z.enum(["karyawan", "atasan", "hr", "top_management"]).optional(),
   jenis_kelamin: z.enum(["L", "P"]),
   tanggal_lahir: dateSchema,
   tanggal_join: dateSchema,
@@ -199,6 +200,8 @@ export const updateEmployeeSchema = z.object({
   tanggal_join: dateSchema,
   department_id: uuidSchema,
   position_id: uuidSchema,
+  atasan_id: z.union([uuidSchema, z.literal("")]),
+  role: z.enum(["karyawan", "atasan", "hr", "top_management"]),
   status_pernikahan: z.enum(["", "lajang", "menikah", "cerai"]),
   status: z.enum(["aktif", "nonaktif"]),
   ...employeeDetailFormFields,

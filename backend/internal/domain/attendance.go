@@ -132,11 +132,14 @@ type AttendanceReportPage struct {
 
 // AttendanceReportFilter memakai rentang tanggal yang sudah diselesaikan service (D-026).
 type AttendanceReportFilter struct {
-	Start        time.Time
-	End          time.Time
-	DepartmentID *uuid.UUID
-	Page         int
-	Limit        int
+	Start time.Time
+	End   time.Time
+	// Name mem-filter bebas berdasarkan nama karyawan (ILIKE). Kosong berarti tanpa filter.
+	Name string
+	// DepartmentIDs mem-filter ke beberapa departemen sekaligus (checkbox multi-select FE).
+	DepartmentIDs []uuid.UUID
+	Page          int
+	Limit         int
 }
 
 // ExpiredPhoto adalah foto absensi yang melewati masa retensi tiga bulan.

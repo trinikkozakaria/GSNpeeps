@@ -595,11 +595,12 @@ func (r *EmployeeRepository) List(
 		search = "%" + search + "%"
 	}
 	offset := (filter.Page - 1) * filter.Limit
-	args := []any{search, filter.DepartmentID, filter.Status}
+	args := []any{search, filter.DepartmentIDs, filter.Status}
 	// Pencarian dibatasi pada nama dan NIP sesuai API Contract v1.1 §5.1.
+	// $2 adalah uuid[]; nil berarti tanpa filter departemen (checkbox multi-select FE).
 	where := `
 		($1 = '' OR e.nama ILIKE $1 OR e.nip ILIKE $1)
-		AND ($2::uuid IS NULL OR e.department_id = $2)
+		AND ($2::uuid[] IS NULL OR e.department_id = ANY($2))
 		AND ($3 = '' OR e.status = $3)`
 
 	var total int
@@ -663,9 +664,10 @@ func (r *EmployeeRepository) FindByID(
 		       e.jenis_kelamin, TO_CHAR(e.tanggal_lahir, 'YYYY-MM-DD'),
 		       TO_CHAR(e.tanggal_join, 'YYYY-MM-DD'),
 		       e.department_id, e.position_id, e.atasan_id, e.status_pernikahan,
-		       e.foto_profil_url
+		       e.foto_profil_url, COALESCE(r.nama, 'karyawan')
 		FROM employees e
 		LEFT JOIN users u ON u.employee_id = e.id
+		LEFT JOIN roles r ON r.id = u.role_id
 		LEFT JOIN departments d ON d.id = e.department_id
 		LEFT JOIN positions p ON p.id = e.position_id
 		WHERE e.id = $1
@@ -685,6 +687,7 @@ func (r *EmployeeRepository) FindByID(
 		&item.SupervisorID,
 		&item.MaritalStatus,
 		&item.PhotoURL,
+		&item.Role,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.EmployeeDetail{}, ErrNotFound
@@ -1070,11 +1073,11 @@ func (r *EmployeeRepository) ExportRows(
 		LEFT JOIN positions p ON p.id = e.position_id
 		WHERE ($1::uuid IS NULL OR e.id = $1)
 		  AND ($2 = '' OR e.nama ILIKE $2 OR e.nip ILIKE $2)
-		  AND ($3::uuid IS NULL OR e.department_id = $3)
+		  AND ($3::uuid[] IS NULL OR e.department_id = ANY($3))
 		  AND ($4 = '' OR e.status = $4)
 		ORDER BY e.nama, e.id
 		LIMIT $5
-	`, query.EmployeeID, search, query.Filter.DepartmentID, query.Filter.Status, maxRows)
+	`, query.EmployeeID, search, query.Filter.DepartmentIDs, query.Filter.Status, maxRows)
 	if err != nil {
 		return nil, fmt.Errorf("query employee export rows: %w", err)
 	}

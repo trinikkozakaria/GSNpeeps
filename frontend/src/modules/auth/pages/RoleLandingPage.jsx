@@ -22,14 +22,18 @@ export const RoleLandingPage = () => {
         Anda masuk sebagai {roleLabel[auth.role]}. Navigasi hanya menampilkan area yang
         relevan untuk role ini; backend tetap memverifikasi permission dan scope setiap permintaan.
       </p>
-      <dl className="mt-8 grid gap-4 sm:grid-cols-2">
+      <dl className="mt-8 grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
           <dt className="text-sm text-slate-600">Email</dt>
           <dd className="mt-1 font-semibold">{auth.user.email}</dd>
         </div>
         <div className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
-          <dt className="text-sm text-slate-600">Role</dt>
-          <dd className="mt-1 font-semibold">{roleLabel[auth.role]}</dd>
+          <dt className="text-sm text-slate-600">Departemen</dt>
+          <dd className="mt-1 font-semibold">{summary.data?.departemen || "—"}</dd>
+        </div>
+        <div className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
+          <dt className="text-sm text-slate-600">Jabatan</dt>
+          <dd className="mt-1 font-semibold">{summary.data?.jabatan || "—"}</dd>
         </div>
       </dl>
 

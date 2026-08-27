@@ -224,7 +224,7 @@ func (h *AttendanceHandler) reportQuery(
 	writer http.ResponseWriter,
 	request *http.Request,
 ) (service.ReportQuery, bool) {
-	departmentID, ok := optionalUUIDQuery(writer, request, "department_id")
+	departmentIDs, ok := optionalUUIDListQuery(writer, request, "department_id")
 	if !ok {
 		return service.ReportQuery{}, false
 	}
@@ -238,12 +238,13 @@ func (h *AttendanceHandler) reportQuery(
 	}
 	query := request.URL.Query()
 	return service.ReportQuery{
-		Period:       strings.TrimSpace(query.Get("periode")),
-		Start:        strings.TrimSpace(query.Get("tanggal_mulai")),
-		End:          strings.TrimSpace(query.Get("tanggal_selesai")),
-		DepartmentID: departmentID,
-		Page:         page,
-		Limit:        limit,
+		Period:        strings.TrimSpace(query.Get("periode")),
+		Start:         strings.TrimSpace(query.Get("tanggal_mulai")),
+		End:           strings.TrimSpace(query.Get("tanggal_selesai")),
+		Name:          strings.TrimSpace(query.Get("nama")),
+		DepartmentIDs: departmentIDs,
+		Page:          page,
+		Limit:         limit,
 	}, true
 }
 

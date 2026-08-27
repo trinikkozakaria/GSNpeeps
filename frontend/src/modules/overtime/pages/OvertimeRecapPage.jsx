@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { DataTable } from "../../../components/data-table/DataTable";
 import { ExportButton } from "../../../components/data-table/ExportButton";
+import { CheckboxMultiSelect } from "../../../components/form/CheckboxMultiSelect";
 import { Button } from "../../../components/ui/Button";
 import { formatNumber } from "../../../lib/format";
 import { useAuth } from "../../auth/hooks/useAuth";
@@ -24,7 +25,7 @@ export const OvertimeRecapPage = () => {
     () => ({
       tanggal_mulai: params.get("tanggal_mulai") || undefined,
       tanggal_selesai: params.get("tanggal_selesai") || undefined,
-      department_id: params.get("department_id") || undefined,
+      department_id: params.getAll("department_id"),
     }),
     [params],
   );
@@ -36,6 +37,13 @@ export const OvertimeRecapPage = () => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
     else next.delete(key);
+    setParams(next);
+  };
+
+  const setDepartments = (ids) => {
+    const next = new URLSearchParams(params);
+    next.delete("department_id");
+    ids.forEach((id) => next.append("department_id", id));
     setParams(next);
   };
 
@@ -83,19 +91,17 @@ export const OvertimeRecapPage = () => {
             className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
           />
         </label>
-        <label className="text-sm font-medium text-slate-700">
-          Departemen
-          <select
-            value={filters.department_id ?? ""}
-            onChange={(event) => setFilter("department_id", event.target.value)}
-            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
-          >
-            <option value="">Semua departemen</option>
-            {(departments.data ?? []).map((item) => (
-              <option key={item.id} value={item.id}>{item.nama}</option>
-            ))}
-          </select>
-        </label>
+        <CheckboxMultiSelect
+          legend="Departemen"
+          options={(departments.data ?? []).map((item) => ({
+            value: item.id,
+            label: item.nama,
+          }))}
+          selected={filters.department_id}
+          onChange={setDepartments}
+          allLabel="Semua departemen"
+          emptyLabel="Memuat departemen…"
+        />
       </div>
 
       <div className="mt-5">

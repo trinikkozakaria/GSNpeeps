@@ -6,6 +6,19 @@ import { Button } from "../../../components/ui/Button";
 import { formatCurrency, formatDate, formatNumber, formatPercent } from "../../../lib/format";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { ComingSoonCards } from "../components/ComingSoonCards";
+import {
+  CalendarCheckIcon,
+  ClipboardCheckIcon,
+  ClockIcon,
+  DoorExitIcon,
+  InboxIcon,
+  TrendingUpIcon,
+  UserCheckIcon,
+  UserPlusIcon,
+  UserXIcon,
+  UsersIcon,
+  WalletIcon,
+} from "../components/MetricIcons";
 import { OrganizationChart } from "../components/OrganizationChart";
 import { useDashboardMetrics } from "../hooks/useDashboard";
 import { dashboardPeriods } from "../schemas/dashboard-schema";
@@ -24,11 +37,20 @@ const genderLabel = {
   belum_diisi: "Belum diisi",
 };
 
-const MetricCard = ({ label, value, hint }) => (
+const MetricCard = ({ label, value, description, icon, iconClass = "bg-slate-100 text-slate-600" }) => (
   <div className="rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-5">
-    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-    <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{value}</p>
-    {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+    <div className="flex items-center gap-3">
+      {icon && (
+        <span
+          className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconClass}`}
+        >
+          {icon}
+        </span>
+      )}
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
+    </div>
+    <p className="mt-3 text-3xl font-bold tabular-nums text-slate-900">{value}</p>
+    {description && <p className="mt-1 text-xs text-slate-500">{description}</p>}
   </div>
 );
 
@@ -126,32 +148,86 @@ export const DashboardPage = () => {
             </p>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <MetricCard label="Total karyawan" value={formatNumber(data.total_karyawan)} />
-              <MetricCard label="Karyawan aktif" value={formatNumber(data.karyawan_aktif)} />
-              <MetricCard label="Karyawan nonaktif" value={formatNumber(data.karyawan_nonaktif)} />
-              <MetricCard label="Karyawan baru" value={formatNumber(data.karyawan_baru)} hint="Bergabung dalam periode" />
-              <MetricCard label="Resign" value={formatNumber(data.resign)} hint="Dinonaktifkan dalam periode" />
+              <MetricCard
+                label="Total karyawan"
+                value={formatNumber(data.total_karyawan)}
+                description="Seluruh status kepegawaian"
+                icon={<UsersIcon />}
+                iconClass="bg-cyan-100 text-cyan-700"
+              />
+              <MetricCard
+                label="Karyawan aktif"
+                value={formatNumber(data.karyawan_aktif)}
+                description="Berstatus aktif hari ini"
+                icon={<UserCheckIcon />}
+                iconClass="bg-emerald-100 text-emerald-700"
+              />
+              <MetricCard
+                label="Karyawan nonaktif"
+                value={formatNumber(data.karyawan_nonaktif)}
+                description="Tidak aktif periode ini"
+                icon={<UserXIcon />}
+                iconClass="bg-slate-200 text-slate-600"
+              />
+              <MetricCard
+                label="Karyawan baru"
+                value={formatNumber(data.karyawan_baru)}
+                description="Bergabung dalam periode"
+                icon={<UserPlusIcon />}
+                iconClass="bg-sky-100 text-sky-700"
+              />
+              <MetricCard
+                label="Resign"
+                value={formatNumber(data.resign)}
+                description="Dinonaktifkan dalam periode"
+                icon={<DoorExitIcon />}
+                iconClass="bg-amber-100 text-amber-700"
+              />
               <MetricCard
                 label="Turnover rate"
                 value={formatPercent(data.turnover_rate)}
-                hint="Resign dibagi rata-rata headcount"
+                description="Resign dibagi rata-rata headcount"
+                icon={<TrendingUpIcon />}
+                iconClass="bg-rose-100 text-rose-700"
               />
               <MetricCard
                 label="Estimasi biaya payroll"
                 value={formatCurrency(data.estimasi_biaya_payroll)}
-                hint="Proporsional hari kerja Senin–Jumat"
+                description="Proporsional hari kerja Senin–Jumat"
+                icon={<WalletIcon />}
+                iconClass="bg-violet-100 text-violet-700"
               />
-              <MetricCard label="Pengajuan menunggu" value={formatNumber(data.pengajuan_menunggu)} />
+              <MetricCard
+                label="Pengajuan menunggu"
+                value={formatNumber(data.pengajuan_menunggu)}
+                description="Butuh persetujuan Anda"
+                icon={<InboxIcon />}
+                iconClass="bg-orange-100 text-orange-700"
+              />
             </div>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <MetricCard
                 label="Kehadiran valid"
                 value={formatNumber(data.hadir_valid)}
-                hint="Memiliki clock-in dan clock-out"
+                description="Memiliki clock-in dan clock-out"
+                icon={<CalendarCheckIcon />}
+                iconClass="bg-emerald-100 text-emerald-700"
               />
-              <MetricCard label="Terlambat" value={formatNumber(data.terlambat)} hint="Check-in setelah 09.00 WIB" />
-              <MetricCard label="Hari izin disetujui" value={formatNumber(data.hari_izin_disetujui)} />
+              <MetricCard
+                label="Terlambat"
+                value={formatNumber(data.terlambat)}
+                description="Check-in setelah 09.00 WIB"
+                icon={<ClockIcon />}
+                iconClass="bg-amber-100 text-amber-700"
+              />
+              <MetricCard
+                label="Hari izin disetujui"
+                value={formatNumber(data.hari_izin_disetujui)}
+                description="Disetujui dalam periode"
+                icon={<ClipboardCheckIcon />}
+                iconClass="bg-indigo-100 text-indigo-700"
+              />
             </div>
 
             <div className="mt-8 grid gap-6 lg:grid-cols-2">

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -178,12 +179,20 @@ func (r *AttendanceRepository) Report(
 	end := filter.End.Format(domain.DateLayout)
 	offset := (filter.Page - 1) * filter.Limit
 
+	// Filter departemen adalah multi-select (uuid[]; nil = semua). Filter nama bebas (ILIKE).
+	nameLike := ""
+	if name := strings.TrimSpace(filter.Name); name != "" {
+		nameLike = "%" + name + "%"
+	}
+
 	var total int
 	if err := r.pool.QueryRow(ctx, `
 		SELECT COUNT(*)
 		FROM employees e
-		WHERE e.deleted_at IS NULL AND ($1::uuid IS NULL OR e.department_id = $1)
-	`, filter.DepartmentID).Scan(&total); err != nil {
+		WHERE e.deleted_at IS NULL
+		  AND ($1::uuid[] IS NULL OR e.department_id = ANY($1))
+		  AND ($2 = '' OR e.nama ILIKE $2)
+	`, filter.DepartmentIDs, nameLike).Scan(&total); err != nil {
 		return domain.AttendanceReportPage{}, fmt.Errorf("count report employees: %w", err)
 	}
 
@@ -225,10 +234,12 @@ func (r *AttendanceRepository) Report(
 		LEFT JOIN departments d ON d.id = e.department_id
 		LEFT JOIN kehadiran ON kehadiran.employee_id = e.id
 		LEFT JOIN izin ON izin.employee_id = e.id
-		WHERE e.deleted_at IS NULL AND ($3::uuid IS NULL OR e.department_id = $3)
+		WHERE e.deleted_at IS NULL
+		  AND ($3::uuid[] IS NULL OR e.department_id = ANY($3))
+		  AND ($6 = '' OR e.nama ILIKE $6)
 		ORDER BY e.nama, e.id
 		LIMIT $4 OFFSET $5
-	`, start, end, filter.DepartmentID, filter.Limit, offset)
+	`, start, end, filter.DepartmentIDs, filter.Limit, offset, nameLike)
 	if err != nil {
 		return domain.AttendanceReportPage{}, fmt.Errorf("query attendance report: %w", err)
 	}

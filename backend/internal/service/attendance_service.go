@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -392,12 +393,15 @@ func liveFeedTable(items []domain.AttendanceLiveFeedItem, date string) export.Ta
 
 // ReportQuery adalah parameter laporan sebelum rentang diselesaikan.
 type ReportQuery struct {
-	Period       string
-	Start        string
-	End          string
-	DepartmentID *uuid.UUID
-	Page         int
-	Limit        int
+	Period string
+	Start  string
+	End    string
+	// Name mem-filter bebas berdasarkan nama karyawan. DepartmentIDs mendukung checkbox
+	// multi-select di FE (kosong = semua departemen).
+	Name          string
+	DepartmentIDs []uuid.UUID
+	Page          int
+	Limit         int
 }
 
 // Report menghitung rekap kehadiran. Rentang mengikuti keputusan D-026.
@@ -425,9 +429,10 @@ func (s *AttendanceService) resolveReportRange(
 	query ReportQuery,
 ) (domain.AttendanceReportFilter, error) {
 	filter := domain.AttendanceReportFilter{
-		DepartmentID: query.DepartmentID,
-		Page:         query.Page,
-		Limit:        query.Limit,
+		Name:          strings.TrimSpace(query.Name),
+		DepartmentIDs: query.DepartmentIDs,
+		Page:          query.Page,
+		Limit:         query.Limit,
 	}
 	if filter.Page < 1 {
 		filter.Page = 1

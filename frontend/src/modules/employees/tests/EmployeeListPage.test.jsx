@@ -66,7 +66,7 @@ describe("EmployeeListPage", () => {
 
     expect(receivedFilters.current).toMatchObject({
       search: "anita",
-      department_id: "dept-1",
+      department_id: ["dept-1"],
       status: "aktif",
       page: 3,
       limit: 50,

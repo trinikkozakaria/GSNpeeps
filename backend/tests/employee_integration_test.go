@@ -160,10 +160,10 @@ func TestEmployeeListFiltersSearchAndPagination(t *testing.T) {
 	ctx := context.Background()
 
 	page, err := f.employees.List(ctx, domain.EmployeeFilter{
-		Search:       "Anita Sintetis",
-		DepartmentID: &f.departmentID,
-		Page:         1,
-		Limit:        10,
+		Search:        "Anita Sintetis",
+		DepartmentIDs: []uuid.UUID{f.departmentID},
+		Page:          1,
+		Limit:         10,
 	})
 	require.NoError(t, err)
 	require.Len(t, page.Items, 1)
@@ -171,30 +171,30 @@ func TestEmployeeListFiltersSearchAndPagination(t *testing.T) {
 
 	// Pencarian dibatasi pada nama dan NIP; email bukan field pencarian kontrak.
 	page, err = f.employees.List(ctx, domain.EmployeeFilter{
-		Search:       "example.test",
-		DepartmentID: &f.departmentID,
-		Page:         1,
-		Limit:        10,
+		Search:        "example.test",
+		DepartmentIDs: []uuid.UUID{f.departmentID},
+		Page:          1,
+		Limit:         10,
 	})
 	require.NoError(t, err)
 	assert.Empty(t, page.Items)
 
 	page, err = f.employees.List(ctx, domain.EmployeeFilter{
-		DepartmentID: &f.departmentID,
-		Status:       "nonaktif",
-		Page:         1,
-		Limit:        10,
+		DepartmentIDs: []uuid.UUID{f.departmentID},
+		Status:        "nonaktif",
+		Page:          1,
+		Limit:         10,
 	})
 	require.NoError(t, err)
 	require.Len(t, page.Items, 1)
 	assert.Equal(t, f.inactiveID, page.Items[0].ID)
 
 	first, err := f.employees.List(ctx, domain.EmployeeFilter{
-		DepartmentID: &f.departmentID, Page: 1, Limit: 2,
+		DepartmentIDs: []uuid.UUID{f.departmentID}, Page: 1, Limit: 2,
 	})
 	require.NoError(t, err)
 	second, err := f.employees.List(ctx, domain.EmployeeFilter{
-		DepartmentID: &f.departmentID, Page: 2, Limit: 2,
+		DepartmentIDs: []uuid.UUID{f.departmentID}, Page: 2, Limit: 2,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 3, first.Total)
@@ -329,7 +329,7 @@ func TestEmployeeExportRowsHonourFilters(t *testing.T) {
 	ctx := context.Background()
 
 	rows, err := f.employees.ExportRows(ctx, domain.EmployeeExportQuery{
-		Filter: domain.EmployeeFilter{DepartmentID: &f.departmentID},
+		Filter: domain.EmployeeFilter{DepartmentIDs: []uuid.UUID{f.departmentID}},
 	}, 5000)
 	require.NoError(t, err)
 	assert.Len(t, rows, 3)
@@ -343,8 +343,8 @@ func TestEmployeeExportRowsHonourFilters(t *testing.T) {
 
 	rows, err = f.employees.ExportRows(ctx, domain.EmployeeExportQuery{
 		Filter: domain.EmployeeFilter{
-			DepartmentID: &f.departmentID,
-			Search:       "tidak-ada-kecocokan",
+			DepartmentIDs: []uuid.UUID{f.departmentID},
+			Search:        "tidak-ada-kecocokan",
 		},
 	}, 5000)
 	require.NoError(t, err)

@@ -12,6 +12,7 @@ const presentation = {
   auto_escalate: { icon: "⏫", label: "Eskalasi otomatis" },
   delegasi: { icon: "🔁", label: "Delegasi" },
   kontrak_akan_habis: { icon: "📄", label: "Kontrak akan berakhir" },
+  company_feed_baru: { icon: "📢", label: "Company Feed" },
 };
 
 const fallbackPresentation = { icon: "🔔", label: "Notifikasi" };
@@ -27,6 +28,8 @@ const referenceRoutes = {
   ketidakhadiran: (id) => `/app/persetujuan/ketidakhadiran/${id}`,
   lembur: (id) => `/app/persetujuan/lembur/${id}`,
   karyawan: (id) => `/app/karyawan/${id}`,
+  // Company Feed tampil di Beranda untuk semua role; id feed tidak dipakai pada path.
+  company_feed: () => "/app",
 };
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -11,9 +11,10 @@ export const notificationTypes = [
   "auto_escalate",
   "delegasi",
   "kontrak_akan_habis",
+  "company_feed_baru",
 ];
 
-export const notificationReferenceTypes = ["ketidakhadiran", "lembur", "karyawan"];
+export const notificationReferenceTypes = ["ketidakhadiran", "lembur", "karyawan", "company_feed"];
 
 export const notificationSchema = z.object({
   id: z.string(),

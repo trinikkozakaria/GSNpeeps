@@ -248,11 +248,11 @@ func (h *OvertimeHandler) Recap(writer http.ResponseWriter, request *http.Reques
 func (h *OvertimeHandler) recapFilter(
 	writer http.ResponseWriter, request *http.Request,
 ) (domain.OvertimeRecapFilter, bool) {
-	departmentID, ok := optionalUUIDQuery(writer, request, "department_id")
+	departmentIDs, ok := optionalUUIDListQuery(writer, request, "department_id")
 	if !ok {
 		return domain.OvertimeRecapFilter{}, false
 	}
-	filter := domain.OvertimeRecapFilter{DepartmentID: departmentID}
+	filter := domain.OvertimeRecapFilter{DepartmentIDs: departmentIDs}
 	if value := strings.TrimSpace(request.URL.Query().Get("tanggal_mulai")); value != "" {
 		filter.Start = &value
 	}

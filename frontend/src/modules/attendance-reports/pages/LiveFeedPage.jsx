@@ -3,10 +3,12 @@ import { useSearchParams } from "react-router-dom";
 
 import { DataTable } from "../../../components/data-table/DataTable";
 import { ExportButton } from "../../../components/data-table/ExportButton";
+import { CheckboxMultiSelect } from "../../../components/form/CheckboxMultiSelect";
 import { Button } from "../../../components/ui/Button";
 import { attendanceStatusLabel, workModeLabel } from "../../../lib/request-status";
 import { formatTime } from "../../../lib/format";
 import { useAuth } from "../../auth/hooks/useAuth";
+import { useDepartments } from "../../employees/hooks/useEmployees";
 import { useLiveFeed } from "../../attendance/hooks/useAttendance";
 import { exportLiveFeedRequest } from "../api/report-api";
 import { PhotoPreviewModal } from "../components/PhotoPreviewModal";
@@ -46,11 +48,44 @@ export const LiveFeedPage = () => {
   const [params, setParams] = useSearchParams();
   const canRead = monitoringRoles.includes(auth.role);
   const tanggal = params.get("tanggal") || "";
+  const nama = params.get("nama") || "";
+  const selectedDepartments = useMemo(() => params.getAll("departemen"), [params]);
   const [preview, setPreview] = useState(null);
+  const departments = useDepartments();
 
   // Karyawan dan Atasan tidak pernah memicu fetch live feed.
   const feed = useLiveFeed(auth.role, tanggal, canRead);
-  const rows = useMemo(() => groupByEmployeeDay(feed.data ?? []), [feed.data]);
+  const allRows = useMemo(() => groupByEmployeeDay(feed.data ?? []), [feed.data]);
+
+  // Live Feed hanya menampilkan absensi hari yang dipilih; pencarian nama dan filter
+  // departemen (multi-select) diterapkan di klien atas data yang sudah dimuat.
+  const rows = useMemo(() => {
+    const needle = nama.trim().toLowerCase();
+    return allRows.filter((row) => {
+      if (needle && !row.namaKaryawan?.toLowerCase().includes(needle)) return false;
+      if (
+        selectedDepartments.length > 0 &&
+        !selectedDepartments.includes(row.departemen || "")
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [allRows, nama, selectedDepartments]);
+
+  const setParam = (key, value) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next);
+  };
+
+  const setDepartments = (names) => {
+    const next = new URLSearchParams(params);
+    next.delete("departemen");
+    names.forEach((name) => next.append("departemen", name));
+    setParams(next);
+  };
 
   const columns = [
     {
@@ -116,23 +151,41 @@ export const LiveFeedPage = () => {
         Menampilkan absensi seluruh karyawan pada tanggal yang dipilih.
       </p>
 
-      <label className="mt-6 block max-w-xs text-sm font-medium text-slate-700">
-        Tanggal
-        <input
-          type="date"
-          value={tanggal}
-          onChange={(event) => {
-            const next = new URLSearchParams(params);
-            if (event.target.value) next.set("tanggal", event.target.value);
-            else next.delete("tanggal");
-            setParams(next);
-          }}
-          className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+      <div className="mt-6 grid gap-4 rounded-xl border border-slate-900/10 bg-slate-900/[0.03] p-4 sm:grid-cols-2 lg:grid-cols-3">
+        <label className="text-sm font-medium text-slate-700">
+          Cari nama karyawan
+          <input
+            type="search"
+            value={nama}
+            onChange={(event) => setParam("nama", event.target.value)}
+            placeholder="mis. Budi"
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+          />
+        </label>
+        <label className="text-sm font-medium text-slate-700">
+          Tanggal
+          <input
+            type="date"
+            value={tanggal}
+            onChange={(event) => setParam("tanggal", event.target.value)}
+            className="mt-2 min-h-10 w-full rounded-lg border border-slate-900/15 bg-white px-3 text-slate-900 outline-none focus:border-cyan-300"
+          />
+          <span className="mt-2 block text-xs text-slate-500">
+            Kosongkan untuk memakai tanggal hari ini menurut server.
+          </span>
+        </label>
+        <CheckboxMultiSelect
+          legend="Departemen"
+          allLabel="Semua departemen"
+          options={(departments.data ?? []).map((item) => ({
+            value: item.nama,
+            label: item.nama,
+          }))}
+          selected={selectedDepartments}
+          onChange={setDepartments}
+          emptyLabel="Memuat departemen…"
         />
-        <span className="mt-2 block text-xs text-slate-500">
-          Kosongkan untuk memakai tanggal hari ini menurut server.
-        </span>
-      </label>
+      </div>
 
       {canRead && (
         <div className="mt-5">
@@ -158,7 +211,11 @@ export const LiveFeedPage = () => {
             columns={columns}
             rows={rows}
             rowKey={(row) => row.key}
-            emptyMessage="Belum ada absensi tercatat pada tanggal ini."
+            emptyMessage={
+              allRows.length > 0
+                ? "Tidak ada absensi yang cocok dengan pencarian atau filter departemen."
+                : "Belum ada absensi tercatat pada tanggal ini."
+            }
           />
         )}
       </div>
