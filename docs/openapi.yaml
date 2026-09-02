@@ -2655,10 +2655,11 @@ components:
           minimum: 0
           description: Jarak hasil hitung server untuk WFO; null untuk WFH/WFA.
         foto_url: { type: string, format: uri }
+        uraian_pekerjaan: { type: string, maxLength: 500, nullable: true }
         status: { type: string, enum: [tepat_waktu, terlambat, pulang_cepat, valid] }
     AttendanceCheckRequest:
       type: object
-      required: [tipe, mode_kerja, gps_lat, gps_long, foto]
+      required: [tipe, mode_kerja, gps_lat, gps_long, uraian_pekerjaan, foto]
       description: |
         Koordinat wajib untuk seluruh mode. Backend menerapkan radius kantor maksimal
         100 meter hanya ketika mode_kerja=WFO terhadap lokasi kantor aktif yang dipilih;
@@ -2671,6 +2672,7 @@ components:
         office_location_id:
           $ref: "#/components/schemas/UUID"
           description: Wajib untuk WFO dan tidak digunakan untuk WFH/WFA.
+        uraian_pekerjaan: { type: string, minLength: 1, maxLength: 500 }
         foto: { type: string, format: binary, description: JPG/PNG maksimal 5 MB. }
       allOf:
         - if:
@@ -2700,7 +2702,7 @@ components:
             data: { type: array, items: { $ref: "#/components/schemas/AttendanceLiveFeedItem" } }
     AttendanceReportItem:
       type: object
-      required: [employee_id, nama_karyawan, hadir, terlambat, izin, alpha]
+      required: [employee_id, nama_karyawan, hadir, terlambat, izin, jam_kantor, jam_lembur, total_jam_kerja]
       properties:
         employee_id: { $ref: "#/components/schemas/UUID" }
         nama_karyawan: { type: string }
@@ -2708,7 +2710,8 @@ components:
         hadir: { type: integer, minimum: 0 }
         terlambat: { type: integer, minimum: 0 }
         izin: { type: integer, minimum: 0 }
-        alpha: { type: integer, minimum: 0 }
+        jam_kantor: { type: number, minimum: 0 }
+        jam_lembur: { type: number, minimum: 0 }
         total_jam_kerja: { type: number, minimum: 0 }
     AttendanceReportResponse:
       allOf:

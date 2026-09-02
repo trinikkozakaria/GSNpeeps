@@ -37,6 +37,8 @@ type EmployeeReader interface {
 	UpsertDocument(context.Context, domain.NewEmployeeDocument) (id uuid.UUID, previousFileURL string, replaced bool, err error)
 	ExportRows(context.Context, domain.EmployeeExportQuery, int) ([]domain.EmployeeSummary, error)
 	UpdatePhoto(context.Context, uuid.UUID, string) error
+	ResolveUserID(context.Context, uuid.UUID) (uuid.UUID, error)
+	SetPassword(context.Context, uuid.UUID, string) error
 }
 
 // DocumentStore adalah boundary penyimpanan berkas (Nextcloud WebDAV). Credential teknis
@@ -398,6 +400,42 @@ func (s *EmployeeService) Update(
 		return domain.EmployeeMutationResult{}, fmt.Errorf("update employee: %w", err)
 	}
 	return result, nil
+}
+
+// ResetEmployeePassword memungkinkan HR memulihkan akun karyawan lain tanpa pernah
+// mengembalikan nilai password ke client maupun audit log.
+func (s *EmployeeService) ResetEmployeePassword(ctx context.Context, identity domain.Identity, employeeID uuid.UUID, request dto.ResetEmployeePasswordRequest, meta RequestMeta) error {
+	if identity.Role != domain.RoleHR {
+		return domain.ErrForbidden
+	}
+	if request.NewPassword != request.NewPasswordConfirmation {
+		return domain.ErrPasswordMismatch
+	}
+	if employeeID == identity.EmployeeID {
+		return domain.ErrInvalidRequest
+	}
+	passwordHash, err := s.passwords.Hash(request.NewPassword)
+	if err != nil {
+		return fmt.Errorf("hash employee reset password: %w", err)
+	}
+	var userID uuid.UUID
+	if err := s.tx.Within(ctx, func(txCtx context.Context) error {
+		resolved, err := s.employees.ResolveUserID(txCtx, employeeID)
+		if err != nil {
+			return mapEmployeeRepositoryError(err)
+		}
+		userID = resolved
+		if err := s.employees.SetPassword(txCtx, userID, passwordHash); err != nil {
+			return mapEmployeeRepositoryError(err)
+		}
+		return s.audit.Append(txCtx, domain.AuditEntry{UserID: &identity.UserID, Action: "PASSWORD_RESET", Module: "karyawan", DataID: &employeeID, Detail: map[string]any{"by": "hr", "sessions_revoked": true, "request_id": meta.RequestID}, IPAddress: meta.IPAddress, CreatedAt: s.now().UTC()})
+	}); err != nil {
+		return fmt.Errorf("reset employee password: %w", err)
+	}
+	if err := s.sessions.Revoke(ctx, userID); err != nil {
+		return fmt.Errorf("revoke reset employee sessions: %w", err)
+	}
+	return nil
 }
 
 func (s *EmployeeService) Deactivate(

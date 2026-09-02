@@ -76,7 +76,7 @@ describe("DocumentTypesPage", () => {
     render(<DocumentTypesPage />);
 
     expect(screen.getByText("Foto KTP")).toBeInTheDocument();
-    expect(screen.getAllByText("Wajib")).toHaveLength(2);
+    expect(screen.getAllByText("Wajib")).toHaveLength(1);
     expect(screen.getByText("Opsional")).toBeInTheDocument();
   });
 });

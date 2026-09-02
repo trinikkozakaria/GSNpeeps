@@ -47,6 +47,9 @@ func contractOperations() []operation {
 		{http.MethodGet, "/api/v1/master/departemen", false},
 		{http.MethodGet, "/api/v1/master/jabatan", false},
 		{http.MethodGet, "/api/v1/master/lokasi-kantor", false},
+		{http.MethodPost, "/api/v1/master/lokasi-kantor", false},
+		{http.MethodPut, "/api/v1/master/lokasi-kantor/" + employeeID, false},
+		{http.MethodDelete, "/api/v1/master/lokasi-kantor/" + employeeID, false},
 
 		{http.MethodGet, "/api/v1/karyawan", false},
 		{http.MethodPost, "/api/v1/karyawan", false},
@@ -57,6 +60,7 @@ func contractOperations() []operation {
 		{http.MethodGet, "/api/v1/karyawan/" + employeeID + "/dokumen", false},
 		{http.MethodPost, "/api/v1/karyawan/" + employeeID + "/dokumen", false},
 		{http.MethodPut, "/api/v1/karyawan/" + employeeID + "/foto", false},
+		{http.MethodPost, "/api/v1/karyawan/" + employeeID + "/reset-password", false},
 
 		{http.MethodGet, "/api/v1/profil/saya", false},
 		{http.MethodGet, "/api/v1/profil/saya/metrik", false},
@@ -144,12 +148,9 @@ func newGuardedRouter() http.Handler {
 	)
 }
 
-// Jumlah operasi harus tetap 51: 49 sesuai keputusan D-001, D-035, dan D-037, ditambah
-// export live feed dan export rekap lembur (defect: download report excel pada halaman
-// live-feed dan rekap lembur). Endpoint baru di luar daftar ini memerlukan revisi kontrak
-// lebih dahulu.
-func TestContractExposesExactlyFiftyOneOperations(t *testing.T) {
-	assert.Len(t, contractOperations(), 51)
+// Jumlah operasi kontrak saat ini 55, termasuk reset password HR dan CRUD lokasi kantor.
+func TestContractExposesExactlyFiftyFiveOperations(t *testing.T) {
+	assert.Len(t, contractOperations(), 55)
 }
 
 // Setiap operasi terproteksi menolak permintaan tanpa token. Karena `/api/v1` memiliki

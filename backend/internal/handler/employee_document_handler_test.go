@@ -84,6 +84,10 @@ func (s *employeeServiceStub) Deactivate(
 	return domain.EmployeeMutationResult{}, nil
 }
 
+func (s *employeeServiceStub) ResetEmployeePassword(context.Context, domain.Identity, uuid.UUID, dto.ResetEmployeePasswordRequest, service.RequestMeta) error {
+	return nil
+}
+
 func (s *employeeServiceStub) ListDocuments(
 	context.Context,
 	domain.Identity,

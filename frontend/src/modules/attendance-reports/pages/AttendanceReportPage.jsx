@@ -74,6 +74,9 @@ export const AttendanceReportPage = () => {
     { key: "hadir", header: "Hadir", render: (row) => formatNumber(row.hadir) },
     { key: "terlambat", header: "Terlambat", render: (row) => formatNumber(row.terlambat) },
     { key: "izin", header: "Izin", render: (row) => formatNumber(row.izin) },
+    { key: "jam_kantor", header: "Jam Kantor", render: (row) => formatNumber(row.jam_kantor) },
+    { key: "jam_lembur", header: "Jam Lembur", render: (row) => formatNumber(row.jam_lembur) },
+    { key: "total_jam_kerja", header: "Total Jam Kerja", render: (row) => formatNumber(row.total_jam_kerja) },
   ];
 
   return (

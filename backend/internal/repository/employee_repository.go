@@ -17,6 +17,29 @@ type EmployeeRepository struct {
 	pool *pgxpool.Pool
 }
 
+func (r *EmployeeRepository) ResolveUserID(ctx context.Context, employeeID uuid.UUID) (uuid.UUID, error) {
+	var userID uuid.UUID
+	err := executor(ctx, r.pool).QueryRow(ctx, `SELECT u.id FROM users u JOIN employees e ON e.id=u.employee_id WHERE e.id=$1 AND e.deleted_at IS NULL`, employeeID).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrNotFound
+	}
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("resolve employee user: %w", err)
+	}
+	return userID, nil
+}
+
+func (r *EmployeeRepository) SetPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error {
+	tag, err := executor(ctx, r.pool).Exec(ctx, `UPDATE users SET password_hash=$2,failed_login_count=0,account_locked=FALSE,updated_at=NOW() WHERE id=$1`, userID, passwordHash)
+	if err != nil {
+		return fmt.Errorf("set employee password: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *EmployeeRepository) ResolveDocumentType(ctx context.Context, name string) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := executor(ctx, r.pool).QueryRow(ctx, `SELECT id FROM document_types WHERE nama=$1 AND is_active=TRUE`, name).Scan(&id)

@@ -61,6 +61,34 @@ type EmployeeService interface {
 		service.PhotoUpload,
 		service.RequestMeta,
 	) (string, error)
+	ResetEmployeePassword(context.Context, domain.Identity, uuid.UUID, dto.ResetEmployeePasswordRequest, service.RequestMeta) error
+}
+
+func (h *EmployeeHandler) ResetEmployeePassword(writer http.ResponseWriter, request *http.Request) {
+	identity, ok := middleware.IdentityFromContext(request.Context())
+	if !ok {
+		response.FromError(writer, domain.ErrInvalidToken)
+		return
+	}
+	id, err := uuid.Parse(mux.Vars(request)["id"])
+	if err != nil {
+		response.Error(writer, http.StatusBadRequest, "INVALID_PARAM", "ID karyawan tidak valid")
+		return
+	}
+	var input dto.ResetEmployeePasswordRequest
+	if decodeJSON(request, &input) != nil {
+		response.Error(writer, http.StatusBadRequest, "INVALID_BODY", "Body request tidak valid")
+		return
+	}
+	if fields := h.validator.Struct(input); len(fields) > 0 {
+		response.ValidationError(writer, fields)
+		return
+	}
+	if err := h.service.ResetEmployeePassword(request.Context(), identity, id, input, h.requestMeta(request)); err != nil {
+		response.FromError(writer, err)
+		return
+	}
+	response.Success(writer, http.StatusOK, map[string]bool{"password_reset": true, "account_unlocked": true, "sessions_revoked": true}, "Password karyawan berhasil direset")
 }
 
 func (h *EmployeeHandler) Create(writer http.ResponseWriter, request *http.Request) {

@@ -229,7 +229,8 @@ func (h *UATHandler) ListDocumentTypes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UATHandler) CreateDocumentType(w http.ResponseWriter, r *http.Request) {
-	if _, ok := requireHR(w, r); !ok {
+	identity, ok := requireHR(w, r)
+	if !ok {
 		return
 	}
 	var input documentTypeInput
@@ -243,7 +244,44 @@ func (h *UATHandler) CreateDocumentType(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, 409, "CONFLICT", "Kode atau nama jenis dokumen sudah digunakan")
 		return
 	}
+	if _, err := h.db.Exec(r.Context(), `INSERT INTO audit_logs(user_id,aksi,modul,data_id) VALUES($1,'CREATE','master_jenis_dokumen',$2)`, identity.UserID, id); err != nil {
+		response.Error(w, 500, "INTERNAL_ERROR", "Jenis dokumen belum dapat ditambahkan")
+		return
+	}
 	response.Success(w, 201, map[string]any{"id": id}, "Jenis dokumen berhasil ditambahkan")
+}
+
+func (h *UATHandler) UpdateDocumentType(w http.ResponseWriter, r *http.Request) {
+	identity, ok := requireHR(w, r)
+	if !ok { return }
+	id, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil { response.Error(w, 400, "INVALID_PARAM", "ID jenis dokumen tidak valid"); return }
+	var input documentTypeInput
+	if decodeJSON(r, &input) != nil || strings.TrimSpace(input.Code) == "" || strings.TrimSpace(input.Name) == "" {
+		response.Error(w, 400, "INVALID_PARAM", "Kode dan nama wajib diisi"); return
+	}
+	tag, err := h.db.Exec(r.Context(), `UPDATE document_types SET kode=$1,nama=$2,wajib=$3,is_active=COALESCE($4,is_active),updated_at=NOW() WHERE id=$5`, strings.TrimSpace(input.Code), strings.TrimSpace(input.Name), input.Required, input.IsActive, id)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" { response.Error(w, 409, "CONFLICT", "Kode atau nama jenis dokumen sudah digunakan"); return }
+		response.Error(w, 500, "INTERNAL_ERROR", "Jenis dokumen belum dapat diperbarui"); return
+	}
+	if tag.RowsAffected() == 0 { response.Error(w, 404, "NOT_FOUND", "Jenis dokumen tidak ditemukan"); return }
+	_, _ = h.db.Exec(r.Context(), `INSERT INTO audit_logs(user_id,aksi,modul,data_id) VALUES($1,'UPDATE','master_jenis_dokumen',$2)`, identity.UserID, id)
+	response.Success(w, 200, map[string]any{"id": id}, "Jenis dokumen berhasil diperbarui")
+}
+
+// DeleteDocumentType melakukan deactivate agar riwayat dokumen karyawan tetap utuh.
+func (h *UATHandler) DeleteDocumentType(w http.ResponseWriter, r *http.Request) {
+	identity, ok := requireHR(w, r)
+	if !ok { return }
+	id, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil { response.Error(w, 400, "INVALID_PARAM", "ID jenis dokumen tidak valid"); return }
+	tag, err := h.db.Exec(r.Context(), `UPDATE document_types SET is_active=FALSE,updated_at=NOW() WHERE id=$1`, id)
+	if err != nil { response.Error(w, 500, "INTERNAL_ERROR", "Jenis dokumen belum dapat dinonaktifkan"); return }
+	if tag.RowsAffected() == 0 { response.Error(w, 404, "NOT_FOUND", "Jenis dokumen tidak ditemukan"); return }
+	_, _ = h.db.Exec(r.Context(), `INSERT INTO audit_logs(user_id,aksi,modul,data_id) VALUES($1,'DELETE','master_jenis_dokumen',$2)`, identity.UserID, id)
+	response.Success(w, 200, map[string]any{"id": id, "is_active": false}, "Jenis dokumen berhasil dinonaktifkan")
 }
 
 type feedInput struct {

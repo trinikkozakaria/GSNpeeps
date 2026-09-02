@@ -29,6 +29,7 @@ export const attendanceSchema = z.object({
   office_location_id: uuidSchema.nullable().optional(),
   distance_meters: z.number().nullable().optional(),
   foto_url: z.string().nullable().optional(),
+  uraian_pekerjaan: z.string().nullable().optional(),
   status: z.enum(["tepat_waktu", "terlambat", "pulang_cepat", "valid"]),
 });
 
@@ -46,8 +47,9 @@ export const attendanceReportItemSchema = z.object({
   hadir: z.number().int().nonnegative(),
   terlambat: z.number().int().nonnegative(),
   izin: z.number().int().nonnegative(),
-  alpha: z.number().int().nonnegative(),
-  total_jam_kerja: z.number().optional(),
+  jam_kantor: z.number().nonnegative(),
+  jam_lembur: z.number().nonnegative(),
+  total_jam_kerja: z.number().nonnegative(),
 });
 
 export const attendanceReportSchema = z.object({

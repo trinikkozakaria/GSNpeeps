@@ -47,6 +47,11 @@ export const deactivateEmployeeRequest = async (id, signal) => {
   return envelope.data;
 };
 
+export const resetEmployeePasswordRequest = async (id, payload, signal) => {
+  const envelope = await apiClient.post(`/karyawan/${id}/reset-password`, payload, { signal });
+  return envelope.data;
+};
+
 export const createEmployeeRequest = async (payload, signal) => {
   const envelope = await apiClient.post("/karyawan", payload, { signal });
   return envelope.data;

@@ -110,6 +110,16 @@ export const LiveFeedPage = () => {
       render: (row) =>
         row.checkOut ? formatTime(row.checkOut.waktu) : "—",
     },
+    {
+      key: "uraian_masuk",
+      header: "Uraian Masuk",
+      render: (row) => row.checkIn?.uraian_pekerjaan || "—",
+    },
+    {
+      key: "uraian_pulang",
+      header: "Uraian Pulang",
+      render: (row) => row.checkOut?.uraian_pekerjaan || "—",
+    },
     { key: "mode", header: "Mode", render: (row) => workModeLabel[row.modeKerja] },
     {
       key: "status",

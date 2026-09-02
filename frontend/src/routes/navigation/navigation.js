@@ -91,6 +91,7 @@ export const navigationItems = [
     roles: hrOnly,
     children: [
       { label: "Master Jenis Dokumen", path: "/app/master/jenis-dokumen", roles: hrOnly },
+	  { label: "Master Lokasi Kantor", path: "/app/master/lokasi-kantor", roles: hrOnly },
       { label: "Master Jenis Izin", path: "/app/master/jenis-izin", roles: hrOnly },
     ],
   },

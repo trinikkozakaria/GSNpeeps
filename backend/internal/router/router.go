@@ -101,6 +101,9 @@ func New(
 	api.Handle("/master/jabatan", protected(employees.Handler.ListPositions)).Methods(http.MethodGet)
 	api.Handle("/master/lokasi-kantor", protected(attendances.Handler.ListOfficeLocations)).
 		Methods(http.MethodGet)
+	api.Handle("/master/lokasi-kantor", protected(attendances.Handler.CreateOfficeLocation)).Methods(http.MethodPost)
+	api.Handle("/master/lokasi-kantor/{id}", protected(attendances.Handler.UpdateOfficeLocation)).Methods(http.MethodPut)
+	api.Handle("/master/lokasi-kantor/{id}", protected(attendances.Handler.DeactivateOfficeLocation)).Methods(http.MethodDelete)
 	api.Handle("/karyawan", protected(employees.Handler.List)).Methods(http.MethodGet)
 	api.Handle("/karyawan", protected(employees.Handler.Create)).Methods(http.MethodPost)
 	// Route literal harus terdaftar sebelum pola `{id}` agar `/karyawan/export` tidak
@@ -115,6 +118,7 @@ func New(
 	api.Handle("/karyawan/{id}/dokumen", protected(employees.Handler.UploadDocument)).
 		Methods(http.MethodPost)
 	api.Handle("/karyawan/{id}/foto", protected(employees.Handler.UpdatePhoto)).Methods(http.MethodPut)
+	api.Handle("/karyawan/{id}/reset-password", protected(employees.Handler.ResetEmployeePassword)).Methods(http.MethodPost)
 	api.Handle("/profil/saya", protected(profiles.Handler.Me)).Methods(http.MethodGet)
 	api.Handle("/profil/saya/metrik", protected(profiles.Handler.Metrics)).Methods(http.MethodGet)
 	api.Handle("/dashboard/metrik", protected(dashboards.Handler.Metrics)).Methods(http.MethodGet)
@@ -129,6 +133,8 @@ func New(
 		api.Handle("/kalender/libur/bulk", protected(uat.Handler.UpsertHolidays)).Methods(http.MethodPut)
 		api.Handle("/master/jenis-dokumen", protected(uat.Handler.ListDocumentTypes)).Methods(http.MethodGet)
 		api.Handle("/master/jenis-dokumen", protected(uat.Handler.CreateDocumentType)).Methods(http.MethodPost)
+		api.Handle("/master/jenis-dokumen/{id}", protected(uat.Handler.UpdateDocumentType)).Methods(http.MethodPut)
+		api.Handle("/master/jenis-dokumen/{id}", protected(uat.Handler.DeleteDocumentType)).Methods(http.MethodDelete)
 		api.Handle("/absensi/koreksi", protected(uat.Handler.ListCorrections)).Methods(http.MethodGet)
 		api.Handle("/absensi/koreksi", protected(uat.Handler.CreateCorrection)).Methods(http.MethodPost)
 		api.Handle("/absensi/koreksi/{id}", protected(uat.Handler.DecideCorrection)).Methods(http.MethodPut)

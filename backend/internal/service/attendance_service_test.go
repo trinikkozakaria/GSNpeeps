@@ -344,7 +344,7 @@ func xlsxSheetText(t *testing.T, content []byte) string {
 // WIB), bukan waktu UTC mentah atau format 12 jam.
 func TestExportLiveFeedRestrictsToHRAndFormatsClockInWIB24Hour(t *testing.T) {
 	employeeID := uuid.New()
-	checkInUTC := time.Date(2026, time.August, 3, 2, 5, 0, 0, time.UTC)   // 09:05 WIB
+	checkInUTC := time.Date(2026, time.August, 3, 2, 5, 0, 0, time.UTC)    // 09:05 WIB
 	checkOutUTC := time.Date(2026, time.August, 3, 11, 30, 0, 0, time.UTC) // 18:30 WIB
 	store := &attendanceStoreStub{feed: []domain.AttendanceLiveFeedItem{
 		{
@@ -440,8 +440,9 @@ func TestAttendanceReportResolvesPeriodRange(t *testing.T) {
 	}
 }
 
-// Alpha dihitung dari hari kerja Senin-Jumat dalam rentang laporan.
-func TestAttendanceReportPassesWorkingDayCount(t *testing.T) {
+// Laporan tidak lagi menghitung alpha/hari kerja; repository menerima nol untuk kompatibilitas
+// interface sampai parameter tersebut dapat dihapus pada perubahan besar berikutnya.
+func TestAttendanceReportDoesNotCalculateWorkingDayCount(t *testing.T) {
 	store := &attendanceStoreStub{}
 	service := newAttendanceServiceForTest(
 		store, &documentStoreStub{}, transactionStub{}, workingMonday(),
@@ -452,8 +453,26 @@ func TestAttendanceReportPassesWorkingDayCount(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	// Dua minggu penuh berisi sepuluh hari kerja.
-	assert.Equal(t, 10, store.reportWorkday)
+	assert.Zero(t, store.reportWorkday)
+}
+
+func (s *attendanceStoreStub) CreateOfficeLocation(_ context.Context, input domain.OfficeLocationInput) (domain.OfficeLocation, error) {
+	s.office = domain.OfficeLocation{ID: uuid.New(), Code: input.Code, Name: input.Name, Address: input.Address, Latitude: input.Latitude, Longitude: input.Longitude, IsActive: input.IsActive}
+	return s.office, nil
+}
+func (s *attendanceStoreStub) UpdateOfficeLocation(_ context.Context, id uuid.UUID, input domain.OfficeLocationInput) (domain.OfficeLocation, error) {
+	if id == uuid.Nil {
+		return domain.OfficeLocation{}, repository.ErrNotFound
+	}
+	s.office = domain.OfficeLocation{ID: id, Code: input.Code, Name: input.Name, Address: input.Address, Latitude: input.Latitude, Longitude: input.Longitude, IsActive: input.IsActive}
+	return s.office, nil
+}
+func (s *attendanceStoreStub) DeactivateOfficeLocation(_ context.Context, id uuid.UUID) error {
+	if id == uuid.Nil {
+		return repository.ErrNotFound
+	}
+	s.office.IsActive = false
+	return nil
 }
 
 func TestAttendanceExportRestrictsToHR(t *testing.T) {

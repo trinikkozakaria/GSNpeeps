@@ -50,6 +50,7 @@ export const CheckInPage = () => {
   const [attendanceType, setAttendanceType] = useState("check_in");
   const [workMode, setWorkMode] = useState("WFO");
   const [officeLocationID, setOfficeLocationID] = useState("");
+  const [workDescription, setWorkDescription] = useState("");
   const [photo, setPhoto] = useState(null);
   // Sumber foto menentukan kontrol mana yang ditampilkan; berkas unggahan tetap dikelola
   // FileField agar pesan validasinya tidak hilang saat berkas tidak valid dipilih.
@@ -97,6 +98,10 @@ export const CheckInPage = () => {
       setFormError("Pilih lokasi kantor untuk mode kerja WFO.");
       return;
     }
+    if (!workDescription.trim()) {
+      setFormError("Uraian pekerjaan wajib diisi.");
+      return;
+    }
 
     // Lokasi diminta tepat sebelum kirim agar koordinat sedekat mungkin dengan waktu absensi.
     const coordinates = await geolocation.request();
@@ -109,6 +114,7 @@ export const CheckInPage = () => {
         gps_lat: coordinates.latitude,
         gps_long: coordinates.longitude,
         office_location_id: workMode === "WFO" ? officeLocationID : undefined,
+        uraian_pekerjaan: workDescription.trim(),
         foto: photo,
       });
       setResult(created);
@@ -158,6 +164,22 @@ export const CheckInPage = () => {
               ))}
             </div>
           </fieldset>
+
+          <label className="text-sm font-medium text-slate-700">
+            Uraian pekerjaan
+            <textarea
+				aria-label="Uraian pekerjaan"
+              value={workDescription}
+              onChange={(event) => setWorkDescription(event.target.value)}
+              disabled={isSubmitting}
+              maxLength={500}
+              required
+              rows={4}
+              placeholder="Jelaskan pekerjaan yang akan atau telah dikerjakan."
+              className="mt-2 block w-full rounded-lg border border-slate-900/15 bg-white px-3 py-2 text-slate-900 outline-none focus:border-cyan-300"
+            />
+            <span className="mt-1 block text-xs font-normal text-slate-500">Maksimal 500 karakter.</span>
+          </label>
 
           <fieldset>
             <legend className="text-sm font-medium text-slate-700">Mode kerja</legend>
@@ -330,6 +352,7 @@ export const CheckInPage = () => {
             <StatusLine label="Status">
               {attendanceStatusLabel[result.status] ?? result.status}
             </StatusLine>
+            <StatusLine label="Uraian pekerjaan">{result.uraian_pekerjaan ?? workDescription}</StatusLine>
             {typeof result.distance_meters === "number" && (
               <StatusLine label="Jarak dari kantor">
                 {Math.round(result.distance_meters)} meter

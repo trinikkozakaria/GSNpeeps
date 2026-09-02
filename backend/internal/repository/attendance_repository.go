@@ -78,6 +78,38 @@ func (r *AttendanceRepository) ListActiveOfficeLocations(
 	return items, rows.Err()
 }
 
+func (r *AttendanceRepository) CreateOfficeLocation(ctx context.Context, input domain.OfficeLocationInput) (domain.OfficeLocation, error) {
+	var item domain.OfficeLocation
+	err := executor(ctx, r.pool).QueryRow(ctx, `INSERT INTO office_locations(kode,nama,alamat,latitude,longitude,is_active) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,kode,nama,alamat,latitude::float8,longitude::float8,is_active`, input.Code, input.Name, input.Address, input.Latitude, input.Longitude, input.IsActive).Scan(&item.ID, &item.Code, &item.Name, &item.Address, &item.Latitude, &item.Longitude, &item.IsActive)
+	if err != nil {
+		return domain.OfficeLocation{}, mapEmployeeMutationError(err)
+	}
+	return item, nil
+}
+
+func (r *AttendanceRepository) UpdateOfficeLocation(ctx context.Context, id uuid.UUID, input domain.OfficeLocationInput) (domain.OfficeLocation, error) {
+	var item domain.OfficeLocation
+	err := executor(ctx, r.pool).QueryRow(ctx, `UPDATE office_locations SET kode=$1,nama=$2,alamat=$3,latitude=$4,longitude=$5,is_active=$6,updated_at=NOW() WHERE id=$7 RETURNING id,kode,nama,alamat,latitude::float8,longitude::float8,is_active`, input.Code, input.Name, input.Address, input.Latitude, input.Longitude, input.IsActive, id).Scan(&item.ID, &item.Code, &item.Name, &item.Address, &item.Latitude, &item.Longitude, &item.IsActive)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.OfficeLocation{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.OfficeLocation{}, mapEmployeeMutationError(err)
+	}
+	return item, nil
+}
+
+func (r *AttendanceRepository) DeactivateOfficeLocation(ctx context.Context, id uuid.UUID) error {
+	tag, err := executor(ctx, r.pool).Exec(ctx, `UPDATE office_locations SET is_active=FALSE,updated_at=NOW() WHERE id=$1`, id)
+	if err != nil {
+		return mapEmployeeMutationError(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // ExistsForDate memeriksa apakah user sudah mencatat tipe absensi tertentu pada satu tanggal.
 func (r *AttendanceRepository) ExistsForDate(
 	ctx context.Context,
@@ -108,20 +140,20 @@ func (r *AttendanceRepository) Create(
 	err := executor(ctx, r.pool).QueryRow(ctx, `
 		INSERT INTO attendances (
 			user_id, tanggal, tipe, mode_kerja, waktu_network, waktu_local,
-			gps_lat, gps_long, office_location_id, distance_meters, foto_url, status
+			gps_lat, gps_long, office_location_id, distance_meters, foto_url, uraian_pekerjaan, status
 		)
-		VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING id, TO_CHAR(tanggal, 'YYYY-MM-DD'), tipe, mode_kerja, waktu_network,
 		          gps_lat::float8, gps_long::float8, office_location_id,
-		          distance_meters::float8, foto_url, status
+		          distance_meters::float8, foto_url, uraian_pekerjaan, status
 	`,
 		row.UserID, row.Date, row.Type, row.WorkMode, row.NetworkTime, row.LocalTime,
 		row.Latitude, row.Longitude, row.OfficeLocationID, row.DistanceMeters,
-		row.PhotoURL, row.Status,
+		row.PhotoURL, row.WorkDescription, row.Status,
 	).Scan(
 		&record.ID, &record.Date, &record.Type, &record.WorkMode, &record.Time,
 		&record.Latitude, &record.Longitude, &record.OfficeLocationID,
-		&record.DistanceMeters, &record.PhotoURL, &record.Status,
+		&record.DistanceMeters, &record.PhotoURL, &record.WorkDescription, &record.Status,
 	)
 	if err != nil {
 		return domain.Attendance{}, mapEmployeeMutationError(err)
@@ -137,7 +169,7 @@ func (r *AttendanceRepository) LiveFeed(
 	rows, err := r.pool.Query(ctx, `
 		SELECT a.id, e.id, TO_CHAR(a.tanggal, 'YYYY-MM-DD'), a.tipe, a.mode_kerja,
 		       a.waktu_network, a.gps_lat::float8, a.gps_long::float8,
-		       a.office_location_id, a.distance_meters::float8, a.foto_url, a.status,
+		       a.office_location_id, a.distance_meters::float8, a.foto_url, a.uraian_pekerjaan, a.status,
 		       e.nama, COALESCE(d.nama, '')
 		FROM attendances a
 		JOIN users u ON u.id = a.user_id
@@ -157,7 +189,7 @@ func (r *AttendanceRepository) LiveFeed(
 		if err := rows.Scan(
 			&item.ID, &item.EmployeeID, &item.Date, &item.Type, &item.WorkMode,
 			&item.Time, &item.Latitude, &item.Longitude, &item.OfficeLocationID,
-			&item.DistanceMeters, &item.PhotoURL, &item.Status,
+			&item.DistanceMeters, &item.PhotoURL, &item.WorkDescription, &item.Status,
 			&item.EmployeeName, &item.Department,
 		); err != nil {
 			return nil, fmt.Errorf("scan attendance live feed: %w", err)
@@ -167,13 +199,11 @@ func (r *AttendanceRepository) LiveFeed(
 	return items, rows.Err()
 }
 
-// Report menghitung rekap kehadiran per karyawan dalam satu query agregat. `alpha` adalah
-// hari kerja Senin-Jumat dalam rentang yang tidak memiliki check-in valid maupun izin
-// yang disetujui.
+// Report menghitung rekap kehadiran dan lembur disetujui per karyawan dalam satu query.
 func (r *AttendanceRepository) Report(
 	ctx context.Context,
 	filter domain.AttendanceReportFilter,
-	workingDays int,
+	_ int,
 ) (domain.AttendanceReportPage, error) {
 	start := filter.Start.Format(domain.DateLayout)
 	end := filter.End.Format(domain.DateLayout)
@@ -224,16 +254,25 @@ func (r *AttendanceRepository) Report(
 			  AND lr.tanggal_mulai <= $2::date
 			  AND lr.tanggal_selesai >= $1::date
 			GROUP BY u.employee_id
+		),
+		lembur AS (
+			SELECT u.employee_id, COALESCE(SUM(o.durasi_jam), 0)::float8 AS jam_lembur
+			FROM overtime_requests o
+			JOIN users u ON u.id = o.user_id
+			WHERE o.status = 'disetujui' AND o.tanggal BETWEEN $1::date AND $2::date
+			GROUP BY u.employee_id
 		)
 		SELECT e.id, e.nama, COALESCE(d.nama, ''),
 		       COALESCE(kehadiran.hadir, 0),
 		       COALESCE(kehadiran.terlambat, 0),
 		       COALESCE(izin.hari_izin, 0),
-		       COALESCE(kehadiran.total_jam, 0)::float8
+		       COALESCE(kehadiran.total_jam, 0)::float8,
+		       COALESCE(lembur.jam_lembur, 0)::float8
 		FROM employees e
 		LEFT JOIN departments d ON d.id = e.department_id
 		LEFT JOIN kehadiran ON kehadiran.employee_id = e.id
 		LEFT JOIN izin ON izin.employee_id = e.id
+		LEFT JOIN lembur ON lembur.employee_id = e.id
 		WHERE e.deleted_at IS NULL
 		  AND ($3::uuid[] IS NULL OR e.department_id = ANY($3))
 		  AND ($6 = '' OR e.nama ILIKE $6)
@@ -251,15 +290,12 @@ func (r *AttendanceRepository) Report(
 		var leaveDays int
 		if err := rows.Scan(
 			&item.EmployeeID, &item.EmployeeName, &item.Department,
-			&item.Present, &item.Late, &leaveDays, &item.TotalHours,
+			&item.Present, &item.Late, &leaveDays, &item.OfficeHours, &item.OvertimeHours,
 		); err != nil {
 			return domain.AttendanceReportPage{}, fmt.Errorf("scan attendance report: %w", err)
 		}
 		item.Leave = leaveDays
-		item.Absent = workingDays - item.Present - item.Leave
-		if item.Absent < 0 {
-			item.Absent = 0
-		}
+		item.TotalWorkHours = item.OfficeHours + item.OvertimeHours
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {

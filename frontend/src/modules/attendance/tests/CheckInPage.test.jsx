@@ -54,6 +54,9 @@ const photoFile = () => {
   return file;
 };
 
+const fillWorkDescription = (user) =>
+  user.type(screen.getByRole("textbox", { name: /^Uraian pekerjaan/ }), "Mengerjakan tugas harian");
+
 describe("CheckInPage", () => {
   beforeEach(() => {
     recordMock.mockReset();
@@ -165,6 +168,7 @@ describe("CheckInPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Nyalakan kamera" }));
     await user.click(screen.getByRole("radio", { name: "WFH" }));
+	await fillWorkDescription(user);
     await user.upload(await screen.findByLabelText("Unggah foto absensi"), photoFile());
     await user.click(screen.getByRole("button", { name: "Kirim absensi" }));
 
@@ -208,6 +212,7 @@ describe("CheckInPage", () => {
 
       await user.click(screen.getByRole("button", { name: "Nyalakan kamera" }));
       await user.click(screen.getByRole("radio", { name: "WFA" }));
+		await fillWorkDescription(user);
       await user.upload(await screen.findByLabelText("Unggah foto absensi"), photoFile());
       await user.click(screen.getByRole("button", { name: "Kirim absensi" }));
 
@@ -223,6 +228,7 @@ describe("CheckInPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Nyalakan kamera" }));
     await user.click(screen.getByRole("radio", { name: "WFH" }));
+	await fillWorkDescription(user);
     await user.upload(await screen.findByLabelText("Unggah foto absensi"), photoFile());
     await user.click(screen.getByRole("button", { name: "Kirim absensi" }));
 
@@ -246,6 +252,7 @@ describe("CheckInPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Nyalakan kamera" }));
     await user.click(screen.getByRole("radio", { name: "WFH" }));
+	await fillWorkDescription(user);
     await user.upload(await screen.findByLabelText("Unggah foto absensi"), photoFile());
     await user.click(screen.getByRole("button", { name: "Kirim absensi" }));
 

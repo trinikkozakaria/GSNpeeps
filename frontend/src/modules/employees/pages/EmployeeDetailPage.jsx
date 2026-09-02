@@ -9,7 +9,7 @@ import { EmployeeDetailSections } from "../components/EmployeeDetailSections";
 import { EmployeeDocuments } from "../components/EmployeeDocuments";
 import { EmployeeExportMenu } from "../components/EmployeeExportMenu";
 import { EmployeeStatusBadge } from "../components/EmployeeStatusBadge";
-import { useDeactivateEmployee, useEmployeeDetail, useUploadEmployeePhoto } from "../hooks/useEmployees";
+import { useDeactivateEmployee, useEmployeeDetail, useResetEmployeePassword, useUploadEmployeePhoto } from "../hooks/useEmployees";
 
 // Pesan tidak membedakan "tidak ada" dan "tidak boleh diakses" agar keberadaan record tidak
 // bocor kepada role yang tidak berhak.
@@ -28,8 +28,12 @@ export const EmployeeDetailPage = () => {
   const employee = useEmployeeDetail(auth.role, id);
   const deactivate = useDeactivateEmployee(auth.role, id);
   const uploadPhoto = useUploadEmployeePhoto(auth.role, id);
+	const resetPassword = useResetEmployeePassword(auth.role, id);
   const [actionError, setActionError] = useState("");
   const [isConfirmOpen, setConfirmOpen] = useState(false);
+	const [resetOpen, setResetOpen] = useState(false);
+	const [newPassword, setNewPassword] = useState("");
+	const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const isHR = auth.role === "hr";
   const backTarget = location.state?.from?.startsWith("/app/karyawan")
     ? location.state.from
@@ -65,6 +69,11 @@ export const EmployeeDetailPage = () => {
       setActionError(error.message);
     }
   };
+	const handleResetPassword = async (event) => {
+		event.preventDefault(); setActionError("");
+		if (newPassword !== passwordConfirmation) { setActionError("Konfirmasi password tidak sama."); return; }
+		try { await resetPassword.mutateAsync({ new_password: newPassword, new_password_confirmation: passwordConfirmation }); setNewPassword(""); setPasswordConfirmation(""); setResetOpen(false); } catch (error) { setActionError(error.message); }
+	};
   document.title = `${data.nama} — GSNpeeps`;
 
   return (
@@ -93,6 +102,7 @@ export const EmployeeDetailPage = () => {
               >
                 Edit
               </Link>
+				<Button variant="secondary" onClick={() => setResetOpen(true)}>Reset Password</Button>
               {data.status === "aktif" && (
                 <Button variant="secondary" onClick={() => setConfirmOpen(true)}>
                   Nonaktifkan
@@ -151,6 +161,18 @@ export const EmployeeDetailPage = () => {
         }}
         onConfirm={handleDeactivate}
       />
+		{resetOpen && (
+		  <div role="dialog" aria-modal="true" aria-labelledby="reset-password-title" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
+			<form onSubmit={handleResetPassword} className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+			  <h2 id="reset-password-title" className="text-xl font-bold">Reset password {data.nama}</h2>
+			  <p className="mt-2 text-sm text-slate-600">Sesi aktif karyawan akan dicabut dan akun terkunci akan dibuka.</p>
+			  <label className="mt-4 block text-sm font-medium">Password baru<input type="password" minLength="12" maxLength="128" required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="mt-1 block min-h-10 w-full rounded-lg border px-3" /></label>
+			  <label className="mt-3 block text-sm font-medium">Konfirmasi password<input type="password" minLength="12" maxLength="128" required value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} className="mt-1 block min-h-10 w-full rounded-lg border px-3" /></label>
+			  {actionError && <p role="alert" className="mt-3 text-sm text-rose-700">{actionError}</p>}
+			  <div className="mt-5 flex justify-end gap-3"><Button type="button" variant="secondary" onClick={() => setResetOpen(false)}>Batal</Button><Button type="submit" disabled={resetPassword.isPending}>{resetPassword.isPending ? "Mereset…" : "Reset Password"}</Button></div>
+			</form>
+		  </div>
+		)}
     </section>
   );
 };

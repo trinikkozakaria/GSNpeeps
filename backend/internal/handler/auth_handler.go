@@ -16,7 +16,7 @@ import (
 type AuthService interface {
 	Login(context.Context, dto.LoginRequest, service.RequestMeta) (dto.LoginData, error)
 	Me(context.Context, domain.Identity) (domain.AuthUser, error)
-	Logout(context.Context, domain.Identity, service.RequestMeta) error
+	Logout(context.Context, domain.Identity, string, service.RequestMeta) error
 	ChangePassword(
 		context.Context,
 		domain.Identity,
@@ -68,7 +68,12 @@ func (h *AuthHandler) Logout(writer http.ResponseWriter, request *http.Request) 
 		response.FromError(writer, domain.ErrInvalidToken)
 		return
 	}
-	if err := h.service.Logout(request.Context(), identity, h.requestMeta(request)); err != nil {
+	fingerprint, ok := middleware.SessionFingerprintFromContext(request.Context())
+	if !ok {
+		response.FromError(writer, domain.ErrInvalidToken)
+		return
+	}
+	if err := h.service.Logout(request.Context(), identity, fingerprint, h.requestMeta(request)); err != nil {
 		response.FromError(writer, err)
 		return
 	}

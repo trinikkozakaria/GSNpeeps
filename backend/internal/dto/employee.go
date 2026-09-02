@@ -131,6 +131,11 @@ type UpdateEmployeeRequest struct {
 	CurrentSalary     *CurrentSalaryRequest      `json:"gaji_berjalan" validate:"omitempty"`
 }
 
+type ResetEmployeePasswordRequest struct {
+	NewPassword             string `json:"new_password" validate:"required,min=12,max=128"`
+	NewPasswordConfirmation string `json:"new_password_confirmation" validate:"required,min=12,max=128"`
+}
+
 func (request UpdateEmployeeRequest) Empty() bool {
 	return request.Name == nil &&
 		request.Email == nil &&

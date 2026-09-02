@@ -5,6 +5,9 @@ import {
   liveFeedRequest,
   officeLocationsRequest,
   recordAttendanceRequest,
+	createOfficeLocationRequest,
+	updateOfficeLocationRequest,
+	deactivateOfficeLocationRequest,
 } from "../api/attendance-api";
 
 export const attendanceKeys = {
@@ -20,6 +23,11 @@ export const useOfficeLocations = (enabled = true) =>
     enabled,
     staleTime: 10 * 60 * 1000,
   });
+
+const refreshOffices = () => queryClient.invalidateQueries({ queryKey: attendanceKeys.offices });
+export const useCreateOfficeLocation = () => useMutation({ mutationFn: createOfficeLocationRequest, retry: false, onSuccess: refreshOffices });
+export const useUpdateOfficeLocation = () => useMutation({ mutationFn: ({ id, payload }) => updateOfficeLocationRequest(id, payload), retry: false, onSuccess: refreshOffices });
+export const useDeactivateOfficeLocation = () => useMutation({ mutationFn: deactivateOfficeLocationRequest, retry: false, onSuccess: refreshOffices });
 
 export const useRecordAttendance = () =>
   useMutation({

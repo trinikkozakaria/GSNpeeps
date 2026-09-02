@@ -19,12 +19,12 @@ import (
 )
 
 type employeeReaderStub struct {
-	receivedFilter    domain.EmployeeFilter
-	detailError       error
-	createCommand     domain.CreateEmployee
-	detailPeriod      string
-	detail            domain.EmployeeDetail
-	existsError       error
+	receivedFilter         domain.EmployeeFilter
+	detailError            error
+	createCommand          domain.CreateEmployee
+	detailPeriod           string
+	detail                 domain.EmployeeDetail
+	existsError            error
 	documents              []domain.EmployeeDocument
 	createdDocument        domain.NewEmployeeDocument
 	createDocumentErr      error
@@ -33,10 +33,10 @@ type employeeReaderStub struct {
 	upsertPreviousFileURL  string
 	upsertReplaced         bool
 	exportRows             []domain.EmployeeSummary
-	exportQuery       domain.EmployeeExportQuery
-	updatedPhotoID    uuid.UUID
-	updatedPhotoURL   string
-	updatePhotoErr    error
+	exportQuery            domain.EmployeeExportQuery
+	updatedPhotoID         uuid.UUID
+	updatedPhotoURL        string
+	updatePhotoErr         error
 }
 
 func (s *employeeReaderStub) ValidateCreate(context.Context, domain.CreateEmployee) error {
@@ -79,6 +79,11 @@ func (s *employeeReaderStub) UpdatePhoto(_ context.Context, employeeID uuid.UUID
 	s.updatedPhotoURL = url
 	return s.updatePhotoErr
 }
+
+func (s *employeeReaderStub) ResolveUserID(context.Context, uuid.UUID) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+func (s *employeeReaderStub) SetPassword(context.Context, uuid.UUID, string) error { return nil }
 
 type transactionStub struct{}
 

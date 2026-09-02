@@ -35,7 +35,8 @@ func Authenticate(tokens TokenVerifier, sessions SessionValidator) func(http.Han
 				response.FromError(writer, domain.ErrSessionInvalid)
 				return
 			}
-			next.ServeHTTP(writer, request.WithContext(WithIdentity(request.Context(), identity)))
+			ctx := WithSessionFingerprint(WithIdentity(request.Context(), identity), fingerprint)
+			next.ServeHTTP(writer, request.WithContext(ctx))
 		})
 	}
 }

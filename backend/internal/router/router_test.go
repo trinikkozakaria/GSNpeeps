@@ -22,6 +22,11 @@ import (
 // route dapat diverifikasi.
 type employeeServiceRecorder struct{ called string }
 
+func (s *employeeServiceRecorder) ResetEmployeePassword(context.Context, domain.Identity, uuid.UUID, dto.ResetEmployeePasswordRequest, service.RequestMeta) error {
+	s.called = "resetPassword"
+	return nil
+}
+
 func (s *employeeServiceRecorder) ListDepartments(context.Context) ([]domain.Department, error) {
 	s.called = "listDepartments"
 	return []domain.Department{}, nil

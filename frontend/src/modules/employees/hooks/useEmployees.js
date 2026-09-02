@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "../../../lib/query/query-client";
 import {
   deactivateEmployeeRequest,
+	resetEmployeePasswordRequest,
   createEmployeeRequest,
   employeeDetailRequest,
   employeeDocumentsRequest,
@@ -134,4 +135,11 @@ export const useDeactivateEmployee = (scope, id) =>
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     },
+  });
+
+export const useResetEmployeePassword = (scope, id) =>
+  useMutation({
+    mutationFn: (payload) => resetEmployeePasswordRequest(id, payload),
+    retry: false,
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: employeeKeys.detail(scope, id) }),
   });

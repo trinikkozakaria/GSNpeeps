@@ -8,11 +8,20 @@ import (
 )
 
 const identityKey contextKey = "identity"
+const sessionFingerprintKey contextKey = "session_fingerprint"
 
 type Identity = domain.Identity
 
 func WithIdentity(ctx context.Context, identity Identity) context.Context {
 	return context.WithValue(ctx, identityKey, identity)
+}
+
+func WithSessionFingerprint(ctx context.Context, fingerprint string) context.Context {
+	return context.WithValue(ctx, sessionFingerprintKey, fingerprint)
+}
+func SessionFingerprintFromContext(ctx context.Context) (string, bool) {
+	value, ok := ctx.Value(sessionFingerprintKey).(string)
+	return value, ok && value != ""
 }
 
 func IdentityFromContext(ctx context.Context) (Identity, bool) {

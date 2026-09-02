@@ -20,10 +20,57 @@ import (
 type AttendanceStore interface {
 	FindActiveOfficeLocation(context.Context, uuid.UUID) (domain.OfficeLocation, error)
 	ListActiveOfficeLocations(context.Context) ([]domain.OfficeLocation, error)
+	CreateOfficeLocation(context.Context, domain.OfficeLocationInput) (domain.OfficeLocation, error)
+	UpdateOfficeLocation(context.Context, uuid.UUID, domain.OfficeLocationInput) (domain.OfficeLocation, error)
+	DeactivateOfficeLocation(context.Context, uuid.UUID) error
 	ExistsForDate(context.Context, uuid.UUID, string, domain.AttendanceType) (bool, error)
 	Create(context.Context, domain.AttendanceRow) (domain.Attendance, error)
 	LiveFeed(context.Context, string) ([]domain.AttendanceLiveFeedItem, error)
 	Report(context.Context, domain.AttendanceReportFilter, int) (domain.AttendanceReportPage, error)
+}
+
+func (s *AttendanceService) CreateOfficeLocation(ctx context.Context, identity domain.Identity, input domain.OfficeLocationInput, meta RequestMeta) (domain.OfficeLocation, error) {
+	if identity.Role != domain.RoleHR {
+		return domain.OfficeLocation{}, domain.ErrForbidden
+	}
+	var created domain.OfficeLocation
+	err := s.tx.Within(ctx, func(txCtx context.Context) error {
+		var err error
+		created, err = s.attendances.CreateOfficeLocation(txCtx, input)
+		if err != nil {
+			return err
+		}
+		return s.audit.Append(txCtx, domain.AuditEntry{UserID: &identity.UserID, Action: "CREATE", Module: "master_lokasi_kantor", DataID: &created.ID, Detail: map[string]any{"request_id": meta.RequestID}, IPAddress: meta.IPAddress, CreatedAt: s.now().UTC()})
+	})
+	return created, err
+}
+
+func (s *AttendanceService) UpdateOfficeLocation(ctx context.Context, identity domain.Identity, id uuid.UUID, input domain.OfficeLocationInput, meta RequestMeta) (domain.OfficeLocation, error) {
+	if identity.Role != domain.RoleHR {
+		return domain.OfficeLocation{}, domain.ErrForbidden
+	}
+	var updated domain.OfficeLocation
+	err := s.tx.Within(ctx, func(txCtx context.Context) error {
+		var err error
+		updated, err = s.attendances.UpdateOfficeLocation(txCtx, id, input)
+		if err != nil {
+			return err
+		}
+		return s.audit.Append(txCtx, domain.AuditEntry{UserID: &identity.UserID, Action: "UPDATE", Module: "master_lokasi_kantor", DataID: &id, Detail: map[string]any{"request_id": meta.RequestID}, IPAddress: meta.IPAddress, CreatedAt: s.now().UTC()})
+	})
+	return updated, err
+}
+
+func (s *AttendanceService) DeactivateOfficeLocation(ctx context.Context, identity domain.Identity, id uuid.UUID, meta RequestMeta) error {
+	if identity.Role != domain.RoleHR {
+		return domain.ErrForbidden
+	}
+	return s.tx.Within(ctx, func(txCtx context.Context) error {
+		if err := s.attendances.DeactivateOfficeLocation(txCtx, id); err != nil {
+			return err
+		}
+		return s.audit.Append(txCtx, domain.AuditEntry{UserID: &identity.UserID, Action: "DELETE", Module: "master_lokasi_kantor", DataID: &id, Detail: map[string]any{"request_id": meta.RequestID}, IPAddress: meta.IPAddress, CreatedAt: s.now().UTC()})
+	})
 }
 
 type AttendanceService struct {
@@ -91,9 +138,10 @@ func (s *AttendanceService) Record(
 		NetworkTime: networkTime,
 		// waktu_local diisi waktu server dalam WIB karena kontrak tidak mengirim waktu
 		// perangkat dan waktu perangkat tidak tepercaya (D-022).
-		LocalTime: localTime,
-		Latitude:  command.Latitude,
-		Longitude: command.Longitude,
+		LocalTime:       localTime,
+		Latitude:        command.Latitude,
+		Longitude:       command.Longitude,
+		WorkDescription: command.WorkDescription,
 	}
 
 	if command.WorkMode == domain.WorkModeWFO {
@@ -154,10 +202,11 @@ func (s *AttendanceService) Record(
 			Module: "absensi",
 			DataID: &created.ID,
 			Detail: map[string]any{
-				"tipe":       string(command.Type),
-				"mode_kerja": string(command.WorkMode),
-				"status":     created.Status,
-				"request_id": meta.RequestID,
+				"tipe":             string(command.Type),
+				"mode_kerja":       string(command.WorkMode),
+				"status":           created.Status,
+				"uraian_pekerjaan": command.WorkDescription,
+				"request_id":       meta.RequestID,
 			},
 			IPAddress: meta.IPAddress,
 			CreatedAt: networkTime,
@@ -366,17 +415,23 @@ func liveFeedTable(items []domain.AttendanceLiveFeedItem, date string) export.Ta
 	rows := groupLiveFeedByEmployee(items)
 	table := export.Table{
 		Title:   fmt.Sprintf("GSNpeeps - Live Feed Absensi %s WIB", date),
-		Headers: []string{"Nama", "Departemen", "Mode Kerja", "Check-in", "Check-out", "Status Masuk", "Status Pulang"},
+		Headers: []string{"Nama", "Departemen", "Mode Kerja", "Check-in", "Check-out", "Uraian Masuk", "Uraian Pulang", "Status Masuk", "Status Pulang"},
 		Rows:    make([][]string, 0, len(rows)),
 	}
 	for _, row := range rows {
-		checkInTime, checkInStatus := "—", "—"
+		checkInTime, checkInDescription, checkInStatus := "—", "—", "—"
 		if row.CheckIn != nil {
 			checkInTime, checkInStatus = clockWIB(row.CheckIn.Time), row.CheckIn.Status
+			if row.CheckIn.WorkDescription != nil {
+				checkInDescription = *row.CheckIn.WorkDescription
+			}
 		}
-		checkOutTime, checkOutStatus := "—", "—"
+		checkOutTime, checkOutDescription, checkOutStatus := "—", "—", "—"
 		if row.CheckOut != nil {
 			checkOutTime, checkOutStatus = clockWIB(row.CheckOut.Time), row.CheckOut.Status
+			if row.CheckOut.WorkDescription != nil {
+				checkOutDescription = *row.CheckOut.WorkDescription
+			}
 		}
 		table.Rows = append(table.Rows, []string{
 			row.EmployeeName,
@@ -384,6 +439,8 @@ func liveFeedTable(items []domain.AttendanceLiveFeedItem, date string) export.Ta
 			string(row.WorkMode),
 			checkInTime,
 			checkOutTime,
+			checkInDescription,
+			checkOutDescription,
 			checkInStatus,
 			checkOutStatus,
 		})
@@ -417,8 +474,7 @@ func (s *AttendanceService) Report(
 	if err != nil {
 		return domain.AttendanceReportPage{}, err
 	}
-	workingDays := workingDaysBetween(filter.Start, filter.End)
-	page, err := s.attendances.Report(ctx, filter, workingDays)
+	page, err := s.attendances.Report(ctx, filter, 0)
 	if err != nil {
 		return domain.AttendanceReportPage{}, fmt.Errorf("read attendance report: %w", err)
 	}
@@ -476,16 +532,6 @@ func (s *AttendanceService) resolveReportRange(
 	return filter, nil
 }
 
-func workingDaysBetween(start, end time.Time) int {
-	count := 0
-	for day := start; !day.After(end); day = day.AddDate(0, 0, 1) {
-		if day.Weekday() != time.Saturday && day.Weekday() != time.Sunday {
-			count++
-		}
-	}
-	return count
-}
-
 // maxReportExportRows membatasi dataset export laporan.
 const maxReportExportRows = 5000
 
@@ -510,7 +556,7 @@ func (s *AttendanceService) ExportReport(
 	filter.Page = 1
 	filter.Limit = maxReportExportRows
 
-	page, err := s.attendances.Report(ctx, filter, workingDaysBetween(filter.Start, filter.End))
+	page, err := s.attendances.Report(ctx, filter, 0)
 	if err != nil {
 		return domain.ExportFile{}, fmt.Errorf("read attendance export dataset: %w", err)
 	}
@@ -567,7 +613,7 @@ func attendanceReportTable(
 			"GSNpeeps - Laporan Kehadiran %s s.d. %s WIB",
 			filter.Start.Format(domain.DateLayout), filter.End.Format(domain.DateLayout),
 		),
-		Headers: []string{"Nama", "Departemen", "Hadir", "Terlambat", "Izin", "Alpha", "Total Jam"},
+		Headers: []string{"Nama", "Departemen", "Hadir", "Terlambat", "Izin", "Jam Kantor", "Jam Lembur", "Total Jam Kerja"},
 		Rows:    make([][]string, 0, len(items)),
 	}
 	for _, item := range items {
@@ -577,8 +623,9 @@ func attendanceReportTable(
 			fmt.Sprintf("%d", item.Present),
 			fmt.Sprintf("%d", item.Late),
 			fmt.Sprintf("%d", item.Leave),
-			fmt.Sprintf("%d", item.Absent),
-			fmt.Sprintf("%.2f", item.TotalHours),
+			fmt.Sprintf("%.2f", item.OfficeHours),
+			fmt.Sprintf("%.2f", item.OvertimeHours),
+			fmt.Sprintf("%.2f", item.TotalWorkHours),
 		})
 	}
 	return table

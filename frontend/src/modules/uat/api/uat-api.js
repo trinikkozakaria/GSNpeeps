@@ -21,4 +21,6 @@ export const holidaysRequest = async (year, signal) => data(await apiClient.get(
 export const upsertHolidaysRequest = async (items) => data(await apiClient.put("/kalender/libur/bulk", { items }));
 export const documentTypesRequest = async (signal) => data(await apiClient.get("/master/jenis-dokumen", { signal }));
 export const createDocumentTypeRequest = async (payload) => data(await apiClient.post("/master/jenis-dokumen", payload));
+export const updateDocumentTypeRequest = async (id, payload) => data(await apiClient.put(`/master/jenis-dokumen/${id}`, payload));
+export const deleteDocumentTypeRequest = async (id) => data(await apiClient.delete(`/master/jenis-dokumen/${id}`));
 export const homeSummaryRequest = async (signal) => data(await apiClient.get("/beranda", { signal }));

@@ -39,6 +39,7 @@ type TokenIssuer interface {
 type SessionStore interface {
 	Save(context.Context, uuid.UUID, string, time.Duration) error
 	Revoke(context.Context, uuid.UUID) error
+	RevokeToken(context.Context, uuid.UUID, string) error
 }
 
 type AuthRateLimiter interface {
@@ -188,13 +189,13 @@ func (s *AuthService) Me(ctx context.Context, identity domain.Identity) (domain.
 	return user, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, identity domain.Identity, meta RequestMeta) error {
+func (s *AuthService) Logout(ctx context.Context, identity domain.Identity, fingerprint string, meta RequestMeta) error {
 	// Begitu logout diterima, pencabutan sesi dan audit harus tetap selesai walaupun browser
 	// menutup koneksi saat berpindah ke halaman login. Nilai context (request ID dan metadata)
 	// tetap dipertahankan, tetapi cancellation dari client dilepas dan diberi batas waktu sendiri.
 	finalizeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), logoutFinalizationTimeout)
 	defer cancel()
-	if err := s.sessions.Revoke(finalizeCtx, identity.UserID); err != nil {
+	if err := s.sessions.RevokeToken(finalizeCtx, identity.UserID, fingerprint); err != nil {
 		return err
 	}
 	return s.appendAudit(finalizeCtx, identity.UserID, "LOGOUT", meta, nil)

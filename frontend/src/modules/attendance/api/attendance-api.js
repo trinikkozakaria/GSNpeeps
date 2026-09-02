@@ -9,6 +9,9 @@ export const officeLocationsRequest = async (signal) => {
   const envelope = await apiClient.get("/master/lokasi-kantor", { signal });
   return officeLocationListSchema.parse(envelope.data);
 };
+export const createOfficeLocationRequest = async (payload) => (await apiClient.post("/master/lokasi-kantor", payload)).data;
+export const updateOfficeLocationRequest = async (id, payload) => (await apiClient.put(`/master/lokasi-kantor/${id}`, payload)).data;
+export const deactivateOfficeLocationRequest = async (id) => (await apiClient.delete(`/master/lokasi-kantor/${id}`)).data;
 
 /**
  * Field multipart mengikuti AttendanceCheckRequest. `office_location_id` hanya dikirim untuk
@@ -23,6 +26,7 @@ export const recordAttendanceRequest = async (input, signal) => {
   if (input.office_location_id) {
     form.append("office_location_id", input.office_location_id);
   }
+  form.append("uraian_pekerjaan", input.uraian_pekerjaan);
   form.append("foto", input.foto);
   const envelope = await apiClient.post("/absensi/checkin", form, { signal });
   return attendanceSchema.parse(envelope.data);

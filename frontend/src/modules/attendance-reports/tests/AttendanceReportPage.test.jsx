@@ -45,7 +45,9 @@ const reportRow = {
   hadir: 18,
   terlambat: 2,
   izin: 1,
-  alpha: 0,
+  jam_kantor: 144,
+  jam_lembur: 12,
+  total_jam_kerja: 156,
 };
 
 describe("AttendanceReportPage", () => {

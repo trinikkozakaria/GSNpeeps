@@ -115,6 +115,11 @@ func (f *fakeSessions) Revoke(ctx context.Context, _ uuid.UUID) error {
 	f.revokeContextErr = ctx.Err()
 	return nil
 }
+func (f *fakeSessions) RevokeToken(ctx context.Context, _ uuid.UUID, _ string) error {
+	f.revoked++
+	f.revokeContextErr = ctx.Err()
+	return nil
+}
 
 type fakeLimiter struct{ allowed bool }
 
@@ -174,7 +179,7 @@ func TestLogoutFinalizesSessionAndAuditAfterClientCancellation(t *testing.T) {
 
 	requestCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	err = auth.Logout(requestCtx, domain.Identity{UserID: users.account.ID}, RequestMeta{IPAddress: "127.0.0.1"})
+	err = auth.Logout(requestCtx, domain.Identity{UserID: users.account.ID}, "fingerprint", RequestMeta{IPAddress: "127.0.0.1"})
 
 	require.NoError(t, err)
 	require.Equal(t, 1, sessions.revoked)

@@ -14,6 +14,7 @@ import { ApprovalInboxPage } from "../modules/approvals/pages/ApprovalInboxPage"
 import { AuditLogPage } from "../modules/audit/pages/AuditLogPage";
 import { AttendanceReportPage } from "../modules/attendance-reports/pages/AttendanceReportPage";
 import { AttendanceCorrectionPage } from "../modules/attendance/pages/AttendanceCorrectionPage";
+import { OfficeLocationsPage } from "../modules/attendance/pages/OfficeLocationsPage";
 import { LiveFeedPage } from "../modules/attendance-reports/pages/LiveFeedPage";
 import { LeaveRequestPage } from "../modules/leave/pages/LeaveRequestPage";
 import { LeaveTypesPage } from "../modules/leave/pages/LeaveTypesPage";
@@ -129,6 +130,7 @@ export const router = createBrowserRouter([
                 children: [
                   { path: "master/jenis-izin", element: <LeaveTypesPage /> },
                   { path: "master/jenis-dokumen", element: <DocumentTypesPage /> },
+				  { path: "master/lokasi-kantor", element: <OfficeLocationsPage /> },
                   { path: "company-feed", element: <CompanyFeedPage /> },
                   { path: "lembur/rekap", element: <OvertimeRecapPage /> },
                 ],

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/middleware"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/pkg/filetype"
@@ -18,6 +19,9 @@ import (
 
 type AttendanceService interface {
 	ListOfficeLocations(context.Context) ([]domain.OfficeLocation, error)
+	CreateOfficeLocation(context.Context, domain.Identity, domain.OfficeLocationInput, service.RequestMeta) (domain.OfficeLocation, error)
+	UpdateOfficeLocation(context.Context, domain.Identity, uuid.UUID, domain.OfficeLocationInput, service.RequestMeta) (domain.OfficeLocation, error)
+	DeactivateOfficeLocation(context.Context, domain.Identity, uuid.UUID, service.RequestMeta) error
 	Record(
 		context.Context, domain.Identity, domain.RecordAttendance, service.RequestMeta,
 	) (domain.Attendance, error)
@@ -58,6 +62,73 @@ func (h *AttendanceHandler) ListOfficeLocations(
 		return
 	}
 	response.Success(writer, http.StatusOK, locations, "OK")
+}
+
+func validOfficeLocation(input domain.OfficeLocationInput) bool {
+	return strings.TrimSpace(input.Code) != "" && len(input.Code) <= 50 && strings.TrimSpace(input.Name) != "" && len(input.Name) <= 150 && input.Latitude >= -90 && input.Latitude <= 90 && input.Longitude >= -180 && input.Longitude <= 180
+}
+
+func (h *AttendanceHandler) CreateOfficeLocation(w http.ResponseWriter, r *http.Request) {
+	identity, ok := middleware.IdentityFromContext(r.Context())
+	if !ok {
+		response.FromError(w, domain.ErrInvalidToken)
+		return
+	}
+	var input domain.OfficeLocationInput
+	if decodeJSON(r, &input) != nil || !validOfficeLocation(input) {
+		response.Error(w, http.StatusBadRequest, "INVALID_PARAM", "Data lokasi kantor tidak valid")
+		return
+	}
+	input.Code, input.Name = strings.TrimSpace(input.Code), strings.TrimSpace(input.Name)
+	item, err := h.service.CreateOfficeLocation(r.Context(), identity, input, h.requestMeta(r))
+	if err != nil {
+		response.FromError(w, err)
+		return
+	}
+	response.Success(w, http.StatusCreated, item, "Lokasi kantor berhasil ditambahkan")
+}
+
+func (h *AttendanceHandler) UpdateOfficeLocation(w http.ResponseWriter, r *http.Request) {
+	identity, ok := middleware.IdentityFromContext(r.Context())
+	if !ok {
+		response.FromError(w, domain.ErrInvalidToken)
+		return
+	}
+	id, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_PARAM", "ID lokasi kantor tidak valid")
+		return
+	}
+	var input domain.OfficeLocationInput
+	if decodeJSON(r, &input) != nil || !validOfficeLocation(input) {
+		response.Error(w, http.StatusBadRequest, "INVALID_PARAM", "Data lokasi kantor tidak valid")
+		return
+	}
+	input.Code, input.Name = strings.TrimSpace(input.Code), strings.TrimSpace(input.Name)
+	item, err := h.service.UpdateOfficeLocation(r.Context(), identity, id, input, h.requestMeta(r))
+	if err != nil {
+		response.FromError(w, err)
+		return
+	}
+	response.Success(w, http.StatusOK, item, "Lokasi kantor berhasil diperbarui")
+}
+
+func (h *AttendanceHandler) DeactivateOfficeLocation(w http.ResponseWriter, r *http.Request) {
+	identity, ok := middleware.IdentityFromContext(r.Context())
+	if !ok {
+		response.FromError(w, domain.ErrInvalidToken)
+		return
+	}
+	id, err := uuid.Parse(mux.Vars(r)["id"])
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_PARAM", "ID lokasi kantor tidak valid")
+		return
+	}
+	if err := h.service.DeactivateOfficeLocation(r.Context(), identity, id, h.requestMeta(r)); err != nil {
+		response.FromError(w, err)
+		return
+	}
+	response.EmptySuccess(w, "Lokasi kantor berhasil dinonaktifkan")
 }
 
 func (h *AttendanceHandler) requestMeta(request *http.Request) service.RequestMeta {
@@ -125,6 +196,12 @@ func (h *AttendanceHandler) Record(writer http.ResponseWriter, request *http.Req
 	if workMode != domain.WorkModeWFO {
 		officeLocationID = nil
 	}
+	workDescription := strings.TrimSpace(request.FormValue("uraian_pekerjaan"))
+	if workDescription == "" {
+		fields["uraian_pekerjaan"] = "Uraian pekerjaan wajib diisi"
+	} else if len([]rune(workDescription)) > 500 {
+		fields["uraian_pekerjaan"] = "Uraian pekerjaan maksimal 500 karakter"
+	}
 
 	if len(fields) > 0 {
 		response.ValidationError(writer, fields)
@@ -175,6 +252,7 @@ func (h *AttendanceHandler) Record(writer http.ResponseWriter, request *http.Req
 		Latitude:         latitude,
 		Longitude:        longitude,
 		OfficeLocationID: officeLocationID,
+		WorkDescription:  workDescription,
 		PhotoExtension:   descriptor.Extension,
 		PhotoMediaType:   descriptor.MediaType,
 		PhotoContent:     content,

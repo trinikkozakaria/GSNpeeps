@@ -58,6 +58,15 @@ type OfficeLocation struct {
 	IsActive  bool      `json:"is_active"`
 }
 
+type OfficeLocationInput struct {
+	Code      string  `json:"kode"`
+	Name      string  `json:"nama"`
+	Address   *string `json:"alamat"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	IsActive  bool    `json:"is_active"`
+}
+
 // Attendance memetakan schema Attendance pada OpenAPI.
 type Attendance struct {
 	ID               uuid.UUID      `json:"id"`
@@ -71,6 +80,7 @@ type Attendance struct {
 	OfficeLocationID *uuid.UUID     `json:"office_location_id"`
 	DistanceMeters   *float64       `json:"distance_meters"`
 	PhotoURL         *string        `json:"foto_url"`
+	WorkDescription  *string        `json:"uraian_pekerjaan"`
 	Status           string         `json:"status"`
 }
 
@@ -90,6 +100,7 @@ type RecordAttendance struct {
 	Latitude         float64
 	Longitude        float64
 	OfficeLocationID *uuid.UUID
+	WorkDescription  string
 	PhotoExtension   string
 	PhotoMediaType   string
 	PhotoContent     []byte
@@ -108,19 +119,21 @@ type AttendanceRow struct {
 	OfficeLocationID *uuid.UUID
 	DistanceMeters   *float64
 	PhotoURL         string
+	WorkDescription  string
 	Status           string
 }
 
 // AttendanceReportItem memetakan schema AttendanceReportItem.
 type AttendanceReportItem struct {
-	EmployeeID   uuid.UUID `json:"employee_id"`
-	EmployeeName string    `json:"nama_karyawan"`
-	Department   string    `json:"departemen"`
-	Present      int       `json:"hadir"`
-	Late         int       `json:"terlambat"`
-	Leave        int       `json:"izin"`
-	Absent       int       `json:"alpha"`
-	TotalHours   float64   `json:"total_jam_kerja"`
+	EmployeeID     uuid.UUID `json:"employee_id"`
+	EmployeeName   string    `json:"nama_karyawan"`
+	Department     string    `json:"departemen"`
+	Present        int       `json:"hadir"`
+	Late           int       `json:"terlambat"`
+	Leave          int       `json:"izin"`
+	OfficeHours    float64   `json:"jam_kantor"`
+	OvertimeHours  float64   `json:"jam_lembur"`
+	TotalWorkHours float64   `json:"total_jam_kerja"`
 }
 
 type AttendanceReportPage struct {
