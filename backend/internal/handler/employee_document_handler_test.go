@@ -27,6 +27,10 @@ type employeeServiceStub struct {
 	exportFile   domain.ExportFile
 	exportQuery  domain.EmployeeExportQuery
 	exportErr    error
+	resetCalled  bool
+	resetID      uuid.UUID
+	resetRequest dto.ResetEmployeePasswordRequest
+	resetErr     error
 }
 
 func (s *employeeServiceStub) ListDepartments(context.Context) ([]domain.Department, error) {
@@ -84,8 +88,11 @@ func (s *employeeServiceStub) Deactivate(
 	return domain.EmployeeMutationResult{}, nil
 }
 
-func (s *employeeServiceStub) ResetEmployeePassword(context.Context, domain.Identity, uuid.UUID, dto.ResetEmployeePasswordRequest, service.RequestMeta) error {
-	return nil
+func (s *employeeServiceStub) ResetEmployeePassword(_ context.Context, _ domain.Identity, id uuid.UUID, request dto.ResetEmployeePasswordRequest, _ service.RequestMeta) error {
+	s.resetCalled = true
+	s.resetID = id
+	s.resetRequest = request
+	return s.resetErr
 }
 
 func (s *employeeServiceStub) ListDocuments(

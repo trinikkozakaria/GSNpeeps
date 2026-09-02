@@ -498,6 +498,88 @@ masalah nyata.
 
 Operation count kontrak aktif menjadi 49 (D-001 46, D-035 +1, D-037 +2).
 
+### D-039 — Reset password karyawan oleh HR
+
+Permintaan produk (`docs/testing/missing-features.md` baris 3): bila karyawan lupa
+password dan tidak dapat memakai self-reset (`POST /api/v1/auth/reset-password`, yang
+mensyaratkan password saat ini), HR harus dapat mereset password karyawan tersebut.
+
+Konflik kontrak yang diselesaikan: `CLAUDE.md` §7/§8, D-011, dan deskripsi
+`resetOwnPassword` sebelumnya menegaskan HR tidak pernah menetapkan password user lain.
+Keputusan ini merevisi pernyataan tersebut secara terbatas.
+
+Perilaku yang disepakati:
+
+- Endpoint baru `POST /api/v1/karyawan/{id}/reset-password`, HR-only (`protected` +
+  `identity.Role != domain.RoleHR` → `403 FORBIDDEN`), mengikuti pola akses setiap
+  mutasi `/karyawan` lain dan preseden `PUT /api/v1/karyawan/{id}/foto`.
+- Body: `new_password` + `new_password_confirmation` (keduanya `min=12,max=128`,
+  konfirmasi wajib sama). Tidak ada `current_password` — HR tidak mengetahui password
+  karyawan. Validasi gagal → `422 VALIDATION_ERROR`.
+- Efek: hash password diperbarui, `failed_login_count=0`, `account_locked=FALSE`, dan
+  **seluruh** sesi Redis milik akun target dicabut (`SessionStore.Revoke`, revoke-all —
+  bukan per-token). Karyawan wajib login ulang.
+- Response `200` hanya mengembalikan flag boolean
+  (`password_reset`/`account_unlocked`/`sessions_revoked`), tidak pernah nilai password.
+- Audit: `aksi=PASSWORD_RESET` (< 30 char), `modul=karyawan`, `data_id` = user id target,
+  detail hanya metadata non-sensitif (`by=hr`, `sessions_revoked=true`, request id). Nilai
+  password tidak pernah masuk log.
+- HR tidak dapat mereset akunnya sendiri lewat endpoint ini (jalur self-service sudah
+  ada); reset akun `top_management` tetap diperbolehkan karena HR adalah administrator
+  akun.
+- `resetOwnPassword` tetap ada tanpa perubahan perilaku; deskripsinya diperbarui untuk
+  menunjuk ke endpoint HR ini bagi kasus "benar-benar lupa".
+
+Operation count kontrak aktif menjadi 50 (D-037 49, D-039 +1).
+
+### D-040 — Sesi login bersamaan dan logout per token
+
+Sebelumnya Redis menyimpan satu key `session:<user_id>`; login kedua menimpanya sehingga
+token pertama langsung gagal `Validate` → `401 INVALID_TOKEN`. Keputusan: user boleh
+memiliki beberapa token aktif sekaligus (mis. login di beberapa perangkat), masing-masing
+berlaku sampai kedaluwarsa sendiri, logout eksplisit, atau security revoke.
+
+- Session store memakai satu key per token: `session:<user_id>:<fingerprint>` dengan TTL
+  = sisa umur JWT, sehingga entri basi bersih sendiri.
+- `Validate` = `EXISTS` key (nama key sudah berasal dari fingerprint turunan-rahasia).
+- `POST /api/v1/auth/logout` mencabut **hanya** token pemanggil
+  (`SessionStore.RevokeToken(userID, fingerprint)`); fingerprint dialirkan dari auth
+  middleware ke context lalu ke handler/service logout.
+- Security revoke tetap mencabut **semua** sesi (`SessionStore.Revoke`, `SCAN` +
+  `UNLINK` pada `session:<user_id>:*`): lockout login ke-5, ganti password, self-reset,
+  reset oleh HR (D-039), nonaktif karyawan, serta perubahan email/role.
+- Tidak ada endpoint "logout semua perangkat" pada revisi ini; bila dibutuhkan nanti
+  menjadi `POST /auth/logout-all` terpisah.
+- Deskripsi `POST /auth/logout` pada OpenAPI diperbarui; tidak ada perubahan request/
+  response shape sehingga operation count tidak berubah.
+
+### D-041 — Master jenis dokumen dan lokasi kantor: edit + nonaktif
+
+Permintaan produk (`docs/testing/missing-features.md` baris 1 dan 7): HR perlu mengubah
+dan "menghapus" nama jenis dokumen serta menambah/ubah/hapus lokasi kantor WFO.
+
+- "Hapus" = **deactivate** (`is_active = false`), bukan hard delete. FK
+  `employee_documents.document_type_id` dan `attendances.office_location_id`
+  (`ON DELETE RESTRICT`) tetap utuh dan riwayat terjaga.
+- `PUT /api/v1/master/jenis-dokumen/{id}` (ubah `kode`/`nama`/`wajib`/`is_active`) dan
+  `DELETE /api/v1/master/jenis-dokumen/{id}` (set `is_active=false`). `GET` kini
+  didokumentasikan resmi dan mengembalikan baris aktif + nonaktif agar HR bisa
+  mengaktifkan kembali. Semua mutasi HR-only, dicatat `modul=master_jenis_dokumen`.
+- `POST /api/v1/master/lokasi-kantor`, `PUT /api/v1/master/lokasi-kantor/{id}`,
+  `DELETE /api/v1/master/lokasi-kantor/{id}` (deactivate). HR-only; `GET` tetap terbuka
+  untuk seluruh role karena menyuplai dropdown WFO. Dicatat `modul=master_lokasi_kantor`.
+- Tidak ada kolom `radius` — radius WFO tetap konstanta global
+  `domain.OfficeRadiusMeters` (100 m). Mengubah koordinat memengaruhi check-in WFO
+  berikutnya; menonaktifkan lokasi menolak check-in WFO baru terhadapnya. Riwayat
+  absensi tidak terpengaruh.
+- Duplikat `kode` → `409 CONFLICT`; koordinat di luar rentang → `422`/`400`.
+
+Operation count kontrak aktif menjadi 57 (D-039 50, D-040 +0, D-041 +7:
+`listDocumentTypes`, `createDocumentType`, `updateDocumentType`,
+`deactivateDocumentType`, `createOfficeLocation`, `updateOfficeLocation`,
+`deactivateOfficeLocation`). Path count 45. `listDocumentTypes` sudah ada di kode
+sejak D-038-era namun baru sekarang masuk kontrak.
+
 ## Validation record
 
 Hasil validasi lokal setelah penerapan D-017 (enum `ExportFormatParam`):
@@ -533,3 +615,20 @@ Hasil validasi lokal setelah penerapan D-037 (foto profil):
   `uploadEmployeeDocument`.
 - `AuthUser.foto_profil_url` dan `EmployeeDetail.foto_profil_url` bertipe nullable string
   (`format: uri`), konsisten dengan `EmployeeKTP.file_url`/`EmployeeNPWP.file_url`.
+
+Hasil validasi lokal setelah penerapan D-039/D-040/D-041 (revisi 0.9.0):
+
+- YAML syntax: valid dengan PyYAML 6.x.
+- Path count: 45 (bertambah empat: `/master/jenis-dokumen`, `/master/jenis-dokumen/{id}`,
+  `/master/lokasi-kantor/{id}`, `/karyawan/{id}/reset-password`).
+- Operation count: 57 (bertambah delapan: `listDocumentTypes`, `createDocumentType`,
+  `updateDocumentType`, `deactivateDocumentType`, `createOfficeLocation`,
+  `updateOfficeLocation`, `deactivateOfficeLocation`, `resetEmployeePassword`).
+- Operation ID: lengkap dan unik.
+- `$ref` resolution: seluruh local reference terselesaikan (parameter
+  `OfficeLocationIdPath`/`DocumentTypeIdPath`; schema `OfficeLocationRequest`,
+  `OfficeLocationResponse`, `ResetEmployeePasswordRequest`, `PasswordResetData`,
+  `PasswordResetResponse`, `DocumentType`, `DocumentTypeListResponse`,
+  `CreateDocumentTypeRequest`, `UpdateDocumentTypeRequest`).
+- Response coverage: setiap operation baru memiliki response 2xx dan 4xx.
+- `POST /auth/logout` hanya berubah deskripsi (per-token); request/response shape tetap.

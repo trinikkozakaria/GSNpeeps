@@ -17,6 +17,7 @@ export const DocumentTypesPage = () => {
     queryFn: ({ signal }) => documentTypesRequest(signal),
   });
   const create = useMutation({
+    mutationKey: ["create"],
     mutationFn: createDocumentTypeRequest,
     onSuccess: async () => {
       setCode("");
@@ -27,10 +28,12 @@ export const DocumentTypesPage = () => {
     },
   });
 	const update = useMutation({
+		mutationKey: ["update"],
 		mutationFn: ({ id, payload }) => updateDocumentTypeRequest(id, payload),
 		onSuccess: async () => { setEditing(null); setSuccessMessage("Jenis dokumen berhasil diperbarui."); await queryClient.invalidateQueries({ queryKey: ["document-types"] }); },
 	});
 	const deactivate = useMutation({
+		mutationKey: ["deactivate"],
 		mutationFn: deleteDocumentTypeRequest,
 		onSuccess: async () => { setSuccessMessage("Jenis dokumen berhasil dinonaktifkan."); await queryClient.invalidateQueries({ queryKey: ["document-types"] }); },
 	});

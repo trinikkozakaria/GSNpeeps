@@ -532,9 +532,16 @@ riwayat jabatan/gaji berjalan pada `POST`/`PUT /karyawan` (D-036). Revisi 0.7.0 
 `PUT /auth/me/foto` dan `PUT /karyawan/{id}/foto` untuk foto profil di navbar (D-037). Revisi
 0.8.0 menambahkan `GET /absensi/livefeed/export` dan `GET /lembur/rekap/export` (XLSX,
 HR-only) untuk tombol download report pada halaman Live Feed Absensi dan Rekap Lembur,
-konsisten dengan pola `GET /laporan/kehadiran/export` yang sudah ada (D-038).
+konsisten dengan pola `GET /laporan/kehadiran/export` yang sudah ada (D-038). Revisi 0.9.0
+menambahkan `POST /karyawan/{id}/reset-password` (HR mereset password karyawan yang lupa,
+D-039), CRUD master `/master/jenis-dokumen` dan `/master/lokasi-kantor` untuk edit +
+nonaktif (D-041), serta merevisi deskripsi `POST /auth/logout` menjadi per-token karena
+sesi login bersamaan kini diizinkan (D-040).
 Jangan menambahkan refresh token atau mekanisme forgot-password berbasis email/OTP tanpa
-keputusan produk.
+keputusan produk. Reset password oleh HR pada `POST /karyawan/{id}/reset-password` (D-039)
+adalah satu-satunya jalur "benar-benar lupa" yang disetujui: HR mengetik password baru,
+akun dibuka, seluruh sesi target dicabut, dan nilai password tidak pernah dikembalikan atau
+dicatat.
 
 ---
 
@@ -543,9 +550,15 @@ keputusan produk.
 ### JWT dan Session
 
 - JWT berlaku 8 jam.
-- Claim minimal: `user_id`, `role`, dan `exp`.
-- Token aktif di-cross-check melalui Redis key `session:<user_id>`.
-- Logout atau lockout harus langsung menginvalidasi session Redis.
+- Claim minimal: `user_id`, `role`, dan `exp`. Setiap token memiliki `jti` acak;
+  `fingerprint = sha256(jti)`.
+- Token aktif di-cross-check melalui Redis key per token `session:<user_id>:<fingerprint>`
+  dengan TTL = sisa umur JWT. Login bersamaan di beberapa perangkat diizinkan; masing-masing
+  token tetap valid sampai kedaluwarsa sendiri (D-040).
+- Logout hanya mencabut token perangkat pemanggil (`RevokeToken`). Event keamanan —
+  lockout login ke-5, ganti password, self-reset, reset oleh HR (D-039), nonaktif karyawan,
+  perubahan email/role — mencabut **seluruh** sesi user (`Revoke`, `SCAN` +
+  `session:<user_id>:*`).
 - Password disimpan sebagai bcrypt/Argon2 hash, tidak pernah plaintext.
 
 ### Login Lockout
@@ -557,10 +570,15 @@ keputusan produk.
   akun dibuka, seluruh session dicabut, dan pengguna wajib login ulang.
 - Self-reset memakai error generik, rate limit gabungan akun+IP, dan counter kegagalan yang sama
   dengan login agar tidak menjadi bypass brute-force.
-- HR hanya melihat status akun yang sudah diperbarui; password lama maupun baru tidak pernah
-  dikirim atau ditampilkan kepada HR.
-- Lupa password tanpa mengetahui password saat ini belum termasuk scope sampai kanal verifikasi
-  email/OTP disetujui.
+- HR hanya melihat status akun yang sudah diperbarui; password lama tidak pernah dikirim atau
+  ditampilkan kepada HR. Untuk reset oleh HR, password baru diketik HR sendiri dan tidak
+  pernah dikembalikan pada response atau dicatat pada audit.
+- Karyawan yang lupa password dan tidak tahu password saat ini ditangani HR lewat
+  `POST /karyawan/{id}/reset-password` (D-039): HR-only, password baru + konfirmasi
+  (`min=12`), akun dibuka (`account_locked=false`, `failed_login_count=0`), seluruh sesi
+  target dicabut, audit `aksi=PASSWORD_RESET modul=karyawan` tanpa nilai password. HR tidak
+  dapat mereset akunnya sendiri lewat endpoint ini. Kanal recovery email/OTP tetap di luar
+  scope.
 - Kondisi terkunci menggunakan `429 ACCOUNT_LOCKED` sesuai API Contract.
 
 ### Rate Limit

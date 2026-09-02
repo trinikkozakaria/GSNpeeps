@@ -13,7 +13,7 @@ current code.
 - **Timesheet "jam kantor"**: reuse the existing raw check-in→check-out span; show approved
   overtime as a separate column; add a combined total. No lunch-break deduction.
 
-## Status pengerjaan (diperiksa 2 September 2026)
+## Status pengerjaan (diperiksa 2 September 2026; kontrak + test dilengkapi 2 September 2026)
 
 Legenda: `[x]` selesai, `[ ]` belum selesai, `[~]` sebagian dikerjakan namun belum siap
 dirilis. Status di bawah didasarkan pada implementasi yang ada saat ini, bukan hanya rencana
@@ -21,14 +21,14 @@ pada dokumen ini.
 
 | Item | Status | Catatan pengerjaan |
 | --- | --- | --- |
-| 1. Master Jenis Dokumen | `[~]` | List/tambah/edit/nonaktif sudah tersedia di route, API, dan UI. Kontrak OpenAPI dan pengujian mutasi khusus masih perlu dilengkapi. |
+| 1. Master Jenis Dokumen | `[x]` | List/tambah/edit/nonaktif di route, API, UI. OpenAPI 0.9.0 menambah `/master/jenis-dokumen` GET/POST + `/{id}` PUT/DELETE (D-041). Test: `tests/document_type_integration_test.go` (HR gate, 404, 409, audit CREATE/UPDATE/DELETE), `DocumentTypesPage.test.jsx` di-rework agar create/update/deactivate terpisah. |
 | 2. Hapus kolom alpha | `[x]` | Alpha sudah dihapus dari domain, query laporan, export, schema frontend, OpenAPI, dan fixture. |
-| 3. Reset password oleh HR | `[~]` | Endpoint, service aman, audit, pencabutan sesi, dan dialog HR sudah tersedia. Kontrak OpenAPI serta test khusus masih perlu dilengkapi. |
+| 3. Reset password oleh HR | `[x]` | Endpoint, service aman, audit tanpa password, pencabutan seluruh sesi, dialog HR. OpenAPI 0.9.0 `POST /karyawan/{id}/reset-password` + revisi deskripsi `resetOwnPassword` (D-039); `CLAUDE.md` §7/§8 direvisi. Test: `employee_password_reset_test.go` (service), `employee_password_reset_handler_test.go` (422/400/403/404), `EmployeeDetailPage.test.jsx` (HR-only + submit + mismatch). |
 | 4. Uraian pekerjaan absensi | `[x]` | Migrasi, validasi multipart, penyimpanan, respons API, form, OpenAPI, dan test form telah diperbarui. |
 | 5. Total jam kantor/lembur | `[x]` | Query laporan menghitung jam kantor dan lembur disetujui, UI serta export menampilkan tiga total, dan alpha dihapus. |
 | 6. Uraian di Live Feed | `[x]` | Uraian check-in/check-out mengalir ke Live Feed frontend dan export. |
-| 7. Master lokasi kantor WFO | `[~]` | CRUD backend, audit, halaman HR, API frontend, route, dan navigasi sudah tersedia. Kontrak OpenAPI dan test khusus masih perlu dilengkapi. |
-| 8. Sesi login bersamaan | `[~]` | Redis sekarang menyimpan sesi per token dan logout mencabut token saat ini. Dokumentasi keputusan dan test khusus multi-sesi masih perlu ditambahkan. |
+| 7. Master lokasi kantor WFO | `[x]` | CRUD backend, audit, halaman HR, API frontend, route, navigasi. OpenAPI 0.9.0 `POST /master/lokasi-kantor` + `/{id}` PUT/DELETE (D-041). Test: `office_location_service_test.go` (HR gate + audit + 404), `office_location_handler_test.go` (koordinat invalid, 403/404), `OfficeLocationsPage.test.jsx`. |
+| 8. Sesi login bersamaan | `[x]` | Redis per-token key, logout per-token, security event revoke-all. Keputusan D-040 di `docs/openapi-decisions.md`; `CLAUDE.md` §8 di-reword; deskripsi `POST /auth/logout` di OpenAPI direvisi. Test: `session_store_test.go` (skip tanpa `TEST_REDIS_URL`), `auth_service_test.go` (`fakeSessions` melacak set (user,fingerprint); login dua kali, logout per-token, revoke-all pada ganti/reset password + lockout). |
 
 > Catatan: jangan menandai item `[x]` sebelum perubahan kode, kontrak OpenAPI, dan test yang
 > disebut pada item tersebut selesai serta lolos verifikasi.

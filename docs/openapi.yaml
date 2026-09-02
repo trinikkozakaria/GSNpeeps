@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: GSNpeeps API
-  version: 0.7.0
+  version: 0.9.0
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -10,7 +10,15 @@ info:
     approval, notifikasi, dan administrasi akses.
 
     API menggunakan field JSON `snake_case`, Bearer JWT berumur 8 jam, dan
-    cross-check sesi aktif di Redis. Tidak ada refresh-token endpoint.
+    cross-check sesi aktif di Redis per token. Login bersamaan di beberapa
+    perangkat diizinkan; `POST /auth/logout` hanya mencabut token perangkat
+    saat ini sementara event keamanan mencabut seluruh sesi user (D-040). Tidak
+    ada refresh-token endpoint.
+
+    Revisi 0.9.0 menambahkan `POST /karyawan/{id}/reset-password` (reset password
+    karyawan oleh HR, D-039), CRUD master `/master/jenis-dokumen` dan
+    `/master/lokasi-kantor` untuk edit + nonaktif (D-041), serta merevisi deskripsi
+    `POST /auth/logout` menjadi per-token (D-040).
   contact:
     name: GSNpeeps IT Liaison
 servers:
@@ -138,8 +146,12 @@ paths:
       operationId: logout
       summary: Logout dari GSNpeeps
       description: |
-        Menghapus session key Redis sehingga JWT aktif langsung ditolak.
-        Berlaku untuk seluruh role dan dicatat pada Audit Log.
+        Mengakhiri sesi perangkat saat ini: menghapus hanya session key Redis milik
+        token yang dipakai request ini sehingga token tersebut langsung ditolak, sementara
+        token lain milik user yang sama (login bersamaan di perangkat berbeda) tetap
+        berlaku sampai kedaluwarsa masing-masing (D-040). Berlaku untuk seluruh role dan
+        dicatat pada Audit Log. Event keamanan (lockout, ganti/reset password, reset oleh
+        HR, nonaktif karyawan, perubahan email/role) tetap mencabut seluruh sesi user.
       tags: [Authentication]
       security:
         - BearerAuth: []
@@ -253,8 +265,9 @@ paths:
         yang dilihat HR otomatis terbarui, dan audit dicatat tanpa nilai password.
         Endpoint memakai pesan kegagalan generik serta rate limit gabungan per akun dan IP;
         kegagalan verifikasi ikut dicatat pada counter agar endpoint tidak melewati proteksi
-        brute-force login. Endpoint tidak mengirim email/OTP dan tidak menangani password
-        yang terlupa.
+        brute-force login. Endpoint tidak mengirim email/OTP. Karyawan yang benar-benar lupa
+        password (tidak tahu password saat ini) ditangani HR melalui
+        `POST /karyawan/{id}/reset-password` (D-039).
       tags: [Authentication]
       security: []
       requestBody:
@@ -353,6 +366,96 @@ paths:
               schema:
                 $ref: "#/components/schemas/OfficeLocationListResponse"
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      operationId: createOfficeLocation
+      summary: Tambah lokasi kantor WFO
+      description: >-
+        Hanya HR. Menambahkan master lokasi kantor beserta koordinat tepercaya untuk
+        validasi radius WFO. Perubahan dicatat pada Audit Log (`modul=master_lokasi_kantor`).
+        Role lain menerima `403 FORBIDDEN` (D-041).
+      tags: [Master Organization]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficeLocationRequest"
+      responses:
+        "201":
+          description: Lokasi kantor berhasil dibuat.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeLocationResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/master/lokasi-kantor/{id}:
+    put:
+      operationId: updateOfficeLocation
+      summary: Perbarui lokasi kantor WFO
+      description: >-
+        Hanya HR. Mengubah kode, nama, alamat, koordinat, atau status aktif. Mengubah
+        koordinat mengubah check-in WFO berikutnya yang lolos uji radius 100 m; riwayat
+        absensi tidak terpengaruh. Perubahan dicatat pada Audit Log (D-041).
+      tags: [Master Organization]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OfficeLocationIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficeLocationRequest"
+      responses:
+        "200":
+          description: Lokasi kantor berhasil diperbarui.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeLocationResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    delete:
+      operationId: deactivateOfficeLocation
+      summary: Nonaktifkan lokasi kantor WFO
+      description: >-
+        Hanya HR. Bukan hard delete: `is_active` di-set `false` sehingga FK
+        `attendances.office_location_id` (`ON DELETE RESTRICT`) tetap utuh. Lokasi hilang
+        dari dropdown WFO dan check-in WFO baru terhadapnya ditolak; riwayat tetap ada (D-041).
+      tags: [Master Organization]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OfficeLocationIdPath"
+      responses:
+        "200":
+          description: Lokasi kantor berhasil dinonaktifkan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteSuccessResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "500": { $ref: "#/components/responses/InternalError" }
 
@@ -702,6 +805,44 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "413": { $ref: "#/components/responses/FileTooLarge" }
         "415": { $ref: "#/components/responses/UnsupportedFileType" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/karyawan/{id}/reset-password:
+    post:
+      operationId: resetEmployeePassword
+      summary: Reset password karyawan oleh HR
+      description: |
+        Hanya HR. Dipakai ketika karyawan lupa password dan tidak dapat memakai
+        self-reset (`POST /auth/reset-password`). HR mengetik password baru; backend
+        menerapkannya, membersihkan `failed_login_count`, membuka `account_locked`, dan
+        mencabut **seluruh** session milik akun target. Nilai password tidak pernah
+        dikembalikan pada response maupun dicatat pada Audit Log; audit hanya menyimpan
+        `aksi=PASSWORD_RESET`, `modul=karyawan`, dan metadata non-sensitif (D-039).
+        HR tidak dapat mereset akunnya sendiri lewat endpoint ini.
+      tags: [Employees]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EmployeeIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetEmployeePasswordRequest"
+      responses:
+        "200":
+          description: Password karyawan berhasil direset; karyawan harus login kembali.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "500": { $ref: "#/components/responses/InternalError" }
@@ -1361,6 +1502,112 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/v1/master/jenis-dokumen:
+    get:
+      operationId: listDocumentTypes
+      summary: Ambil master jenis dokumen
+      description: >-
+        Daftar jenis dokumen karyawan (mis. KTP, NPWP, Kontrak) untuk seluruh role
+        terautentikasi. Response memuat baris aktif dan nonaktif sehingga HR dapat
+        mengaktifkan kembali jenis yang pernah dinonaktifkan.
+      tags: [Master Organization]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Daftar jenis dokumen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentTypeListResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      operationId: createDocumentType
+      summary: Tambah jenis dokumen
+      description: Hanya HR. Perubahan dicatat pada Audit Log (`modul=master_jenis_dokumen`).
+      tags: [Master Organization]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentTypeRequest"
+      responses:
+        "201":
+          description: Jenis dokumen berhasil dibuat.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSuccessResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/master/jenis-dokumen/{id}:
+    put:
+      operationId: updateDocumentType
+      summary: Perbarui jenis dokumen
+      description: >-
+        Hanya HR. Mengubah kode, nama, flag wajib, atau status aktif. Menonaktifkan
+        jenis dokumen memakai endpoint ini dengan `is_active=false` (D-041).
+      tags: [Master Organization]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DocumentTypeIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDocumentTypeRequest"
+      responses:
+        "200":
+          description: Jenis dokumen berhasil diperbarui.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSuccessResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    delete:
+      operationId: deactivateDocumentType
+      summary: Nonaktifkan jenis dokumen
+      description: >-
+        Hanya HR. Bukan hard delete: `is_active` di-set `false` agar FK
+        `employee_documents.document_type_id` tetap utuh dan riwayat dokumen karyawan
+        terjaga. Jenis yang dinonaktifkan hilang dari pilihan upload dokumen (D-041).
+      tags: [Master Organization]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DocumentTypeIdPath"
+      responses:
+        "200":
+          description: Jenis dokumen berhasil dinonaktifkan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSuccessResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
   /api/v1/lembur:
     post:
       operationId: createOvertimeRequest
@@ -1764,6 +2011,16 @@ components:
       in: path
       required: true
       schema: { $ref: "#/components/schemas/UUID" }
+    OfficeLocationIdPath:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
+    DocumentTypeIdPath:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/UUID" }
     DateFromParam:
       name: tanggal_mulai
       in: query
@@ -2136,6 +2393,36 @@ components:
           properties:
             data: { $ref: "#/components/schemas/PasswordChangedData" }
             message: { type: string, example: Password berhasil diganti }
+    ResetEmployeePasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [new_password, new_password_confirmation]
+      properties:
+        new_password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 128
+        new_password_confirmation:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 128
+          description: Harus sama dengan new_password.
+    PasswordResetData:
+      type: object
+      required: [password_reset, account_unlocked, sessions_revoked]
+      properties:
+        password_reset: { type: boolean, const: true }
+        account_unlocked: { type: boolean, const: true }
+        sessions_revoked: { type: boolean, const: true }
+    PasswordResetResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/PasswordResetData" }
+            message: { type: string, example: Password karyawan berhasil direset }
     Department:
       type: object
       required: [id, nama]
@@ -2180,6 +2467,23 @@ components:
         - type: object
           properties:
             data: { type: array, items: { $ref: "#/components/schemas/OfficeLocation" } }
+    OfficeLocationRequest:
+      type: object
+      additionalProperties: false
+      required: [kode, nama, latitude, longitude]
+      properties:
+        kode: { type: string, minLength: 1, maxLength: 50 }
+        nama: { type: string, minLength: 1, maxLength: 150 }
+        alamat: { type: [string, "null"], maxLength: 255 }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        is_active: { type: boolean, default: true }
+    OfficeLocationResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/OfficeLocation" }
     EmployeeAddress:
       type: object
       required: [jalan, kota, provinsi]
@@ -2755,6 +3059,42 @@ components:
         - type: object
           properties:
             data: { type: array, items: { $ref: "#/components/schemas/LeaveType" } }
+    DocumentType:
+      type: object
+      required: [id, kode, nama, wajib, is_active]
+      properties:
+        id: { $ref: "#/components/schemas/UUID" }
+        kode: { type: string, maxLength: 50 }
+        nama: { type: string, maxLength: 150 }
+        wajib: { type: boolean }
+        is_active: { type: boolean }
+    DocumentTypeListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessResponse"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/DocumentType" } }
+    CreateDocumentTypeRequest:
+      type: object
+      additionalProperties: false
+      required: [kode, nama]
+      properties:
+        kode: { type: string, minLength: 1, maxLength: 50 }
+        nama: { type: string, minLength: 1, maxLength: 150 }
+        wajib: { type: boolean, default: false }
+    UpdateDocumentTypeRequest:
+      type: object
+      additionalProperties: false
+      required: [kode, nama]
+      properties:
+        kode: { type: string, minLength: 1, maxLength: 50 }
+        nama: { type: string, minLength: 1, maxLength: 150 }
+        wajib: { type: boolean, default: false }
+        is_active:
+          type: boolean
+          description: >-
+            Bila dihilangkan, status aktif tidak berubah. Kirim `false` untuk
+            menonaktifkan atau `true` untuk mengaktifkan kembali.
     CreateLeaveRequest:
       type: object
       required: [jenis_izin_id, tanggal_mulai, tanggal_selesai, alasan]

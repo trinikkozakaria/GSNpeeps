@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/dto"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/repository"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -104,20 +107,45 @@ type fakeSessions struct {
 	revoked          int
 	saved            int
 	revokeContextErr error
+	revokeAllCalls   int
+	revokeTokenCalls int
+	lastRevokedToken string
+	active           map[string]bool
 }
 
-func (f *fakeSessions) Save(context.Context, uuid.UUID, string, time.Duration) error {
+func sessionSetKey(userID uuid.UUID, fingerprint string) string {
+	return userID.String() + "|" + fingerprint
+}
+
+func (f *fakeSessions) has(userID uuid.UUID, fingerprint string) bool {
+	return f.active[sessionSetKey(userID, fingerprint)]
+}
+
+func (f *fakeSessions) Save(_ context.Context, userID uuid.UUID, fingerprint string, _ time.Duration) error {
 	f.saved++
+	if f.active == nil {
+		f.active = map[string]bool{}
+	}
+	f.active[sessionSetKey(userID, fingerprint)] = true
 	return nil
 }
-func (f *fakeSessions) Revoke(ctx context.Context, _ uuid.UUID) error {
+func (f *fakeSessions) Revoke(ctx context.Context, userID uuid.UUID) error {
 	f.revoked++
+	f.revokeAllCalls++
 	f.revokeContextErr = ctx.Err()
+	for key := range f.active {
+		if strings.HasPrefix(key, userID.String()+"|") {
+			delete(f.active, key)
+		}
+	}
 	return nil
 }
-func (f *fakeSessions) RevokeToken(ctx context.Context, _ uuid.UUID, _ string) error {
+func (f *fakeSessions) RevokeToken(ctx context.Context, userID uuid.UUID, fingerprint string) error {
 	f.revoked++
+	f.revokeTokenCalls++
+	f.lastRevokedToken = fingerprint
 	f.revokeContextErr = ctx.Err()
+	delete(f.active, sessionSetKey(userID, fingerprint))
 	return nil
 }
 
@@ -248,4 +276,118 @@ func TestRateLimitFailsClosed(t *testing.T) {
 		Email: "user@example.test", Password: "valid-password",
 	}, RequestMeta{IPAddress: "127.0.0.1"})
 	require.True(t, errors.Is(err, domain.ErrRateLimited))
+}
+
+// sequentialTokens memberi setiap Issue fingerprint unik (fp-1, fp-2, ...) sehingga
+// beberapa token untuk satu user dapat dibedakan — fakeTokens memakai fingerprint tetap.
+type sequentialTokens struct{ n int }
+
+func (s *sequentialTokens) Issue(domain.Identity) (string, string, time.Duration, error) {
+	s.n++
+	return "jwt", fmt.Sprintf("fp-%d", s.n), 8 * time.Hour, nil
+}
+
+func newMultiSessionAuth(t *testing.T) (*AuthService, *fakeAuthUsers, *fakeSessions) {
+	t.Helper()
+	users := &fakeAuthUsers{account: domain.LoginAccount{
+		ID:             uuid.New(),
+		EmployeeID:     uuid.New(),
+		RoleID:         uuid.New(),
+		Name:           "Karyawan Sintetis",
+		Email:          "user@example.test",
+		PasswordHash:   "hash:valid-password",
+		Role:           domain.RoleEmployee,
+		EmployeeStatus: "aktif",
+	}}
+	sessions := &fakeSessions{}
+	service, err := NewAuthService(
+		users, fakePasswords{}, &sequentialTokens{}, sessions, fakeLimiter{allowed: true}, &fakeAudit{},
+		config.Auth{LoginFailureLimit: 5, RequestWindow: time.Minute},
+	)
+	require.NoError(t, err)
+	return service, users, sessions
+}
+
+func loginOnce(t *testing.T, auth *AuthService) {
+	t.Helper()
+	_, err := auth.Login(context.Background(), dto.LoginRequest{
+		Email: "user@example.test", Password: "valid-password",
+	}, RequestMeta{IPAddress: "127.0.0.1"})
+	require.NoError(t, err)
+}
+
+func TestSecondLoginDoesNotInvalidateTheFirst(t *testing.T) {
+	auth, users, sessions := newMultiSessionAuth(t)
+
+	loginOnce(t, auth) // fp-1
+	loginOnce(t, auth) // fp-2
+
+	assert.True(t, sessions.has(users.account.ID, "fp-1"), "token perangkat pertama tetap aktif")
+	assert.True(t, sessions.has(users.account.ID, "fp-2"))
+	assert.Equal(t, 0, sessions.revokeAllCalls, "login kedua tidak mencabut sesi mana pun")
+}
+
+func TestLogoutRevokesOnlyTheCallingToken(t *testing.T) {
+	auth, users, sessions := newMultiSessionAuth(t)
+	loginOnce(t, auth) // fp-1
+	loginOnce(t, auth) // fp-2
+
+	err := auth.Logout(context.Background(), domain.Identity{UserID: users.account.ID}, "fp-1", RequestMeta{IPAddress: "127.0.0.1"})
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, sessions.revokeTokenCalls)
+	assert.Equal(t, 0, sessions.revokeAllCalls)
+	assert.Equal(t, "fp-1", sessions.lastRevokedToken)
+	assert.False(t, sessions.has(users.account.ID, "fp-1"), "perangkat yang logout dicabut")
+	assert.True(t, sessions.has(users.account.ID, "fp-2"), "perangkat lain tetap login")
+}
+
+func TestChangePasswordRevokesEveryToken(t *testing.T) {
+	auth, users, sessions := newMultiSessionAuth(t)
+	loginOnce(t, auth) // fp-1
+	loginOnce(t, auth) // fp-2
+
+	_, err := auth.ChangePassword(context.Background(), domain.Identity{UserID: users.account.ID}, dto.ChangePasswordRequest{
+		CurrentPassword:         "valid-password",
+		NewPassword:             "new-valid-password",
+		NewPasswordConfirmation: "new-valid-password",
+	}, RequestMeta{IPAddress: "127.0.0.1"})
+	require.NoError(t, err)
+
+	assert.GreaterOrEqual(t, sessions.revokeAllCalls, 1, "ganti password adalah security event: cabut semua sesi")
+	assert.False(t, sessions.has(users.account.ID, "fp-1"))
+	assert.False(t, sessions.has(users.account.ID, "fp-2"))
+}
+
+func TestSelfResetRevokesEveryToken(t *testing.T) {
+	auth, users, sessions := newMultiSessionAuth(t)
+	loginOnce(t, auth) // fp-1
+	loginOnce(t, auth) // fp-2
+
+	_, err := auth.ResetPassword(context.Background(), dto.SelfResetPasswordRequest{
+		Email:                   "user@example.test",
+		CurrentPassword:         "valid-password",
+		NewPassword:             "new-valid-password",
+		NewPasswordConfirmation: "new-valid-password",
+	}, RequestMeta{IPAddress: "127.0.0.1"})
+	require.NoError(t, err)
+
+	assert.GreaterOrEqual(t, sessions.revokeAllCalls, 1)
+	assert.False(t, sessions.has(users.account.ID, "fp-1"))
+	assert.False(t, sessions.has(users.account.ID, "fp-2"))
+}
+
+func TestFifthFailedLoginRevokesEveryToken(t *testing.T) {
+	auth, users, sessions := newMultiSessionAuth(t)
+	loginOnce(t, auth) // fp-1 established on a good login
+
+	for attempt := 1; attempt <= 5; attempt++ {
+		_, _ = auth.Login(context.Background(), dto.LoginRequest{
+			Email: "user@example.test", Password: "wrong-password",
+		}, RequestMeta{IPAddress: "127.0.0.1"})
+	}
+
+	assert.True(t, users.account.AccountLocked)
+	assert.GreaterOrEqual(t, sessions.revokeAllCalls, 1, "lockout mencabut seluruh sesi user")
+	assert.False(t, sessions.has(users.account.ID, "fp-1"))
 }

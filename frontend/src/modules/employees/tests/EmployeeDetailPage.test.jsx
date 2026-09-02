@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,13 +6,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EmployeeDetailPage } from "../pages/EmployeeDetailPage";
 import { employeeDetailFixture } from "./employee-fixtures";
 
-const { authState, detailState, deactivateMock, documentsState, uploadMock } = vi.hoisted(() => ({
-  authState: { current: { role: "hr", user: { id: "user-1" } } },
-  detailState: { current: {} },
-  deactivateMock: vi.fn(),
-  documentsState: { current: {} },
-  uploadMock: vi.fn(),
-}));
+const { authState, detailState, deactivateMock, documentsState, uploadMock, resetPasswordMock } =
+  vi.hoisted(() => ({
+    authState: { current: { role: "hr", user: { id: "user-1" } } },
+    detailState: { current: {} },
+    deactivateMock: vi.fn(),
+    documentsState: { current: {} },
+    uploadMock: vi.fn(),
+    resetPasswordMock: vi.fn(),
+  }));
 
 vi.mock("../../auth/hooks/useAuth", () => ({
   useAuth: () => authState.current,
@@ -21,6 +23,7 @@ vi.mock("../../auth/hooks/useAuth", () => ({
 vi.mock("../hooks/useEmployees", () => ({
   useEmployeeDetail: () => detailState.current,
   useDeactivateEmployee: () => ({ mutateAsync: deactivateMock, isPending: false }),
+  useResetEmployeePassword: () => ({ mutateAsync: resetPasswordMock, isPending: false }),
   useEmployeeDocuments: () => documentsState.current,
   useUploadEmployeeDocument: () => ({ mutateAsync: uploadMock, isPending: false }),
   useUploadEmployeePhoto: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -39,6 +42,8 @@ describe("EmployeeDetailPage", () => {
   beforeEach(() => {
     deactivateMock.mockReset();
     deactivateMock.mockResolvedValue({});
+    resetPasswordMock.mockReset();
+    resetPasswordMock.mockResolvedValue({});
     authState.current = { role: "hr", user: { id: "user-1" } };
     detailState.current = {
       data: employeeDetailFixture,
@@ -76,6 +81,7 @@ describe("EmployeeDetailPage", () => {
 
     expect(screen.getByRole("link", { name: "Edit" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Nonaktifkan" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset Password" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Export karyawan ini" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Unggah dokumen" })).toBeInTheDocument();
   });
@@ -86,6 +92,7 @@ describe("EmployeeDetailPage", () => {
 
     expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Nonaktifkan" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reset Password" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Unggah dokumen" })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: /export/i })).not.toBeInTheDocument();
     // Bagian dokumen tetap dapat dibaca sesuai akses read-only.
@@ -130,5 +137,46 @@ describe("EmployeeDetailPage", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Data karyawan tidak ditemukan atau tidak dapat diakses dengan hak akses Anda.",
     );
+  });
+
+  it("lets HR reset an employee password and calls the mutation with the new value", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Reset Password" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent(/sesi aktif karyawan akan dicabut/i);
+
+    await user.type(within(dialog).getByLabelText("Password baru"), "SandiBaru2026!");
+    await user.type(within(dialog).getByLabelText("Konfirmasi password"), "SandiBaru2026!");
+    await user.click(within(dialog).getByRole("button", { name: "Reset Password" }));
+
+    expect(resetPasswordMock).toHaveBeenCalledTimes(1);
+    expect(resetPasswordMock).toHaveBeenCalledWith({
+      new_password: "SandiBaru2026!",
+      new_password_confirmation: "SandiBaru2026!",
+    });
+  });
+
+  it("blocks the reset when the confirmation does not match and never calls the API", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Reset Password" }));
+    const dialog = await screen.findByRole("dialog");
+
+    await user.type(within(dialog).getByLabelText("Password baru"), "SandiBaru2026!");
+    await user.type(within(dialog).getByLabelText("Konfirmasi password"), "SandiLain2026!");
+    await user.click(within(dialog).getByRole("button", { name: "Reset Password" }));
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(/konfirmasi password tidak sama/i);
+    expect(resetPasswordMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the reset control hidden from a plain employee", () => {
+    authState.current = { role: "karyawan", user: { id: "user-9" } };
+    renderPage();
+
+    expect(screen.queryByRole("button", { name: "Reset Password" })).not.toBeInTheDocument();
   });
 });
