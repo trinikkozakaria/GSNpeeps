@@ -54,8 +54,9 @@ describe("PersonalMetricsPage", () => {
     render(<PersonalMetricsPage />);
 
     expect(screen.queryByText(/belum ada aktivitas kehadiran/i)).not.toBeInTheDocument();
-    expect(screen.getAllByText("08:55").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("terlambat").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("08:55 WIB").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Tepat waktu").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Terlambat").length).toBeGreaterThan(0);
   });
 
   it("shows the loading state", () => {

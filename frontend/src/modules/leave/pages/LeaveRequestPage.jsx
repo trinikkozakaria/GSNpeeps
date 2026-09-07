@@ -225,7 +225,7 @@ export const LeaveRequestPage = () => {
             registration={register("tanggal_selesai")}
             error={errors.tanggal_selesai?.message}
             description={maximumEndDate
-              ? `Otomatis dibatasi sampai ${maximumEndDate} (${selectedType.maksimal_hari} hari kalender). Anda boleh memilih tanggal lebih awal.`
+              ? `Otomatis dibatasi sampai ${maximumEndDate} (${selectedType.maksimal_hari} hari kerja, Sabtu dan Minggu tidak dihitung). Anda boleh memilih tanggal lebih awal.`
               : undefined}
             disabled={isSubmitting}
           />

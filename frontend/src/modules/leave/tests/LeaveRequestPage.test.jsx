@@ -138,18 +138,19 @@ describe("LeaveRequestPage", () => {
     expect(policy).toHaveTextContent(/dokumen pendukung: wajib/i);
   });
 
-  it("auto-fills and locks the maximum inclusive end date while allowing an earlier date", async () => {
+  it("auto-fills and locks the maximum business-day end date while allowing an earlier date", async () => {
     const user = userEvent.setup();
     render(<LeaveRequestPage />);
 
     await user.selectOptions(screen.getByLabelText("Jenis izin"), hajjLeave.id);
+    // 2026-08-10 adalah hari Senin; 30 hari kerja melompati 8 akhir pekan sampai ke Jumat 2026-09-18.
     await user.type(screen.getByLabelText("Tanggal mulai"), "2026-08-10");
 
     const endDate = screen.getByLabelText("Tanggal selesai");
-    await waitFor(() => expect(endDate).toHaveValue("2026-09-08"));
+    await waitFor(() => expect(endDate).toHaveValue("2026-09-18"));
     expect(endDate).toHaveAttribute("min", "2026-08-10");
-    expect(endDate).toHaveAttribute("max", "2026-09-08");
-    expect(screen.getByText(/30 hari kalender.*boleh memilih tanggal lebih awal/i)).toBeInTheDocument();
+    expect(endDate).toHaveAttribute("max", "2026-09-18");
+    expect(screen.getByText(/30 hari kerja, sabtu dan minggu tidak dihitung.*boleh memilih tanggal lebih awal/i)).toBeInTheDocument();
 
     await user.clear(endDate);
     await user.type(endDate, "2026-08-25");

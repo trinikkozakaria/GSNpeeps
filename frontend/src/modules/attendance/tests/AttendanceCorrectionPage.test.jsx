@@ -1,30 +1,26 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AttendanceCorrectionPage } from "../pages/AttendanceCorrectionPage";
 
-const { authState, correctionsState, createMock, createState, decideMock, decideState } =
-  vi.hoisted(() => ({
-    authState: { current: { role: "karyawan", user: { id: "user-1" } } },
-    correctionsState: { current: {} },
-    createMock: vi.fn(),
-    createState: { current: {} },
-    decideMock: vi.fn(),
-    decideState: { current: {} },
-  }));
+const { authState, correctionsState, createMock, createState } = vi.hoisted(() => ({
+  authState: { current: { role: "karyawan", user: { id: "user-1" } } },
+  correctionsState: { current: {} },
+  createMock: vi.fn(),
+  createState: { current: {} },
+}));
 
 vi.mock("../../auth/hooks/useAuth", () => ({ useAuth: () => authState.current }));
 
 vi.mock("../hooks/useAttendanceCorrections", () => ({
-  useAttendanceCorrections: () => correctionsState.current,
+  useMyAttendanceCorrections: () => correctionsState.current,
   useCreateAttendanceCorrection: () => ({ mutateAsync: createMock, ...createState.current }),
-  useDecideAttendanceCorrection: () => ({ mutateAsync: decideMock, ...decideState.current }),
 }));
 
 const correction = (overrides = {}) => ({
   id: "correction-1",
-  nama_karyawan: "Karyawan Sintetis",
   tanggal: "2026-08-14",
   waktu_check_in: "09:15",
   waktu_check_out: null,
@@ -34,21 +30,27 @@ const correction = (overrides = {}) => ({
   ...overrides,
 });
 
+const meta = (overrides = {}) => ({ page: 1, limit: 10, total_data: 0, total_page: 0, ...overrides });
+
+const renderPage = () =>
+  render(
+    <MemoryRouter initialEntries={["/app/absensi/koreksi"]}>
+      <AttendanceCorrectionPage />
+    </MemoryRouter>,
+  );
+
 describe("AttendanceCorrectionPage", () => {
   beforeEach(() => {
     authState.current = { role: "karyawan", user: { id: "user-1" } };
-    correctionsState.current = { data: [], isPending: false, isError: false };
+    correctionsState.current = { data: { items: [], meta: meta() }, isPending: false, isError: false };
     createMock.mockReset();
     createMock.mockResolvedValue({});
     createState.current = { isPending: false, isError: false };
-    decideMock.mockReset();
-    decideMock.mockResolvedValue({});
-    decideState.current = { isPending: false };
   });
 
   it("requires a date, one corrected time, and a meaningful reason", async () => {
     const user = userEvent.setup();
-    render(<AttendanceCorrectionPage />);
+    renderPage();
     const submit = screen.getByRole("button", { name: "Ajukan koreksi" });
 
     expect(submit).toBeDisabled();
@@ -68,30 +70,62 @@ describe("AttendanceCorrectionPage", () => {
   });
 
   it("shows a clear empty state", () => {
-    render(<AttendanceCorrectionPage />);
+    renderPage();
     expect(screen.getByText("Belum ada koreksi absensi.")).toBeInTheDocument();
   });
 
-  it("lets the active supervisor stage approve or reject", async () => {
-    const user = userEvent.setup();
-    authState.current = { role: "atasan", user: { id: "supervisor-1" } };
-    correctionsState.current = { data: [correction()], isPending: false, isError: false };
-    render(<AttendanceCorrectionPage />);
+  // Halaman ini hanya riwayat pribadi; keputusan Setujui/Tolak untuk pengajuan orang
+  // lain ada di halaman Persetujuan, bukan di sini — jadi tidak ada tombol keputusan
+  // sama sekali, apa pun role dan status pengajuan sendiri.
+  it.each(["karyawan", "atasan", "hr"])(
+    "never shows decision controls for role %s, only the request's own status",
+    (role) => {
+      authState.current = { role, user: { id: "user-1" } };
+      correctionsState.current = {
+        data: { items: [correction({ status: "menunggu_hr" })], meta: meta({ total_data: 1, total_page: 1 }) },
+        isPending: false,
+        isError: false,
+      };
+      renderPage();
 
-    await user.click(screen.getByRole("button", { name: "Setujui" }));
-    expect(decideMock).toHaveBeenCalledWith({ id: "correction-1", keputusan: "setujui" });
-  });
+      expect(screen.getByText("Riwayat koreksi saya")).toBeInTheDocument();
+      expect(screen.getByText(/Menunggu HR/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Setujui" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Tolak" })).not.toBeInTheDocument();
+    },
+  );
 
-  it("does not show decision controls for completed corrections", () => {
+  it("shows the status label for a finished correction", () => {
     authState.current = { role: "hr", user: { id: "hr-1" } };
     correctionsState.current = {
-      data: [correction({ status: "disetujui" })],
+      data: { items: [correction({ status: "disetujui" })], meta: meta({ total_data: 1, total_page: 1 }) },
       isPending: false,
       isError: false,
     };
-    render(<AttendanceCorrectionPage />);
+    renderPage();
 
-    expect(screen.queryByRole("button", { name: "Setujui" })).not.toBeInTheDocument();
     expect(screen.getByText(/Disetujui/)).toBeInTheDocument();
+  });
+
+  it("paginates the personal history list", async () => {
+    const user = userEvent.setup();
+    authState.current = { role: "hr", user: { id: "hr-1" } };
+    correctionsState.current = {
+      data: {
+        items: [correction()],
+        meta: { page: 1, limit: 10, total_data: 25, total_page: 3 },
+      },
+      isPending: false,
+      isError: false,
+    };
+    renderPage();
+
+    expect(screen.getByText("25 koreksi")).toBeInTheDocument();
+    const nextButton = screen.getByRole("button", { name: "Berikutnya" });
+    expect(nextButton).toBeEnabled();
+    await user.click(nextButton);
+    // useSearchParams-driven page change re-renders with the mocked (unchanged) query
+    // result; asserting the control exists and is wired is enough at this mock boundary.
+    expect(screen.getByRole("button", { name: "Sebelumnya" })).toBeDisabled();
   });
 });

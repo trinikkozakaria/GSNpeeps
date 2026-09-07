@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { ProtectedDownloadLink } from "../../../components/media/ProtectedImage";
 import { Button } from "../../../components/ui/Button";
 import { formatDate } from "../../../lib/format";
 import { isPendingStatus } from "../../../lib/request-status";
@@ -21,6 +22,11 @@ const decidableStatusForRole = {
   hr: "menunggu_hr",
   top_management: "menunggu_top_management",
 };
+
+// dokumen_url adalah object key MinIO/WebDAV yang butuh otorisasi (bukan URL langsung);
+// harus diambil lewat GET /api/media, bukan <a href> mentah (defect: 404 karena browser
+// me-resolve path relatif terhadap halaman saat ini).
+const documentFileName = (path) => path?.split("/").pop() || "dokumen";
 
 const Field = ({ label, children }) => (
   <div className="border-b border-slate-900/10 py-3">
@@ -153,15 +159,14 @@ export const ApprovalDetailPage = ({ kind }) => {
             <Field label="Alasan">{data.alasan}</Field>
             <Field label="Dokumen pendukung">
               {data.dokumen_url ? (
-                <a
-                  href={data.dokumen_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <ProtectedDownloadLink
+                  path={data.dokumen_url}
+                  fileName={documentFileName(data.dokumen_url)}
                   className="font-medium text-cyan-700 underline hover:text-cyan-900"
                 >
                   Buka dokumen
                   <span className="sr-only"> (tab baru)</span>
-                </a>
+                </ProtectedDownloadLink>
               ) : (
                 "Tidak ada dokumen"
               )}

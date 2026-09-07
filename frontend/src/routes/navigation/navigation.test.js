@@ -8,6 +8,9 @@ const labels = (role) =>
     ...(item.children?.map((child) => child.label) ?? []),
   ]);
 
+const childLabels = (role, groupLabel) =>
+  navigationForRole(role).find((item) => item.label === groupLabel)?.children.map((child) => child.label) ?? [];
+
 describe("role navigation", () => {
   it("keeps employee and supervisor away from HR access", () => {
     expect(labels(roles.employee)).not.toContain("AKSES");
@@ -26,6 +29,14 @@ describe("role navigation", () => {
     expect(labels(roles.topManagement)).not.toContain("AKSES");
     expect(labels(roles.topManagement)).toContain("Persetujuan");
     expect(labels(roles.topManagement)).not.toContain("Metrik Personal");
+  });
+
+  // Top Management tidak mengajukan koreksi (backend menolak) sehingga tidak punya
+  // riwayat pribadi di menu "Pribadi", tetapi mengawasi dan memutus koreksi milik HR
+  // lewat antrean di menu "Persetujuan".
+  it("gives Top Management the correction queue via Persetujuan, not the personal page", () => {
+    expect(childLabels(roles.topManagement, "Pribadi")).not.toContain("Koreksi Absensi");
+    expect(childLabels(roles.topManagement, "Persetujuan")).toContain("Koreksi Absensi");
   });
 
   it("fails closed for an unknown role", () => {

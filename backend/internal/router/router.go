@@ -137,6 +137,7 @@ func New(
 		api.Handle("/master/jenis-dokumen/{id}", protected(uat.Handler.DeleteDocumentType)).Methods(http.MethodDelete)
 		api.Handle("/absensi/koreksi", protected(uat.Handler.ListCorrections)).Methods(http.MethodGet)
 		api.Handle("/absensi/koreksi", protected(uat.Handler.CreateCorrection)).Methods(http.MethodPost)
+		api.Handle("/absensi/koreksi/saya", protected(uat.Handler.ListMyCorrections)).Methods(http.MethodGet)
 		api.Handle("/absensi/koreksi/{id}", protected(uat.Handler.DecideCorrection)).Methods(http.MethodPut)
 		api.Handle("/media", guarded("berkas", "read", uat.Handler.Media)).Methods(http.MethodGet)
 		api.Handle("/beranda", protected(uat.Handler.HomeSummary)).Methods(http.MethodGet)

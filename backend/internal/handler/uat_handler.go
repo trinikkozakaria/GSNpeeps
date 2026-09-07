@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"regexp"
 	"strings"
@@ -633,46 +634,89 @@ func (h *UATHandler) CreateCorrection(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, 400, "INVALID_PARAM", "Tanggal atau waktu koreksi tidak valid")
 		return
 	}
-	status := "menunggu_hr"
 	var hasSupervisor bool
 	if err := h.db.QueryRow(r.Context(), `SELECT e.atasan_id IS NOT NULL FROM employees e WHERE e.id=$1`, identity.EmployeeID).Scan(&hasSupervisor); err != nil {
 		response.Error(w, 500, "INTERNAL_ERROR", "Koreksi belum dapat diajukan")
 		return
 	}
-	if hasSupervisor {
-		status = "menunggu_atasan"
+	status, ok := domain.InitialStatusForRole(identity.Role, hasSupervisor)
+	if !ok {
+		response.Error(w, 403, "FORBIDDEN", "Anda tidak memiliki akses")
+		return
 	}
 	var id uuid.UUID
-	if err := h.db.QueryRow(r.Context(), `INSERT INTO attendance_corrections(user_id,tanggal,waktu_check_in,waktu_check_out,alasan,status) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, identity.UserID, input.Date, input.CheckIn, input.CheckOut, strings.TrimSpace(input.Reason), status).Scan(&id); err != nil {
+	if err := h.db.QueryRow(r.Context(), `INSERT INTO attendance_corrections(user_id,tanggal,waktu_check_in,waktu_check_out,alasan,status) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, identity.UserID, input.Date, input.CheckIn, input.CheckOut, strings.TrimSpace(input.Reason), string(status)).Scan(&id); err != nil {
 		response.Error(w, 500, "INTERNAL_ERROR", "Koreksi belum dapat diajukan")
 		return
 	}
 	response.Success(w, 201, map[string]any{"id": id, "status": status}, "Koreksi absensi berhasil diajukan")
 }
 
+// ListCorrections adalah antrean persetujuan: Atasan melihat riwayat penuh bawahan
+// langsung + pengajuan sendiri, HR melihat seluruh koreksi (monitoring), dan Top
+// Management melihat koreksi yang diajukan user ber-role HR. Dipakai halaman Persetujuan,
+// bukan halaman "Koreksi Absensi" pribadi (lihat ListMyCorrections).
 func (h *UATHandler) ListCorrections(w http.ResponseWriter, r *http.Request) {
 	identity, ok := middleware.IdentityFromContext(r.Context())
 	if !ok {
 		return
 	}
-	query := `SELECT c.id,e.nama,TO_CHAR(c.tanggal,'YYYY-MM-DD'),TO_CHAR(c.waktu_check_in,'HH24:MI'),TO_CHAR(c.waktu_check_out,'HH24:MI'),c.alasan,c.status,c.created_at FROM attendance_corrections c JOIN users u ON u.id=c.user_id JOIN employees e ON e.id=u.employee_id WHERE `
-	var rows interface {
-		Close()
-		Next() bool
-		Scan(...any) error
-	}
-	var err error
+	var where string
+	var args []any
 	switch identity.Role {
 	case domain.RoleEmployee:
-		rows, err = h.db.Query(r.Context(), query+`c.user_id=$1 ORDER BY c.created_at DESC`, identity.UserID)
+		where, args = `c.user_id=$1`, []any{identity.UserID}
 	case domain.RoleSupervisor:
-		rows, err = h.db.Query(r.Context(), query+`e.atasan_id=$1 AND c.status='menunggu_atasan' ORDER BY c.created_at`, identity.EmployeeID)
+		// Riwayat penuh bawahan langsung (semua status) ditambah pengajuan milik sendiri.
+		where, args = `(e.atasan_id=$1 OR c.user_id=$2)`, []any{identity.EmployeeID, identity.UserID}
 	case domain.RoleHR:
-		rows, err = h.db.Query(r.Context(), query+`c.status='menunggu_hr' OR c.user_id=$1 ORDER BY c.created_at DESC`, identity.UserID)
+		// HR memiliki visibilitas monitoring atas seluruh koreksi, bukan hanya antrean aktif.
+		where, args = `TRUE`, []any{}
+	case domain.RoleTopManagement:
+		// Top Management hanya melihat koreksi yang diajukan user ber-role HR.
+		where, args = `r.nama=$1`, []any{string(domain.RoleHR)}
 	default:
 		response.Error(w, 403, "FORBIDDEN", "Anda tidak memiliki akses")
 		return
 	}
+	h.writeCorrectionsPage(w, r, where, args)
+}
+
+// ListMyCorrections adalah halaman "Koreksi Absensi" pribadi: hanya menampilkan
+// pengajuan koreksi milik user yang login, berlaku sama untuk semua role (setara
+// GET /ketidakhadiran/saya dan GET /lembur/saya).
+func (h *UATHandler) ListMyCorrections(w http.ResponseWriter, r *http.Request) {
+	identity, ok := middleware.IdentityFromContext(r.Context())
+	if !ok {
+		return
+	}
+	h.writeCorrectionsPage(w, r, `c.user_id=$1`, []any{identity.UserID})
+}
+
+func (h *UATHandler) writeCorrectionsPage(w http.ResponseWriter, r *http.Request, where string, args []any) {
+	page, ok := positiveIntQuery(w, r, "page", 1)
+	if !ok {
+		return
+	}
+	limit, ok := positiveIntQuery(w, r, "limit", 10)
+	if !ok {
+		return
+	}
+
+	const from = `FROM attendance_corrections c JOIN users u ON u.id=c.user_id JOIN employees e ON e.id=u.employee_id JOIN roles r ON r.id=u.role_id WHERE `
+
+	var total int
+	if err := h.db.QueryRow(r.Context(), `SELECT COUNT(*) `+from+where, args...).Scan(&total); err != nil {
+		response.Error(w, 500, "INTERNAL_ERROR", "Koreksi belum dapat dimuat")
+		return
+	}
+
+	dataArgs := append(append([]any{}, args...), limit, (page-1)*limit)
+	dataQuery := fmt.Sprintf(
+		`SELECT c.id,e.nama,TO_CHAR(c.tanggal,'YYYY-MM-DD'),TO_CHAR(c.waktu_check_in,'HH24:MI'),TO_CHAR(c.waktu_check_out,'HH24:MI'),c.alasan,c.status,c.created_at %s%s ORDER BY c.created_at DESC LIMIT $%d OFFSET $%d`,
+		from, where, len(dataArgs)-1, len(dataArgs),
+	)
+	rows, err := h.db.Query(r.Context(), dataQuery, dataArgs...)
 	if err != nil {
 		response.Error(w, 500, "INTERNAL_ERROR", "Koreksi belum dapat dimuat")
 		return
@@ -690,7 +734,13 @@ func (h *UATHandler) ListCorrections(w http.ResponseWriter, r *http.Request) {
 		}
 		items = append(items, map[string]any{"id": id, "nama_karyawan": name, "tanggal": date, "waktu_check_in": in, "waktu_check_out": out, "alasan": reason, "status": status, "created_at": created})
 	}
-	response.Success(w, 200, items, "Koreksi berhasil dimuat")
+	totalPage := 0
+	if total > 0 {
+		totalPage = int(math.Ceil(float64(total) / float64(limit)))
+	}
+	response.Paginated(w, items, response.PaginationMeta{
+		Page: page, Limit: limit, TotalData: total, TotalPage: totalPage,
+	}, "Koreksi berhasil dimuat")
 }
 
 func (h *UATHandler) DecideCorrection(w http.ResponseWriter, r *http.Request) {
@@ -724,30 +774,36 @@ func (h *UATHandler) DecideCorrection(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, 404, "NOT_FOUND", "Koreksi tidak ditemukan")
 		return
 	}
-	stage := ""
-	next := ""
-	if identity.Role == domain.RoleSupervisor && oldStatus == "menunggu_atasan" {
+	currentStatus := domain.RequestStatus(oldStatus)
+	if !currentStatus.Pending() {
+		response.Error(w, 409, "ALREADY_DECIDED", "Koreksi sudah diputuskan")
+		return
+	}
+	if !domain.CanDecide(identity.Role, currentStatus) {
+		response.Error(w, 403, "FORBIDDEN", "Anda tidak memiliki akses")
+		return
+	}
+	if identity.Role == domain.RoleSupervisor {
 		var supervisor string
 		if err = tx.QueryRow(r.Context(), `SELECT atasan_id::text FROM employees WHERE id=$1`, employee).Scan(&supervisor); err != nil || supervisor != identity.EmployeeID.String() {
 			response.Error(w, 403, "FORBIDDEN", "Anda tidak memiliki akses")
 			return
 		}
-		stage = "atasan"
-		next = "menunggu_hr"
-	} else if identity.Role == domain.RoleHR && oldStatus == "menunggu_hr" {
-		stage = "hr"
-		next = "disetujui"
-	} else {
-		response.Error(w, 403, "FORBIDDEN", "Anda tidak memiliki akses")
+	}
+	stage, _ := domain.StageForStatus(currentStatus)
+	next := domain.StatusRejected
+	if input.Decision == "setujui" {
+		resolved, ok := domain.NextStatusAfterApprove(currentStatus)
+		if !ok {
+			response.Error(w, 409, "ALREADY_DECIDED", "Koreksi sudah diputuskan")
+			return
+		}
+		next = resolved
+	}
+	if _, err = tx.Exec(r.Context(), `UPDATE attendance_corrections SET status=$2,updated_at=NOW() WHERE id=$1`, id, string(next)); err != nil {
 		return
 	}
-	if input.Decision == "tolak" {
-		next = "ditolak"
-	}
-	if _, err = tx.Exec(r.Context(), `UPDATE attendance_corrections SET status=$2,updated_at=NOW() WHERE id=$1`, id, next); err != nil {
-		return
-	}
-	if _, err = tx.Exec(r.Context(), `INSERT INTO attendance_correction_approvals(correction_id,approver_id,tahap,keputusan,catatan) VALUES($1,$2,$3,$4,$5)`, id, identity.UserID, stage, map[bool]string{true: "approve", false: "reject"}[input.Decision == "setujui"], input.Note); err != nil {
+	if _, err = tx.Exec(r.Context(), `INSERT INTO attendance_correction_approvals(correction_id,approver_id,tahap,keputusan,catatan) VALUES($1,$2,$3,$4,$5)`, id, identity.UserID, string(stage), map[bool]string{true: "approve", false: "reject"}[input.Decision == "setujui"], input.Note); err != nil {
 		return
 	}
 	// Pada approval final, jam yang sudah ada diperbarui. Koreksi tidak membuat absensi

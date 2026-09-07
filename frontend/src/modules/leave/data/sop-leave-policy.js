@@ -38,12 +38,19 @@ export const formatLeaveAllowance = (type) => {
   return `Maksimal ${type.maksimal_hari} hari per pengajuan`;
 };
 
-// Perhitungan backend memakai hari kalender inklusif. Karena itu izin 3 hari yang
-// dimulai tanggal 10 memiliki tanggal selesai maksimal tanggal 12.
+// Perhitungan backend hanya menghitung hari kerja (Senin-Jumat); Sabtu dan Minggu
+// dilewati tanpa mengurangi kuota hari izin (domain.TotalLeaveDays). Karena itu izin 3 hari
+// yang dimulai hari Jumat memiliki tanggal selesai maksimal hari Selasa pekan berikutnya.
 export const getMaximumEndDate = (startDate, maximumDays) => {
   if (!startDate || !Number.isInteger(maximumDays) || maximumDays < 1) return "";
   const date = new Date(`${startDate}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return "";
-  date.setUTCDate(date.getUTCDate() + maximumDays - 1);
+  let counted = 0;
+  while (counted < maximumDays) {
+    const day = date.getUTCDay();
+    if (day !== 0 && day !== 6) counted++;
+    if (counted >= maximumDays) break;
+    date.setUTCDate(date.getUTCDate() + 1);
+  }
   return date.toISOString().slice(0, 10);
 };

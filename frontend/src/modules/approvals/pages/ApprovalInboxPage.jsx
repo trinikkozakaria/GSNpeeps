@@ -1,11 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { DataTable } from "../../../components/data-table/DataTable";
 import { Pagination } from "../../../components/data-table/Pagination";
 import { Button } from "../../../components/ui/Button";
 import { formatDate } from "../../../lib/format";
-import { useAttendanceCorrections } from "../../attendance/hooks/useAttendanceCorrections";
+import {
+  useAttendanceCorrections,
+  useDecideAttendanceCorrection,
+} from "../../attendance/hooks/useAttendanceCorrections";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { useLeaveApprovalInbox } from "../../leave/hooks/useLeave";
 import { useOvertimeList } from "../../overtime/hooks/useOvertime";
@@ -26,7 +29,8 @@ export const ApprovalInboxPage = () => {
   const [params, setParams] = useSearchParams();
   const isApprover = approverRoles.includes(auth.role);
 
-  const canApproveCorrections = auth.role === "atasan" || auth.role === "hr";
+  const canApproveCorrections =
+    auth.role === "atasan" || auth.role === "hr" || auth.role === "top_management";
   const requestedTab = params.get("tab");
   const tab = requestedTab === "lembur" || (requestedTab === "koreksi" && canApproveCorrections)
     ? requestedTab
@@ -42,9 +46,21 @@ export const ApprovalInboxPage = () => {
   const overtimeInbox = useOvertimeList(auth.role, filters, isApprover && tab === "lembur");
   const correctionInbox = useAttendanceCorrections(
     auth.role,
+    filters,
     isApprover && canApproveCorrections && tab === "koreksi",
   );
   const active = tab === "lembur" ? overtimeInbox : tab === "koreksi" ? correctionInbox : leaveInbox;
+
+  const [correctionDecisionError, setCorrectionDecisionError] = useState("");
+  const decideCorrection = useDecideAttendanceCorrection();
+  const handleCorrectionDecision = async (id, keputusan) => {
+    setCorrectionDecisionError("");
+    try {
+      await decideCorrection.mutateAsync({ id, keputusan });
+    } catch (error) {
+      setCorrectionDecisionError(error?.message ?? "Keputusan koreksi belum dapat disimpan.");
+    }
+  };
 
   const setTab = (nextTab) => {
     const next = new URLSearchParams(params);
@@ -152,16 +168,35 @@ export const ApprovalInboxPage = () => {
       header: "Alasan",
       render: (row) => <span className="text-sm text-slate-600">{row.alasan}</span>,
     },
+    { key: "status", header: "Status", render: (row) => <RequestStatusBadge status={row.status} /> },
     {
       key: "aksi",
       srHeader: "Aksi",
       cellClassName: "text-right",
-      render: () => (
-        <Link to="/app/absensi/koreksi" className="font-semibold text-cyan-700 hover:text-cyan-900">
-          Tinjau
-          <span className="sr-only"> koreksi absensi</span>
-        </Link>
-      ),
+      render: (row) => {
+        const canDecideRow =
+          (auth.role === "atasan" && row.status === "menunggu_atasan") ||
+          (auth.role === "hr" && row.status === "menunggu_hr") ||
+          (auth.role === "top_management" && row.status === "menunggu_top_management");
+        if (!canDecideRow) return null;
+        return (
+          <div className="flex justify-end gap-2">
+            <Button
+              disabled={decideCorrection.isPending}
+              onClick={() => handleCorrectionDecision(row.id, "setujui")}
+            >
+              Setujui
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={decideCorrection.isPending}
+              onClick={() => handleCorrectionDecision(row.id, "tolak")}
+            >
+              Tolak
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -205,23 +240,25 @@ export const ApprovalInboxPage = () => {
             </Button>
           </div>
         )}
-        {active.data && tab === "koreksi" && (
-          <DataTable
-            caption="Antrean koreksi absensi"
-            columns={correctionColumns}
-            rows={active.data}
-            rowKey={(row) => row.id}
-            emptyMessage="Tidak ada koreksi absensi yang menunggu keputusan Anda."
-          />
+        {tab === "koreksi" && correctionDecisionError && (
+          <p role="alert" className="mb-4 text-red-700">{correctionDecisionError}</p>
         )}
-        {active.data && tab !== "koreksi" && (
+        {active.data && (
           <>
             <DataTable
-              caption={tab === "lembur" ? "Antrean lembur" : "Antrean ketidakhadiran"}
-              columns={tab === "lembur" ? overtimeColumns : leaveColumns}
+              caption={
+                tab === "lembur" ? "Antrean lembur"
+                  : tab === "koreksi" ? "Antrean koreksi absensi"
+                  : "Antrean ketidakhadiran"
+              }
+              columns={tab === "lembur" ? overtimeColumns : tab === "koreksi" ? correctionColumns : leaveColumns}
               rows={active.data.items}
               rowKey={(row) => row.id}
-              emptyMessage="Tidak ada pengajuan yang menunggu keputusan Anda."
+              emptyMessage={
+                tab === "koreksi"
+                  ? "Tidak ada koreksi absensi yang menunggu keputusan Anda."
+                  : "Tidak ada pengajuan yang menunggu keputusan Anda."
+              }
             />
             {active.data.items.length > 0 && (
               <Pagination

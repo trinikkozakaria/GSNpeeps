@@ -1,6 +1,7 @@
 import { DataTable } from "../../../components/data-table/DataTable";
 import { Button } from "../../../components/ui/Button";
 import { formatDate, formatHours, formatNumber, formatPeriod } from "../../../lib/format";
+import { attendanceStatusLabel } from "../../../lib/request-status";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { usePersonalMetrics } from "../hooks/useProfile";
 
@@ -83,14 +84,18 @@ export const PersonalMetricsPage = () => {
                     {
                       key: "check_in",
                       header: "Check-in",
-                      render: (row) => row.check_in ?? "—",
+                      render: (row) => (row.check_in ? `${row.check_in} WIB` : "—"),
                     },
                     {
                       key: "check_out",
                       header: "Check-out",
-                      render: (row) => row.check_out ?? "—",
+                      render: (row) => (row.check_out ? `${row.check_out} WIB` : "—"),
                     },
-                    { key: "status", header: "Status", render: (row) => row.status },
+                    {
+                      key: "status",
+                      header: "Status",
+                      render: (row) => attendanceStatusLabel[row.status] ?? row.status,
+                    },
                   ]}
                   rows={data.riwayat_absensi}
                   rowKey={(row) => row.tanggal}

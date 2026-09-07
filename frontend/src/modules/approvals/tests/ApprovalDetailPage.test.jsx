@@ -28,6 +28,16 @@ vi.mock("../../overtime/hooks/useOvertime", () => ({
   useDecideOvertimeRequest: () => ({ mutateAsync: decideOvertimeMock, isPending: false }),
 }));
 
+// dokumen_url adalah object key auth-gated (bukan URL langsung); pastikan halaman memakai
+// komponen media terproteksi, bukan <a href> mentah yang 404 (defect fix).
+vi.mock("../../../components/media/ProtectedImage", () => ({
+  ProtectedDownloadLink: ({ path, fileName, children }) => (
+    <span data-testid="protected-download-link" data-path={path} data-filename={fileName}>
+      {children}
+    </span>
+  ),
+}));
+
 const leaveDetail = (status = "menunggu_atasan") => ({
   id: "11111111-1111-4111-8111-111111111111",
   employee_id: "22222222-2222-4222-8222-222222222222",
@@ -202,6 +212,24 @@ describe("ApprovalDetailPage", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       /tidak ditemukan atau tidak dapat diakses/i,
     );
+  });
+
+  // dokumen_url adalah object key auth-gated; tautan lama <a href={dokumen_url}> menghasilkan
+  // 404 karena browser me-resolve path relatif terhadap halaman saat ini (defect fix).
+  it("opens the supporting document through the protected media link, not a raw href", () => {
+    leaveState.current = {
+      data: { ...leaveDetail(), dokumen_url: "leave-documents/req-1/surat-dokter.pdf" },
+      isPending: false,
+      isError: false,
+      refetch: refetchMock,
+    };
+    renderPage();
+
+    expect(screen.queryByRole("link", { name: /buka dokumen/i })).not.toBeInTheDocument();
+    const link = screen.getByTestId("protected-download-link");
+    expect(link).toHaveAttribute("data-path", "leave-documents/req-1/surat-dokter.pdf");
+    expect(link).toHaveAttribute("data-filename", "surat-dokter.pdf");
+    expect(link).toHaveTextContent("Buka dokumen");
   });
 
   it("renders the approval timeline including system escalation", () => {

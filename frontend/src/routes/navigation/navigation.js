@@ -19,6 +19,8 @@ export const navigationItems = [
       { label: "Profil Saya", path: "/app/profil", roles: personalRoles },
       { label: "Metrik Personal", path: "/app/metrik-personal", roles: personalRoles },
       { label: "Kehadiran Saya", path: "/app/absensi", roles: personalRoles },
+      // Hanya riwayat koreksi milik sendiri; Top Management tidak mengajukan koreksi
+      // (CreateCorrection backend menolak) sehingga tidak punya riwayat pribadi di sini.
       { label: "Koreksi Absensi", path: "/app/absensi/koreksi", roles: personalRoles },
     ],
   },
@@ -59,7 +61,7 @@ export const navigationItems = [
         ariaLabel: "Koreksi Absensi (Persetujuan)",
         path: "/app/persetujuan",
         query: { tab: "koreksi" },
-        roles: [roles.supervisor, roles.hr],
+        roles: approvalRoles,
       },
     ],
   },

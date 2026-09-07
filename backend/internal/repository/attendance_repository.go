@@ -370,8 +370,8 @@ func (r *AttendanceRepository) clockHistory(
 ) ([]domain.ClockHistory, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT TO_CHAR(a.tanggal, 'YYYY-MM-DD'),
-		       MAX(CASE WHEN a.tipe = 'check_in' THEN TO_CHAR(a.waktu_local, 'HH24:MI') END),
-		       MAX(CASE WHEN a.tipe = 'check_out' THEN TO_CHAR(a.waktu_local, 'HH24:MI') END),
+		       MAX(CASE WHEN a.tipe = 'check_in' THEN TO_CHAR(a.waktu_local AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') END),
+		       MAX(CASE WHEN a.tipe = 'check_out' THEN TO_CHAR(a.waktu_local AT TIME ZONE 'Asia/Jakarta', 'HH24:MI') END),
 		       MAX(CASE WHEN a.tipe = 'check_in' THEN a.status END)
 		FROM attendances a
 		JOIN users u ON u.id = a.user_id
