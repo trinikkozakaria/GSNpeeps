@@ -126,8 +126,10 @@ func (f *correctionFixture) identity(userID, employeeID uuid.UUID, role domain.R
 	return domain.Identity{UserID: userID, EmployeeID: employeeID, Role: role}
 }
 
-// insertCheckIn menyiapkan absensi asal agar approval final koreksi tidak gagal dengan
-// ATTENDANCE_NOT_FOUND (DecideCorrection meng-update baris check_in yang sudah ada).
+// insertCheckIn menyiapkan absensi asal berisi jam check-in nyata (WFH, GPS sintetis) agar
+// test dapat memverifikasi bahwa approval final koreksi memperbarui baris yang sudah ada,
+// bukan menimpanya dengan baris baru. Koreksi absensi sendiri tidak mensyaratkan absensi
+// yang sudah ada pada tanggal tersebut; lihat TestDecideCorrectionCreatesAttendanceWhenMissing.
 func (f *correctionFixture) insertCheckIn(t *testing.T, userID uuid.UUID, date string) {
 	t.Helper()
 	local := date + " 08:00:00"
@@ -357,4 +359,53 @@ func TestListMyCorrectionsShowsOnlyOwnRegardlessOfRole(t *testing.T) {
 	assert.True(t, containsCorrectionID(hrOwn, hrID))
 	assert.False(t, containsCorrectionID(hrOwn, subordinateID))
 	assert.False(t, containsCorrectionID(hrOwn, supervisorID))
+}
+
+// Koreksi absensi tidak mensyaratkan bahwa user sudah memiliki absensi pada tanggal itu
+// (defect: batasan lama menolak dengan ATTENDANCE_NOT_FOUND bila baris check-in/out belum
+// ada). Approval final harus tetap berhasil dan menuliskan baris attendance baru dari jam
+// yang diajukan.
+func TestDecideCorrectionCreatesAttendanceWhenMissing(t *testing.T) {
+	f := newCorrectionFixture(t)
+	date := "2026-08-20"
+
+	subordinate := f.identity(f.subordinateUser, f.subordinateEmployee, domain.RoleEmployee)
+	supervisor := f.identity(f.supervisorUser, f.supervisorEmployee, domain.RoleSupervisor)
+	hr := f.identity(f.hrUser, f.hrEmployee, domain.RoleHR)
+
+	var count int
+	require.NoError(t, f.pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM attendances WHERE user_id=$1 AND tanggal=$2::date`,
+		f.subordinateUser, date).Scan(&count))
+	require.Equal(t, 0, count, "prasyarat: belum ada absensi pada tanggal ini")
+
+	rec := f.call(t, f.handler.CreateCorrection, http.MethodPost, "/absensi/koreksi",
+		`{"tanggal":"`+date+`","waktu_check_in":"09:10","waktu_check_out":"17:45","alasan":"Lupa absen karena kendala perangkat"}`,
+		subordinate, nil)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	id := decodeCorrectionData(t, rec)["id"].(string)
+
+	rec = f.call(t, f.handler.DecideCorrection, http.MethodPut, "/absensi/koreksi/"+id+"/decision",
+		`{"keputusan":"setujui"}`, supervisor, map[string]string{"id": id})
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	rec = f.call(t, f.handler.DecideCorrection, http.MethodPut, "/absensi/koreksi/"+id+"/decision",
+		`{"keputusan":"setujui"}`, hr, map[string]string{"id": id})
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Equal(t, "disetujui", decodeCorrectionData(t, rec)["status"])
+
+	rows, err := f.pool.Query(context.Background(),
+		`SELECT tipe, status, mode_kerja, TO_CHAR(waktu_local,'HH24:MI') FROM attendances WHERE user_id=$1 AND tanggal=$2::date ORDER BY tipe`,
+		f.subordinateUser, date)
+	require.NoError(t, err)
+	defer rows.Close()
+	found := map[string][3]string{}
+	for rows.Next() {
+		var tipe, status, mode, jam string
+		require.NoError(t, rows.Scan(&tipe, &status, &mode, &jam))
+		found[tipe] = [3]string{status, mode, jam}
+	}
+	require.Len(t, found, 2, "koreksi harus membuat baris check_in dan check_out baru")
+	assert.Equal(t, [3]string{"terlambat", "WFH", "09:10"}, found["check_in"])
+	assert.Equal(t, [3]string{"pulang_cepat", "WFH", "17:45"}, found["check_out"])
 }

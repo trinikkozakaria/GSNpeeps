@@ -648,7 +648,9 @@ HR mengajukan          -> Top Management
 ### Kehadiran
 
 - Mode kerja: WFO, WFH, WFA.
-- Radius 100 meter hanya untuk WFO.
+- Radius WFO default 500 meter (diperluas dari 100 meter PRD awal, keputusan produk
+  2026-09-18) dan dapat dikonfigurasi lewat env var `ATTENDANCE_WFO_RADIUS_METERS` tanpa
+  deploy ulang kode.
 - WFH dan WFA tidak dibatasi radius kantor.
 - Koordinat wajib untuk semua mode.
 - Sistem memakai master `office_locations`. Saat WFO, karyawan memilih kantor aktif dan backend
@@ -656,12 +658,18 @@ HR mengajukan          -> Top Management
 - Alamat dan koordinat resmi akan di-seed kemudian. Jangan membuat lokasi fiktif.
 - Waktu server/network adalah sumber kebenaran.
 - Waktu lokal hanya digunakan pada watermark.
-- Hari kerja reguler Senin-Jumat, 09.00-18.00 WIB (`Asia/Jakarta`).
-- Check-in tepat 09.00 tidak terlambat; setelah 09.00 berstatus `terlambat`.
-- Checkout sebelum 18.00 tetap valid dan dicatat `pulang_cepat`.
+- Hari kerja reguler Senin-Jumat, jam kerja default 09.00-18.00 WIB (`Asia/Jakarta`), dapat
+  dikonfigurasi lewat env var `ATTENDANCE_WORK_START_HOUR`/`ATTENDANCE_WORK_START_MINUTE`/
+  `ATTENDANCE_WORK_END_HOUR`/`ATTENDANCE_WORK_END_MINUTE` (keputusan produk 2026-09-18).
+- Check-in tepat pada jam mulai tidak terlambat; setelahnya berstatus `terlambat`.
+- Checkout sebelum jam akhir tetap valid dan dicatat `pulang_cepat`.
 - Cegah check-in ganda dan checkout tanpa check-in.
 - Sediakan fallback upload foto berwatermark bila kamera live gagal.
 - Tidak ada reminder absensi.
+- Koreksi Absensi tidak mensyaratkan absensi yang sudah ada pada tanggal tersebut; karyawan
+  dapat mengajukan koreksi untuk tanggal lampau kapan pun (keputusan produk 2026-09-18).
+  Approval final (Atasan lalu HR) menulis/menimpa baris `attendances` pada tanggal itu,
+  membuatnya bila belum ada.
 
 ### Dashboard Metrics
 

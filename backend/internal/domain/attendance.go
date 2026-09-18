@@ -30,6 +30,18 @@ func (m WorkMode) Valid() bool {
 	return m == WorkModeWFO || m == WorkModeWFH || m == WorkModeWFA
 }
 
+// CorrectionWorkMode dan CorrectionCoordinate dipakai saat koreksi absensi disetujui tanpa
+// ada baris attendance asal untuk tanggal itu (mis. karyawan lupa check-in/out sama sekali).
+// Koreksi absensi tidak mensyaratkan absensi yang sudah ada pada tanggal tersebut; baris
+// disintesis sebagai WFH tanpa office_location_id (memenuhi
+// attendances_office_location_check) dan koordinat 0,0 karena tidak ada GPS asli yang
+// tercatat. Ini murni perubahan administratif jam yang disetujui berjenjang Atasan lalu HR,
+// bukan bukti kehadiran fisik baru.
+const (
+	CorrectionWorkMode   = WorkModeWFH
+	CorrectionCoordinate = 0.0
+)
+
 // Status absensi sesuai enum schema Attendance pada OpenAPI (D-022).
 const (
 	AttendanceStatusOnTime     = "tepat_waktu"
@@ -38,15 +50,35 @@ const (
 	AttendanceStatusValid      = "valid"
 )
 
-// OfficeRadiusMeters adalah batas WFO yang ditetapkan PRD.
-const OfficeRadiusMeters = 100.0
+// OfficeRadiusMeters adalah batas WFO. Nilai default 500 meter mengikuti keputusan produk
+// 2026-09-18 yang memperluas radius dari 100 meter (PRD awal); dapat dikonfigurasi lewat
+// env var ATTENDANCE_WFO_RADIUS_METERS. Var (bukan const) supaya composition root
+// (cmd/api, cmd/worker) dapat mengaturnya sekali lewat ConfigureAttendancePolicy sebelum
+// server menerima traffic; jangan diubah dari alur request agar perilaku tetap deterministik
+// per proses.
+var OfficeRadiusMeters = 500.0
 
-// workStartHour dan workEndHour adalah jam kerja reguler 09:00-18:00 WIB. Check-in tepat
-// pukul 09:00:00 belum terlambat; checkout sebelum 18:00:00 dicatat pulang_cepat.
-const (
-	workStartHour = 9
-	workEndHour   = 18
+// workStartHour/workStartMinute dan workEndHour/workEndMinute adalah jam kerja reguler,
+// default 09:00-18:00 WIB. Check-in tepat pukul jam mulai belum terlambat; checkout sebelum
+// jam akhir dicatat pulang_cepat. Dapat dikonfigurasi lewat ATTENDANCE_WORK_START_HOUR, dst;
+// lihat ConfigureAttendancePolicy.
+var (
+	workStartHour   = 9
+	workStartMinute = 0
+	workEndHour     = 18
+	workEndMinute   = 0
 )
+
+// ConfigureAttendancePolicy mengatur radius WFO dan jam kerja dari konfigurasi environment.
+// Dipanggil sekali oleh composition root (cmd/api/main.go, cmd/worker/main.go) sebelum
+// server menerima traffic.
+func ConfigureAttendancePolicy(radiusMeters float64, startHour, startMinute, endHour, endMinute int) {
+	OfficeRadiusMeters = radiusMeters
+	workStartHour = startHour
+	workStartMinute = startMinute
+	workEndHour = endHour
+	workEndMinute = endMinute
+}
 
 type OfficeLocation struct {
 	ID        uuid.UUID `json:"id"`
@@ -164,12 +196,12 @@ type ExpiredPhoto struct {
 // PhotoRetention adalah masa simpan foto absensi menurut PRD.
 const PhotoRetention = 3 * 30 * 24 * time.Hour
 
-// CheckInStatus mengembalikan `terlambat` hanya bila waktu server melewati 09:00:00 WIB.
-// Tepat pukul 09:00:00 belum terlambat.
+// CheckInStatus mengembalikan `terlambat` hanya bila waktu server melewati jam mulai kerja
+// (default 09:00:00 WIB, dapat dikonfigurasi). Tepat pada jam mulai belum terlambat.
 func CheckInStatus(moment time.Time) string {
 	local := moment.In(Jakarta())
 	threshold := time.Date(
-		local.Year(), local.Month(), local.Day(), workStartHour, 0, 0, 0, Jakarta(),
+		local.Year(), local.Month(), local.Day(), workStartHour, workStartMinute, 0, 0, Jakarta(),
 	)
 	if local.After(threshold) {
 		return AttendanceStatusLate
@@ -177,12 +209,13 @@ func CheckInStatus(moment time.Time) string {
 	return AttendanceStatusOnTime
 }
 
-// CheckOutStatus mencatat `pulang_cepat` bila checkout terjadi sebelum 18:00:00 WIB.
-// Checkout lebih awal tetap valid dan tidak ditolak.
+// CheckOutStatus mencatat `pulang_cepat` bila checkout terjadi sebelum jam akhir kerja
+// (default 18:00:00 WIB, dapat dikonfigurasi). Checkout lebih awal tetap valid dan tidak
+// ditolak.
 func CheckOutStatus(moment time.Time) string {
 	local := moment.In(Jakarta())
 	threshold := time.Date(
-		local.Year(), local.Month(), local.Day(), workEndHour, 0, 0, 0, Jakarta(),
+		local.Year(), local.Month(), local.Day(), workEndHour, workEndMinute, 0, 0, Jakarta(),
 	)
 	if local.Before(threshold) {
 		return AttendanceStatusEarlyLeave
@@ -194,8 +227,9 @@ func CheckOutStatus(moment time.Time) string {
 const earthRadiusMeters = 6371008.8
 
 // DistanceMeters menghitung jarak great-circle memakai formula haversine dan mengembalikan
-// hasil dalam satuan meter. Presisi haversine cukup untuk radius kantor 100 meter: pada
-// jarak sekecil ini simpangan terhadap model ellipsoid berada jauh di bawah satu meter.
+// hasil dalam satuan meter. Presisi haversine cukup untuk radius kantor sekelas ratusan
+// meter: pada jarak sekecil ini simpangan terhadap model ellipsoid berada jauh di bawah satu
+// meter.
 func DistanceMeters(lat1, lon1, lat2, lon2 float64) float64 {
 	phi1 := lat1 * math.Pi / 180
 	phi2 := lat2 * math.Pi / 180

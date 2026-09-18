@@ -141,19 +141,22 @@ func TestAttendanceAllowsWeekend(t *testing.T) {
 	assert.NotEmpty(t, photos.uploadedPath, "check-in akhir pekan tetap mengunggah foto seperti hari kerja")
 }
 
-// WFO ditolak hanya bila melebihi 100 meter dari koordinat tepercaya kantor.
+// WFO ditolak hanya bila melebihi radius yang dikonfigurasi (domain.OfficeRadiusMeters,
+// default 500 meter) dari koordinat tepercaya kantor. Kasus persis di radius tidak diuji di
+// sini karena round-trip degree->meter membawa noise floating-point yang bisa jatuh di kedua
+// sisi batas; lihat catatan yang sama pada domain.TestDistanceMetersOfficeRadiusBoundary.
 func TestAttendanceWFORadiusBoundary(t *testing.T) {
 	metersPerDegree := 6371008.8 * 3.141592653589793 / 180
+	radius := domain.OfficeRadiusMeters
 	cases := []struct {
 		name     string
 		meters   float64
 		accepted bool
 	}{
 		{"tepat di kantor", 0, true},
-		{"99 meter", 99, true},
-		{"tepat 100 meter", 100, true},
-		{"120 meter", 120, false},
-		{"500 meter", 500, false},
+		{"1 meter di bawah radius", radius - 1, true},
+		{"20 meter di atas radius", radius + 20, false},
+		{"400 meter di atas radius", radius + 400, false},
 	}
 
 	for _, testCase := range cases {

@@ -42,6 +42,13 @@ services:
       JWT_SECRET: "${JWT_SECRET:?set JWT_SECRET in .env}"
       JWT_TTL: "8h"
       AUTH_LOGIN_RATE_LIMIT: "${AUTH_LOGIN_RATE_LIMIT:-10}"
+      # Kebijakan absensi: radius WFO (meter) dan jam kerja reguler. Default 500 meter dan
+      # 09.00-18.00 WIB; ubah lewat root .env tanpa menyunting compose file.
+      ATTENDANCE_WFO_RADIUS_METERS: "${ATTENDANCE_WFO_RADIUS_METERS:-500}"
+      ATTENDANCE_WORK_START_HOUR: "${ATTENDANCE_WORK_START_HOUR:-9}"
+      ATTENDANCE_WORK_START_MINUTE: "${ATTENDANCE_WORK_START_MINUTE:-0}"
+      ATTENDANCE_WORK_END_HOUR: "${ATTENDANCE_WORK_END_HOUR:-18}"
+      ATTENDANCE_WORK_END_MINUTE: "${ATTENDANCE_WORK_END_MINUTE:-0}"
       # STORAGE_DRIVER=minio adalah default (lihat docs/architecture/minio-integration.md).
       # NEXTCLOUD_* tetap disediakan agar STORAGE_DRIVER=nextcloud bisa dipilih tanpa
       # menyunting compose file; jalankan `--profile nextcloud` bila memilih driver itu.

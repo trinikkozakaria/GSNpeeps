@@ -99,8 +99,10 @@ kanal verifikasi recovery disetujui.
 
 `gps_lat` dan `gps_long` wajib untuk WFO, WFH, dan WFA. Backend menghitung radius kantor
 hanya untuk WFO terhadap `office_location_id` aktif yang dipilih karyawan dan menolak jarak
-lebih dari 100 meter dengan `422 OUT_OF_RADIUS`. WFH dan WFA menyimpan koordinat tetapi tidak
-menjalankan validasi radius kantor.
+lebih dari radius yang dikonfigurasi dengan `422 OUT_OF_RADIUS`. Radius default 500 meter
+(sejak keputusan produk 2026-09-18, sebelumnya 100 meter) dan dapat diubah lewat env var
+`ATTENDANCE_WFO_RADIUS_METERS` tanpa deploy ulang kode. WFH dan WFA menyimpan koordinat
+tetapi tidak menjalankan validasi radius kantor.
 
 ### D-013 — The approved schema contains 26 tables
 
@@ -135,9 +137,10 @@ bulanan bulan kalender, dan tahunan 1 Januari-31 Desember.
 - Kehadiran dihitung hanya ketika employee memiliki clock-in dan clock-out pada tanggal yang
   sama dalam rentang periode.
 - `hadir_valid` adalah pasangan unik employee/tanggal yang memiliki clock-in dan clock-out.
-- Hari kerja Senin-Jumat, jam kerja 09:00-18:00 WIB.
-- Check-in tepat 09:00:00 belum terlambat; setelahnya `terlambat`.
-- Checkout sebelum 18:00 boleh dicatat sebagai `pulang_cepat`, bukan ditolak.
+- Hari kerja Senin-Jumat, jam kerja default 09:00-18:00 WIB (dapat dikonfigurasi lewat env
+  var ATTENDANCE_WORK_START_HOUR/ATTENDANCE_WORK_END_HOUR, dst).
+- Check-in tepat pada jam mulai belum terlambat; setelahnya `terlambat`.
+- Checkout sebelum jam akhir boleh dicatat sebagai `pulang_cepat`, bukan ditolak.
 - Kelompok aktif mencakup status `aktif` dan `cuti`; kelompok nonaktif mencakup `nonaktif`
   dan `resign`.
 - Karyawan baru memakai `tanggal_masuk` dalam periode.

@@ -43,6 +43,14 @@ func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Sama seperti cmd/api: samakan kebijakan absensi dari env var ATTENDANCE_* di proses
+	// worker, agar konsisten bila job di masa depan bergantung padanya.
+	domain.ConfigureAttendancePolicy(
+		cfg.Attendance.WFORadiusMeters,
+		cfg.Attendance.WorkStartHour, cfg.Attendance.WorkStartMinute,
+		cfg.Attendance.WorkEndHour, cfg.Attendance.WorkEndMinute,
+	)
+
 	db, err := postgres.Open(ctx, cfg.Postgres)
 	if err != nil {
 		logger.Error("postgres startup failed", "error", err)

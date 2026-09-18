@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/config"
+	"github.com/gsnpeeps/gsnpeeps/backend/internal/domain"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/handler"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/middleware"
 	"github.com/gsnpeeps/gsnpeeps/backend/internal/pkg/validation"
@@ -37,6 +38,14 @@ func run() int {
 	logger := newLogger(cfg)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// Radius WFO dan jam kerja dapat dikonfigurasi lewat env var ATTENDANCE_*; diatur sekali
+	// di sini sebelum server menerima traffic (lihat domain.ConfigureAttendancePolicy).
+	domain.ConfigureAttendancePolicy(
+		cfg.Attendance.WFORadiusMeters,
+		cfg.Attendance.WorkStartHour, cfg.Attendance.WorkStartMinute,
+		cfg.Attendance.WorkEndHour, cfg.Attendance.WorkEndMinute,
+	)
 
 	db, err := postgres.Open(ctx, cfg.Postgres)
 	if err != nil {

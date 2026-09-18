@@ -26,17 +26,21 @@ func TestDistanceMetersIsZeroAtSamePoint(t *testing.T) {
 	assert.InDelta(t, 0, DistanceMeters(officeLat, officeLon, officeLat, officeLon), 0.001)
 }
 
-// Batas WFO adalah 100 meter: 99,99 m dan tepat 100 m diterima, 100,01 m ditolak.
+// Batas WFO mengikuti OfficeRadiusMeters yang dapat dikonfigurasi (default 500 meter sejak
+// keputusan produk 2026-09-18): di bawah radius diterima, di atasnya ditolak. Kasus persis di
+// radius tidak diuji di sini karena round-trip degree->meter lewat offsetByMeters membawa
+// noise floating-point sekelas 1e-11 m yang bisa jatuh di kedua sisi batas tergantung
+// besaran radius; batas ketat < / > tetap diuji lewat kasus 0,01 meter di kedua sisi.
 func TestDistanceMetersOfficeRadiusBoundary(t *testing.T) {
+	radius := OfficeRadiusMeters
 	cases := []struct {
 		name     string
 		meters   float64
 		accepted bool
 	}{
-		{"99.99 meter", 99.99, true},
-		{"tepat 100 meter", 100, true},
-		{"100.01 meter", 100.01, false},
-		{"150 meter", 150, false},
+		{"0.01 meter di bawah radius", radius - 0.01, true},
+		{"0.01 meter di atas radius", radius + 0.01, false},
+		{"50 meter di atas radius", radius + 50, false},
 	}
 
 	for _, testCase := range cases {
@@ -87,4 +91,24 @@ func TestCheckInStatusUsesJakartaOffset(t *testing.T) {
 
 	assert.Equal(t, AttendanceStatusLate,
 		CheckInStatus(time.Date(2026, time.August, 3, 2, 0, 1, 0, time.UTC)))
+}
+
+// Radius WFO dan jam kerja dapat dikonfigurasi lewat ConfigureAttendancePolicy (dipanggil
+// composition root dari env var ATTENDANCE_*), menggantikan nilai tetap PRD sebelumnya.
+func TestConfigureAttendancePolicyOverridesRadiusAndWorkHours(t *testing.T) {
+	t.Cleanup(func() { ConfigureAttendancePolicy(500, 9, 0, 18, 0) })
+
+	ConfigureAttendancePolicy(750, 8, 30, 17, 30)
+
+	assert.Equal(t, 750.0, OfficeRadiusMeters)
+
+	onTime, err := time.ParseInLocation("2006-01-02 15:04:05", "2026-08-03 08:30:00", Jakarta())
+	assert.NoError(t, err)
+	assert.Equal(t, AttendanceStatusOnTime, CheckInStatus(onTime))
+	assert.Equal(t, AttendanceStatusLate, CheckInStatus(onTime.Add(time.Second)))
+
+	validCheckout, err := time.ParseInLocation("2006-01-02 15:04:05", "2026-08-03 17:30:00", Jakarta())
+	assert.NoError(t, err)
+	assert.Equal(t, AttendanceStatusValid, CheckOutStatus(validCheckout))
+	assert.Equal(t, AttendanceStatusEarlyLeave, CheckOutStatus(validCheckout.Add(-time.Second)))
 }

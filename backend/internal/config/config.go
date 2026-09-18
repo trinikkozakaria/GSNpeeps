@@ -10,15 +10,16 @@ import (
 )
 
 type Config struct {
-	App       App
-	HTTP      HTTP
-	Postgres  Postgres
-	Redis     Redis
-	JWT       JWT
-	Auth      Auth
-	Storage   Storage
-	MinIO     MinIO
-	Nextcloud Nextcloud
+	App        App
+	HTTP       HTTP
+	Postgres   Postgres
+	Redis      Redis
+	JWT        JWT
+	Auth       Auth
+	Attendance Attendance
+	Storage    Storage
+	MinIO      MinIO
+	Nextcloud  Nextcloud
 }
 
 type App struct {
@@ -69,6 +70,18 @@ type Auth struct {
 	ArgonMemoryKiB    uint32
 	ArgonIterations   uint32
 	ArgonParallelism  uint8
+}
+
+// Attendance menampung kebijakan absensi yang dapat dikonfigurasi tanpa deploy ulang kode:
+// radius WFO dan jam kerja reguler. Default mengikuti keputusan produk 2026-09-18 yang
+// memperluas radius WFO dari 100 meter (PRD awal) menjadi 500 meter; jam kerja tetap
+// default 09.00-18.00 WIB kecuali diubah lewat env var.
+type Attendance struct {
+	WFORadiusMeters float64
+	WorkStartHour   int
+	WorkStartMinute int
+	WorkEndHour     int
+	WorkEndMinute   int
 }
 
 type Nextcloud struct {
@@ -150,6 +163,13 @@ func Load() (Config, error) {
 			ArgonIterations:   uint32(intValue("AUTH_ARGON_ITERATIONS", 3)),
 			ArgonParallelism:  uint8(intValue("AUTH_ARGON_PARALLELISM", 2)),
 		},
+		Attendance: Attendance{
+			WFORadiusMeters: float64Value("ATTENDANCE_WFO_RADIUS_METERS", 500),
+			WorkStartHour:   intValue("ATTENDANCE_WORK_START_HOUR", 9),
+			WorkStartMinute: intValue("ATTENDANCE_WORK_START_MINUTE", 0),
+			WorkEndHour:     intValue("ATTENDANCE_WORK_END_HOUR", 18),
+			WorkEndMinute:   intValue("ATTENDANCE_WORK_END_MINUTE", 0),
+		},
 		Nextcloud: Nextcloud{
 			BaseURL:     os.Getenv("NEXTCLOUD_WEBDAV_URL"),
 			Username:    os.Getenv("NEXTCLOUD_USERNAME"),
@@ -216,7 +236,27 @@ func (c Config) validate() error {
 	if len(c.JWT.Secret) < 32 {
 		return errors.New("JWT_SECRET must contain at least 32 characters")
 	}
+	if c.Attendance.WFORadiusMeters <= 0 {
+		return errors.New("ATTENDANCE_WFO_RADIUS_METERS must be greater than zero")
+	}
+	if !validHour(c.Attendance.WorkStartHour) || !validHour(c.Attendance.WorkEndHour) {
+		return errors.New("ATTENDANCE_WORK_START_HOUR and ATTENDANCE_WORK_END_HOUR must be between 0 and 23")
+	}
+	if !validMinute(c.Attendance.WorkStartMinute) || !validMinute(c.Attendance.WorkEndMinute) {
+		return errors.New("ATTENDANCE_WORK_START_MINUTE and ATTENDANCE_WORK_END_MINUTE must be between 0 and 59")
+	}
+	if c.Attendance.WorkEndHour*60+c.Attendance.WorkEndMinute <= c.Attendance.WorkStartHour*60+c.Attendance.WorkStartMinute {
+		return errors.New("ATTENDANCE_WORK_END_HOUR/MINUTE must be after ATTENDANCE_WORK_START_HOUR/MINUTE")
+	}
 	return nil
+}
+
+func validHour(hour int) bool {
+	return hour >= 0 && hour <= 23
+}
+
+func validMinute(minute int) bool {
+	return minute >= 0 && minute <= 59
 }
 
 func get(name, fallback string) string {
@@ -240,6 +280,14 @@ func duration(name string, fallback time.Duration) time.Duration {
 
 func intValue(name string, fallback int) int {
 	value, err := strconv.Atoi(os.Getenv(name))
+	if err != nil {
+		return fallback
+	}
+	return value
+}
+
+func float64Value(name string, fallback float64) float64 {
+	value, err := strconv.ParseFloat(os.Getenv(name), 64)
 	if err != nil {
 		return fallback
 	}

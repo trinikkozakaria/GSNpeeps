@@ -952,10 +952,13 @@ paths:
       summary: Catat check-in atau check-out
       description: |
         Karyawan, Atasan, dan HR mencatat absensi milik sendiri. Field `tipe`
-        membedakan check-in dan check-out. Hari kerja Senin-Jumat, 09:00-18:00
-        Asia/Jakarta. Check-in setelah 09:00 berstatus `terlambat`; checkout sebelum
-        18:00 boleh dicatat dengan status `pulang_cepat`. WFO divalidasi maksimal
-        100 meter dari kantor aktif yang dipilih. Foto JPG/PNG maksimal 5 MB.
+        membedakan check-in dan check-out. Jam kerja reguler default 09:00-18:00
+        Asia/Jakarta (dapat dikonfigurasi lewat env var ATTENDANCE_WORK_START_HOUR/
+        ATTENDANCE_WORK_END_HOUR, dst). Check-in setelah jam mulai berstatus
+        `terlambat`; checkout sebelum jam akhir boleh dicatat dengan status
+        `pulang_cepat`. WFO divalidasi maksimal radius yang dikonfigurasi (default 500
+        meter, env var ATTENDANCE_WFO_RADIUS_METERS) dari kantor aktif yang dipilih.
+        Foto JPG/PNG maksimal 5 MB.
       tags: [Attendance]
       security:
         - BearerAuth: []
@@ -2966,8 +2969,9 @@ components:
       required: [tipe, mode_kerja, gps_lat, gps_long, uraian_pekerjaan, foto]
       description: |
         Koordinat wajib untuk seluruh mode. Backend menerapkan radius kantor maksimal
-        100 meter hanya ketika mode_kerja=WFO terhadap lokasi kantor aktif yang dipilih;
-        WFH dan WFA tetap menyimpan koordinat tetapi tidak menjalankan validasi radius.
+        yang dikonfigurasi (default 500 meter, env var ATTENDANCE_WFO_RADIUS_METERS)
+        hanya ketika mode_kerja=WFO terhadap lokasi kantor aktif yang dipilih; WFH dan
+        WFA tetap menyimpan koordinat tetapi tidak menjalankan validasi radius.
       properties:
         tipe: { $ref: "#/components/schemas/AttendanceType" }
         mode_kerja: { $ref: "#/components/schemas/WorkMode" }
