@@ -44,6 +44,15 @@ type NotificationRoutes struct {
 	Handler *handler.NotificationHandler
 }
 
+// DocumentApprovalRoutes wires the Document Approval module (see
+// .claude/specs — Document Approval PRD). Follows the same shape as LeaveRoutes/
+// OvertimeRoutes: a single handler, wrapped with `protected` like leave's
+// /master/jenis-izin — role checks (HR-only for template writes) happen in the
+// service layer, not a router-level `guarded` permission gate.
+type DocumentApprovalRoutes struct {
+	Handler *handler.DocumentApprovalHandler
+}
+
 type UATRoutes struct{ Handler *handler.UATHandler }
 type Option func(*UATRoutes)
 
@@ -72,6 +81,7 @@ func New(
 	overtimes OvertimeRoutes,
 	notifications NotificationRoutes,
 	access AccessRoutes,
+	documentApprovals DocumentApprovalRoutes,
 	options ...Option,
 ) http.Handler {
 	var uat UATRoutes
@@ -191,6 +201,33 @@ func New(
 		Methods(http.MethodPut)
 	api.Handle("/akses/audit-log", guarded("audit", "read", access.Handler.ListAuditLogs)).
 		Methods(http.MethodGet)
+
+	// Document Approval — PRD §8. Template management (HR-only, enforced in the
+	// service layer, same convention as /master/jenis-izin above) plus submission,
+	// inbox, detail, decision, cancel, and org-wide monitoring.
+	api.Handle("/master/alur-persetujuan-dokumen", protected(documentApprovals.Handler.ListTemplates)).
+		Methods(http.MethodGet)
+	api.Handle("/master/alur-persetujuan-dokumen", protected(documentApprovals.Handler.CreateTemplate)).
+		Methods(http.MethodPost)
+	api.Handle("/master/alur-persetujuan-dokumen/{id}", protected(documentApprovals.Handler.UpdateTemplate)).
+		Methods(http.MethodPut)
+
+	api.Handle("/persetujuan-dokumen", protected(documentApprovals.Handler.Create)).
+		Methods(http.MethodPost)
+	api.Handle("/persetujuan-dokumen", protected(documentApprovals.Handler.ListForApproval)).
+		Methods(http.MethodGet)
+	// Route literal saya/monitoring didaftarkan sebelum pola `{id}` pada prefix yang sama,
+	// mengikuti konvensi export/unread-count di atas.
+	api.Handle("/persetujuan-dokumen/saya", protected(documentApprovals.Handler.ListMine)).
+		Methods(http.MethodGet)
+	api.Handle("/persetujuan-dokumen/monitoring", protected(documentApprovals.Handler.ListMonitoring)).
+		Methods(http.MethodGet)
+	api.Handle("/persetujuan-dokumen/{id}", protected(documentApprovals.Handler.Detail)).
+		Methods(http.MethodGet)
+	api.Handle("/persetujuan-dokumen/{id}/decision", protected(documentApprovals.Handler.Decide)).
+		Methods(http.MethodPut)
+	api.Handle("/persetujuan-dokumen/{id}/batalkan", protected(documentApprovals.Handler.Cancel)).
+		Methods(http.MethodPut)
 
 	api.PathPrefix("").Handler(http.NotFoundHandler())
 
