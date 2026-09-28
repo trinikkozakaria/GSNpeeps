@@ -106,6 +106,7 @@ func run() int {
 	// menggantikan adapter sementara D-020.
 	attendanceRepository := repository.NewAttendanceRepository(db.Pool())
 	leaveRepository := repository.NewLeaveRepository(db.Pool())
+	documentApprovalRepository := repository.NewDocumentApprovalRepository(db.Pool())
 	overtimeRepository := repository.NewOvertimeRepository(db.Pool())
 
 	profileHandler := handler.NewProfileHandler(
@@ -150,6 +151,14 @@ func run() int {
 		),
 		validation.New(), cfg.HTTP.TrustProxy,
 	)
+
+	documentApprovalHandler := handler.NewDocumentApprovalHandler(
+		service.NewDocumentApprovalService(
+			documentApprovalRepository, transactionManager, auditRepository,
+		),
+		validation.New(), cfg.HTTP.TrustProxy,
+	)
+
 	overtimeHandler := handler.NewOvertimeHandler(
 		service.NewOvertimeService(
 			overtimeRepository, employeeRepository, transactionManager, auditRepository,
@@ -181,6 +190,8 @@ func run() int {
 		RequirePermission: func(module, action string) func(http.Handler) http.Handler {
 			return middleware.RequirePermission(permissionChecker, module, action)
 		},
+	}, router.DocumentApprovalRoutes{
+		Handler: documentApprovalHandler,
 	}, router.WithUAT(handler.NewUATHandler(db.Pool(), documentStore)))
 
 	server := &http.Server{

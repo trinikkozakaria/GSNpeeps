@@ -18,7 +18,14 @@ import { OfficeLocationsPage } from "../modules/attendance/pages/OfficeLocations
 import { LiveFeedPage } from "../modules/attendance-reports/pages/LiveFeedPage";
 import { LeaveRequestPage } from "../modules/leave/pages/LeaveRequestPage";
 import { LeaveTypesPage } from "../modules/leave/pages/LeaveTypesPage";
+import { WorkflowTemplatesPage } from "../modules/document-approval/pages/WorkflowTemplatesPage";
+import { WorkflowTemplateFormPage } from "../modules/document-approval/pages/WorkflowTemplateFormPage";
 import { MyRequestsPage } from "../modules/leave/pages/MyRequestsPage";
+import { ApprovalMonitoringPage } from "../modules/document-approval/pages/ApprovalMonitoringPage";
+import { ApprovalInboxDocumentPage } from "../modules/document-approval/pages/ApprovalInboxDocumentPage";
+import { MySubmissionsPage } from "../modules/document-approval/pages/MySubmissionsPage";
+import { SubmitApprovalPage } from "../modules/document-approval/pages/SubmitApprovalPage";
+import { RequestDetailPage } from "../modules/document-approval/pages/RequestDetailPage";
 import { NotificationsPage } from "../modules/notifications/pages/NotificationsPage";
 import { OvertimeRecapPage } from "../modules/overtime/pages/OvertimeRecapPage";
 import { OvertimeRequestPage } from "../modules/overtime/pages/OvertimeRequestPage";
@@ -93,8 +100,11 @@ export const router = createBrowserRouter([
               { path: "profil", element: <MyProfilePage /> },
               { path: "metrik-personal", element: <PersonalMetricsPage /> },
               { path: "absensi", element: <CheckInPage /> },
+              { path: "persetujuan-dokumen/saya", element: <MySubmissionsPage /> },
               { path: "absensi/koreksi", element: <AttendanceCorrectionPage /> },
               { path: "absensi/ketidakhadiran", element: <LeaveRequestPage /> },
+              { path: "persetujuan-dokumen/:id", element: <RequestDetailPage /> },
+              { path: "persetujuan-dokumen/ajukan", element: <SubmitApprovalPage /> },
               { path: "absensi/lembur", element: <OvertimeRequestPage /> },
               { path: "pengajuan", element: <MyRequestsPage /> },
             ],
@@ -103,6 +113,7 @@ export const router = createBrowserRouter([
             element: <RoleRoute allowedRoles={approvalRoles} />,
             children: [
               { path: "persetujuan", element: <ApprovalInboxPage /> },
+              { path: "persetujuan-dokumen/inbox", element: <ApprovalInboxDocumentPage /> },
               {
                 path: "persetujuan/ketidakhadiran/:id",
                 element: <ApprovalDetailPage kind="ketidakhadiran" />,
@@ -124,11 +135,15 @@ export const router = createBrowserRouter([
               },
               { path: "dashboard", element: <DashboardPage /> },
               { path: "live-feed", element: <LiveFeedPage /> },
+              { path: "persetujuan-dokumen/monitoring", element: <ApprovalMonitoringPage /> },
               { path: "laporan-kehadiran", element: <AttendanceReportPage /> },
               {
                 element: <RoleRoute allowedRoles={[roles.hr]} />,
                 children: [
                   { path: "master/jenis-izin", element: <LeaveTypesPage /> },
+                  { path: "master/alur-persetujuan-dokumen", element: <WorkflowTemplatesPage /> },
+                  { path: "master/alur-persetujuan-dokumen/baru", element: <WorkflowTemplateFormPage /> },
+                  { path: "master/alur-persetujuan-dokumen/:id/edit", element: <WorkflowTemplateFormPage /> },
                   { path: "master/jenis-dokumen", element: <DocumentTypesPage /> },
 				  { path: "master/lokasi-kantor", element: <OfficeLocationsPage /> },
                   { path: "company-feed", element: <CompanyFeedPage /> },
