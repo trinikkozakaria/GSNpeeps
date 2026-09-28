@@ -35,6 +35,8 @@ export const navigationItems = [
       },
       { label: "Ajukan Lembur", path: "/app/absensi/lembur", roles: personalRoles },
       { label: "Pengajuan Saya", path: "/app/pengajuan", roles: personalRoles },
+      { label: "Ajukan Persetujuan Dokumen", path: "/app/persetujuan-dokumen/ajukan", roles: personalRoles },
+      { label: "Pengajuan Dokumen Saya", path: "/app/persetujuan-dokumen/saya", roles: personalRoles },
     ],
   },
   {
@@ -63,6 +65,7 @@ export const navigationItems = [
         query: { tab: "koreksi" },
         roles: approvalRoles,
       },
+      { label: "Dokumen", path: "/app/persetujuan-dokumen/inbox", roles: approvalRoles },
     ],
   },
   {
@@ -76,6 +79,7 @@ export const navigationItems = [
     children: [
       { label: "Dashboard HR", path: "/app/dashboard", roles: hrOnly },
       { label: "Live Feed Absensi", path: "/app/live-feed", roles: hrOnly },
+      { label: "Monitoring Persetujuan Dokumen", path: "/app/persetujuan-dokumen/monitoring", roles: hrOnly },
       { label: "Laporan Kehadiran", path: "/app/laporan-kehadiran", roles: hrOnly },
       { label: "Rekap Lembur", path: "/app/lembur/rekap", roles: hrOnly },
     ],
@@ -95,6 +99,7 @@ export const navigationItems = [
       { label: "Master Jenis Dokumen", path: "/app/master/jenis-dokumen", roles: hrOnly },
 	  { label: "Master Lokasi Kantor", path: "/app/master/lokasi-kantor", roles: hrOnly },
       { label: "Master Jenis Izin", path: "/app/master/jenis-izin", roles: hrOnly },
+      { label: "Master Alur Persetujuan Dokumen", path: "/app/master/alur-persetujuan-dokumen", roles: hrOnly },
     ],
   },
   {
